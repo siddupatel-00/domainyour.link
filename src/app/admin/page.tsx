@@ -17,6 +17,7 @@ import {
   CheckCircle2,
   TrendingUp,
   Clock,
+  RotateCw,
 } from "lucide-react";
 
 export default function AdminDashboardPage() {
@@ -48,11 +49,15 @@ export default function AdminDashboardPage() {
     setTimeout(() => setToastMessage(null), 3000);
   };
 
+  // Real-time fresh data fetch (no-store)
   const fetchRedirects = useCallback(async () => {
     try {
       setLoading(true);
 
-      const authRes = await fetch("/api/auth");
+      const authRes = await fetch("/api/auth", {
+        cache: "no-store",
+        headers: { "Cache-Control": "no-cache" },
+      });
       const authData = await authRes.json();
       if (!authData.authenticated) {
         router.push("/");
@@ -63,7 +68,10 @@ export default function AdminDashboardPage() {
         setCurrentUser(authData.user.username);
       }
 
-      const res = await fetch("/api/redirects");
+      const res = await fetch(`/api/redirects?t=${Date.now()}`, {
+        cache: "no-store",
+        headers: { "Cache-Control": "no-cache" },
+      });
       if (res.status === 401) {
         router.push("/");
         return;
@@ -116,7 +124,15 @@ export default function AdminDashboardPage() {
             </span>
           </a>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
+            <button
+              onClick={() => fetchRedirects()}
+              title="Refresh real-time data"
+              className="p-2 rounded-xl text-neutral-400 hover:text-black hover:bg-neutral-50 border border-neutral-200 transition"
+            >
+              <RotateCw className={`w-4 h-4 ${loading ? "animate-spin text-black" : ""}`} />
+            </button>
+
             <button
               onClick={() => setIsCreateOpen(true)}
               className="flex items-center gap-1.5 px-4 py-2 bg-black hover:bg-neutral-800 text-white rounded-xl text-xs font-semibold transition shadow-sm"

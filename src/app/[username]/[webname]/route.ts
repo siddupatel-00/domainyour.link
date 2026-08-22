@@ -1,10 +1,11 @@
-import { NextRequest, NextResponse, after } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { redirects, clickEvents } from "@/lib/db/schema";
 import { and, eq, sql } from "drizzle-orm";
 import { getLocalFallbackLinks, logLocalFallbackClick } from "@/app/api/redirects/route";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 export const runtime = "nodejs";
 
 export async function GET(
@@ -98,23 +99,14 @@ export async function GET(
 
   // Check if link has expired (410)
   if (expiresAt && new Date(expiresAt).getTime() <= Date.now()) {
-    // Increment expired click count
+    // Immediately increment expired click count in database
     if (recordId) {
       try {
-        after(async () => {
-          try {
-            await db
-              .update(redirects)
-              .set({ expiredClickCount: sql`${redirects.expiredClickCount} + 1` })
-              .where(eq(redirects.id, recordId));
-          } catch {}
-        });
-      } catch {
-        db.update(redirects)
+        await db
+          .update(redirects)
           .set({ expiredClickCount: sql`${redirects.expiredClickCount} + 1` })
-          .where(eq(redirects.id, recordId))
-          .catch(() => {});
-      }
+          .where(eq(redirects.id, recordId));
+      } catch {}
     }
 
     if (fallbackMatch) {
@@ -153,26 +145,17 @@ export async function GET(
     );
   }
 
-  // Active redirect: increment active click count and log click event with timestamp
+  // Active redirect: Immediately update real-time click count in database and record click event
   if (recordId) {
     try {
-      after(async () => {
-        try {
-          await Promise.all([
-            db
-              .update(redirects)
-              .set({ clickCount: sql`${redirects.clickCount} + 1` })
-              .where(eq(redirects.id, recordId)),
-            db.insert(clickEvents).values({ redirectId: recordId }),
-          ]);
-        } catch {}
-      });
-    } catch {
-      db.update(redirects)
-        .set({ clickCount: sql`${redirects.clickCount} + 1` })
-        .where(eq(redirects.id, recordId))
-        .catch(() => {});
-    }
+      await Promise.all([
+        db
+          .update(redirects)
+          .set({ clickCount: sql`${redirects.clickCount} + 1` })
+          .where(eq(redirects.id, recordId)),
+        db.insert(clickEvents).values({ redirectId: recordId }),
+      ]);
+    } catch {}
   }
 
   if (fallbackMatch) {
@@ -180,12 +163,13 @@ export async function GET(
     logLocalFallbackClick(fallbackMatch.id);
   }
 
-  // Instant HTTP 307 redirect
+  // Direct fast HTTP 307 redirect with zero-cache headers
   return NextResponse.redirect(destination, {
     status: 307,
     headers: {
       "Cache-Control": "private, no-cache, no-store, max-age=0, must-revalidate",
       Pragma: "no-cache",
+      Expires: "0",
     },
   });
 }

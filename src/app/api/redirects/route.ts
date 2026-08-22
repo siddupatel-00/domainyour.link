@@ -6,6 +6,7 @@ import { sanitizeSlug, isValidUrl } from "@/lib/utils";
 import { desc, and, eq, gte, lte } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 // In-memory fallback store for local development when Postgres is not yet connected
 const localFallbackLinks: Redirect[] = [];
@@ -27,6 +28,12 @@ export function logLocalFallbackClick(redirectId: number) {
   });
 }
 
+const noCacheHeaders = {
+  "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+  Pragma: "no-cache",
+  Expires: "0",
+};
+
 // Helper to calculate expiration date from preset duration
 export function calculateExpiration(duration?: string | null): Date | null {
   if (!duration || duration === "permanent" || duration === "never") return null;
@@ -47,11 +54,11 @@ export function calculateExpiration(duration?: string | null): Date | null {
   }
 }
 
-// GET /api/redirects - List all redirects with optional timeframe query
+// GET /api/redirects - List all redirects with real-time freshness
 export async function GET(request: NextRequest) {
   const authed = await isAuthenticated();
   if (!authed) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: noCacheHeaders });
   }
 
   const { searchParams } = new URL(request.url);
@@ -117,10 +124,10 @@ export async function GET(request: NextRequest) {
         clickCount: countsMap[r.id] ?? r.clickCount,
       }));
 
-      return NextResponse.json({ redirects: enrichedList });
+      return NextResponse.json({ redirects: enrichedList }, { headers: noCacheHeaders });
     }
 
-    return NextResponse.json({ redirects: list });
+    return NextResponse.json({ redirects: list }, { headers: noCacheHeaders });
   } catch (error) {
     console.warn("Using local fallback store:", error);
     
@@ -168,10 +175,10 @@ export async function GET(request: NextRequest) {
         clickCount: countsMap[r.id] ?? r.clickCount,
       }));
 
-      return NextResponse.json({ redirects: enrichedList });
+      return NextResponse.json({ redirects: enrichedList }, { headers: noCacheHeaders });
     }
 
-    return NextResponse.json({ redirects: localFallbackLinks });
+    return NextResponse.json({ redirects: localFallbackLinks }, { headers: noCacheHeaders });
   }
 }
 
@@ -179,7 +186,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const session = await getSessionUser();
   if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: noCacheHeaders });
   }
 
   try {
@@ -198,7 +205,7 @@ export async function POST(request: NextRequest) {
     if (!webname || !destinationUrl) {
       return NextResponse.json(
         { error: "Name and destination URL are required" },
-        { status: 400 }
+        { status: 400, headers: noCacheHeaders }
       );
     }
 
@@ -208,14 +215,14 @@ export async function POST(request: NextRequest) {
     if (!cleanUsername || cleanUsername.length < 1) {
       return NextResponse.json(
         { error: "Username is invalid" },
-        { status: 400 }
+        { status: 400, headers: noCacheHeaders }
       );
     }
 
     if (!cleanWebname || cleanWebname.length < 1) {
       return NextResponse.json(
         { error: "Please enter a valid name (e.g. linkedin, reddit, insta)" },
-        { status: 400 }
+        { status: 400, headers: noCacheHeaders }
       );
     }
 
@@ -230,7 +237,7 @@ export async function POST(request: NextRequest) {
     if (!isValidUrl(formattedDestination)) {
       return NextResponse.json(
         { error: "Please enter a valid destination URL (e.g. https://linkedin.com/in/...)" },
-        { status: 400 }
+        { status: 400, headers: noCacheHeaders }
       );
     }
 
@@ -253,7 +260,7 @@ export async function POST(request: NextRequest) {
           {
             error: `A link for /${cleanUsername}/${cleanWebname} already exists. Please choose a different name.`,
           },
-          { status: 409 }
+          { status: 409, headers: noCacheHeaders }
         );
       }
 
@@ -271,7 +278,7 @@ export async function POST(request: NextRequest) {
         })
         .returning();
 
-      return NextResponse.json({ success: true, redirect: newRecord }, { status: 201 });
+      return NextResponse.json({ success: true, redirect: newRecord }, { status: 201, headers: noCacheHeaders });
     } catch {
       // Fallback local memory insert
       const exists = localFallbackLinks.some(
@@ -280,7 +287,7 @@ export async function POST(request: NextRequest) {
       if (exists) {
         return NextResponse.json(
           { error: `A link for /${cleanUsername}/${cleanWebname} already exists.` },
-          { status: 409 }
+          { status: 409, headers: noCacheHeaders }
         );
       }
 
@@ -298,13 +305,13 @@ export async function POST(request: NextRequest) {
         updatedAt: new Date(),
       };
       localFallbackLinks.unshift(newRecord);
-      return NextResponse.json({ success: true, redirect: newRecord }, { status: 201 });
+      return NextResponse.json({ success: true, redirect: newRecord }, { status: 201, headers: noCacheHeaders });
     }
   } catch (error) {
     console.error("Create redirect error:", error);
     return NextResponse.json(
       { error: "Failed to create link" },
-      { status: 500 }
+      { status: 500, headers: noCacheHeaders }
     );
   }
 }

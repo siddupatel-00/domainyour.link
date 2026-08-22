@@ -48,16 +48,19 @@ export function AnalyticsView({
     setCustomStart(lastWeek);
   }, []);
 
-  // Fetch timeframe data from backend
+  // Fetch real-time fresh timeframe data from backend
   const fetchTimeframeData = useCallback(async () => {
     try {
       setLoading(true);
-      let url = `/api/redirects?timeframe=${timeframe}`;
+      let url = `/api/redirects?timeframe=${timeframe}&t=${Date.now()}`;
       if (timeframe === "custom" && customStart && customEnd) {
         url += `&startDate=${customStart}&endDate=${customEnd}`;
       }
 
-      const res = await fetch(url);
+      const res = await fetch(url, {
+        cache: "no-store",
+        headers: { "Cache-Control": "no-cache" },
+      });
       if (res.ok) {
         const data = await res.json();
         setFilteredRedirects(data.redirects || initialRedirects);
