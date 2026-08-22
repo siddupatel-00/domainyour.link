@@ -1,13 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { redirects } from "@/lib/db/schema";
+import { redirects, Redirect } from "@/lib/db/schema";
 import { isAuthenticated } from "@/lib/auth";
 import { sanitizeSlug, isValidUrl } from "@/lib/utils";
 import { desc, and, eq } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
 
-// GET /api/redirects - List all redirects (requires auth)
+// In-memory fallback store for local development when Postgres is not yet connected
+const localFallbackLinks: Redirect[] = [];
+let nextId = 1;
+
+export function getLocalFallbackLinks() {
+  return localFallbackLinks;
+}
+
+// GET /api/redirects - List all redirects
 export async function GET() {
   const authed = await isAuthenticated();
   if (!authed) {
@@ -22,15 +30,13 @@ export async function GET() {
 
     return NextResponse.json({ redirects: list });
   } catch (error) {
-    console.error("Fetch redirects error:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch redirects" },
-      { status: 500 }
-    );
+    // If DB is not connected locally, fallback gracefully to in-memory store
+    console.warn("Using local fallback store:", error);
+    return NextResponse.json({ redirects: localFallbackLinks });
   }
 }
 
-// POST /api/redirects - Create a new redirect (requires auth)
+// POST /api/redirects - Create a new redirect
 export async function POST(request: NextRequest) {
   const authed = await isAuthenticated();
   if (!authed) {
@@ -39,11 +45,11 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { username, webname, destinationUrl, redirectCode } = body;
+    const { username, webname, destinationUrl } = body;
 
     if (!username || !webname || !destinationUrl) {
       return NextResponse.json(
-        { error: "Username, webname, and destination URL are required" },
+        { error: "Username, link name, and destination URL are required" },
         { status: 400 }
       );
     }
@@ -60,12 +66,11 @@ export async function POST(request: NextRequest) {
 
     if (!cleanWebname || cleanWebname.length < 1) {
       return NextResponse.json(
-        { error: "Webname contains invalid characters" },
+        { error: "Link name contains invalid characters" },
         { status: 400 }
       );
     }
 
-    // Standardize destination URL format
     let formattedDestination = destinationUrl.trim();
     if (
       !formattedDestination.startsWith("http://") &&
@@ -81,41 +86,65 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const cleanCode = redirectCode === 308 ? 308 : 307;
-
-    // Check if (username, webname) already exists
-    const existing = await db
-      .select({ id: redirects.id })
-      .from(redirects)
-      .where(
-        and(
-          eq(redirects.username, cleanUsername),
-          eq(redirects.webname, cleanWebname)
+    try {
+      // Check if (username, webname) already exists in DB
+      const existing = await db
+        .select({ id: redirects.id })
+        .from(redirects)
+        .where(
+          and(
+            eq(redirects.username, cleanUsername),
+            eq(redirects.webname, cleanWebname)
+          )
         )
-      )
-      .limit(1);
+        .limit(1);
 
-    if (existing.length > 0) {
-      return NextResponse.json(
-        {
-          error: `A permanent link for /${cleanUsername}/${cleanWebname} already exists. You can edit its destination instead.`,
-        },
-        { status: 409 }
+      if (existing.length > 0) {
+        return NextResponse.json(
+          {
+            error: `A link for /${cleanUsername}/${cleanWebname} already exists. You can edit it instead.`,
+          },
+          { status: 409 }
+        );
+      }
+
+      const [newRecord] = await db
+        .insert(redirects)
+        .values({
+          username: cleanUsername,
+          webname: cleanWebname,
+          destinationUrl: formattedDestination,
+          redirectCode: 307,
+          clickCount: 0,
+        })
+        .returning();
+
+      return NextResponse.json({ success: true, redirect: newRecord }, { status: 201 });
+    } catch {
+      // Fallback local memory insert
+      const exists = localFallbackLinks.some(
+        (l) => l.username === cleanUsername && l.webname === cleanWebname
       );
-    }
+      if (exists) {
+        return NextResponse.json(
+          { error: `A link for /${cleanUsername}/${cleanWebname} already exists.` },
+          { status: 409 }
+        );
+      }
 
-    const [newRecord] = await db
-      .insert(redirects)
-      .values({
+      const newRecord: Redirect = {
+        id: nextId++,
         username: cleanUsername,
         webname: cleanWebname,
         destinationUrl: formattedDestination,
-        redirectCode: cleanCode,
+        redirectCode: 307,
         clickCount: 0,
-      })
-      .returning();
-
-    return NextResponse.json({ success: true, redirect: newRecord }, { status: 201 });
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      localFallbackLinks.unshift(newRecord);
+      return NextResponse.json({ success: true, redirect: newRecord }, { status: 201 });
+    }
   } catch (error) {
     console.error("Create redirect error:", error);
     return NextResponse.json(

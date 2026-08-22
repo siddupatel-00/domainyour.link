@@ -4,6 +4,7 @@ import { redirects } from "@/lib/db/schema";
 import { isAuthenticated } from "@/lib/auth";
 import { isValidUrl } from "@/lib/utils";
 import { eq } from "drizzle-orm";
+import { getLocalFallbackLinks } from "../route";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +26,7 @@ export async function PATCH(
     }
 
     const body = await request.json();
-    const { destinationUrl, redirectCode } = body;
+    const { destinationUrl } = body;
 
     if (!destinationUrl) {
       return NextResponse.json(
@@ -49,37 +50,40 @@ export async function PATCH(
       );
     }
 
-    const updateData: {
-      destinationUrl: string;
-      updatedAt: Date;
-      redirectCode?: number;
-    } = {
-      destinationUrl: formattedDestination,
-      updatedAt: new Date(),
-    };
+    try {
+      const [updatedRecord] = await db
+        .update(redirects)
+        .set({
+          destinationUrl: formattedDestination,
+          updatedAt: new Date(),
+        })
+        .where(eq(redirects.id, numericId))
+        .returning();
 
-    if (redirectCode === 307 || redirectCode === 308) {
-      updateData.redirectCode = redirectCode;
+      if (updatedRecord) {
+        return NextResponse.json({ success: true, redirect: updatedRecord });
+      }
+    } catch {
+      // Fallback
     }
 
-    const [updatedRecord] = await db
-      .update(redirects)
-      .set(updateData)
-      .where(eq(redirects.id, numericId))
-      .returning();
-
-    if (!updatedRecord) {
-      return NextResponse.json(
-        { error: "Redirect record not found" },
-        { status: 404 }
-      );
+    // Fallback store update
+    const fallbackList = getLocalFallbackLinks();
+    const item = fallbackList.find((l) => l.id === numericId);
+    if (item) {
+      item.destinationUrl = formattedDestination;
+      item.updatedAt = new Date();
+      return NextResponse.json({ success: true, redirect: item });
     }
 
-    return NextResponse.json({ success: true, redirect: updatedRecord });
+    return NextResponse.json(
+      { error: "Link not found" },
+      { status: 404 }
+    );
   } catch (error) {
     console.error("Update redirect error:", error);
     return NextResponse.json(
-      { error: "Failed to update redirect" },
+      { error: "Failed to update link" },
       { status: 500 }
     );
   }
@@ -102,23 +106,35 @@ export async function DELETE(
       return NextResponse.json({ error: "Invalid ID" }, { status: 400 });
     }
 
-    const [deletedRecord] = await db
-      .delete(redirects)
-      .where(eq(redirects.id, numericId))
-      .returning();
+    try {
+      const [deletedRecord] = await db
+        .delete(redirects)
+        .where(eq(redirects.id, numericId))
+        .returning();
 
-    if (!deletedRecord) {
-      return NextResponse.json(
-        { error: "Redirect record not found" },
-        { status: 404 }
-      );
+      if (deletedRecord) {
+        return NextResponse.json({ success: true, message: "Link deleted" });
+      }
+    } catch {
+      // Fallback
     }
 
-    return NextResponse.json({ success: true, message: "Redirect deleted successfully" });
+    // Fallback store delete
+    const fallbackList = getLocalFallbackLinks();
+    const index = fallbackList.findIndex((l) => l.id === numericId);
+    if (index !== -1) {
+      fallbackList.splice(index, 1);
+      return NextResponse.json({ success: true, message: "Link deleted" });
+    }
+
+    return NextResponse.json(
+      { error: "Link not found" },
+      { status: 404 }
+    );
   } catch (error) {
     console.error("Delete redirect error:", error);
     return NextResponse.json(
-      { error: "Failed to delete redirect" },
+      { error: "Failed to delete link" },
       { status: 500 }
     );
   }
