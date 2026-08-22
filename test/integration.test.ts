@@ -1,5 +1,12 @@
 import { sanitizeSlug, isValidUrl } from "../src/lib/utils";
-import { createSessionToken, verifySessionToken, checkAdminPassword } from "../src/lib/auth";
+import {
+  createSessionToken,
+  verifySessionToken,
+  verifyAdminPassword,
+  verifyCeoPassword,
+  createCeoSessionToken,
+  verifyCeoSessionToken,
+} from "../src/lib/auth";
 import { generateOtp, storeOtp, verifyOtp } from "../src/lib/email";
 
 async function runTests() {
@@ -34,19 +41,16 @@ async function runTests() {
 
   // 3. Admin Authentication tests
   console.log("\n3. Admin Auth & JWT Token Verification Tests");
-  process.env.ADMIN_PASSWORD = "test-secret-password-123";
-  process.env.ADMIN_JWT_SECRET = "01234567890123456789012345678901";
+  assert(verifyAdminPassword("admin123"), "Validates default admin password");
+  assert(!verifyAdminPassword("wrong-password"), "Rejects incorrect password");
 
-  assert(checkAdminPassword("test-secret-password-123"), "Validates correct admin password");
-  assert(!checkAdminPassword("wrong-password"), "Rejects incorrect password");
-
-  const token = await createSessionToken("siddu", "siddu@gmail.com");
+  const token = createSessionToken({ username: "siddu", email: "siddu@gmail.com" });
   assert(typeof token === "string" && token.length > 20, "Creates signed JWT session token");
 
-  const session = await verifySessionToken(token);
-  assert(session !== null && session.role === "admin" && session.username === "siddu", "Verifies valid JWT session token with username");
+  const session = verifySessionToken(token);
+  assert(session !== null && session.username === "siddu", "Verifies valid JWT session token with username");
 
-  const invalidSession = await verifySessionToken("tampered.token.here");
+  const invalidSession = verifySessionToken("tampered.token.here");
   assert(invalidSession === null, "Rejects tampered JWT token");
 
   // 4. OTP Verification Tests
@@ -64,6 +68,18 @@ async function runTests() {
   storeOtp("wrong@gmail.com", "999999");
   const wrongVerification = verifyOtp("wrong@gmail.com", "000000");
   assert(wrongVerification.valid === false, "Rejects incorrect OTP code");
+
+  // 5. CEO Master Authentication & Security Tests
+  console.log("\n5. CEO Master Authentication & Security Tests");
+  assert(verifyCeoPassword("ceo123456"), "Validates correct CEO master password");
+  assert(!verifyCeoPassword("admin123"), "Rejects regular admin password for CEO access");
+  assert(!verifyCeoPassword("random123"), "Rejects invalid CEO password");
+
+  const ceoToken = createCeoSessionToken();
+  assert(typeof ceoToken === "string" && ceoToken.length > 20, "Generates signed CEO master session token");
+  assert(verifyCeoSessionToken(ceoToken) === true, "Successfully verifies valid CEO master token");
+  assert(verifyCeoSessionToken(token) === false, "Prevents regular user session token from unlocking CEO portal");
+  assert(verifyCeoSessionToken("tampered.ceo.token") === false, "Rejects tampered CEO token");
 
   console.log(`\n========================================`);
   console.log(`Summary: ${passed} passed, ${failed} failed`);

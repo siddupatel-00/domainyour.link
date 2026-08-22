@@ -1,77 +1,183 @@
-import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
+import crypto from "crypto";
 
-const ADMIN_COOKIE_NAME = "permanentlink_session";
-const JWT_SECRET = process.env.ADMIN_JWT_SECRET || process.env.ADMIN_PASSWORD || "fallback-secret-key-change-me-32-chars-long";
-const encodedSecret = new TextEncoder().encode(JWT_SECRET.padEnd(32, "#"));
+const JWT_SECRET = process.env.JWT_SECRET || process.env.ADMIN_JWT_SECRET || "permanentlink-dev-secret-key-32chars!";
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin123";
+const CEO_PASSWORD = process.env.CEO_PASSWORD || "ceo123456";
+const COOKIE_NAME = "permanentlink_session";
+const CEO_COOKIE_NAME = "permanentlink_ceo_session";
 
-export interface SessionData {
-  role: string;
-  username?: string;
-  email?: string;
+// In-memory OTP store for email logins (email -> { code, expiresAt })
+const otpStore = new Map<string, { code: string; expiresAt: number }>();
+
+export function generateOTP(email: string): string {
+  const code = Math.floor(100000 + Math.random() * 900000).toString();
+  const expiresAt = Date.now() + 10 * 60 * 1000;
+  otpStore.set(email.toLowerCase(), { code, expiresAt });
+  return code;
 }
 
-export async function createSessionToken(username?: string, email?: string): Promise<string> {
-  return await new SignJWT({
-    role: "admin",
-    username: username || "admin",
-    email: email || "",
-  })
-    .setProtectedHeader({ alg: "HS256" })
-    .setIssuedAt()
-    .setExpirationTime("30d")
-    .sign(encodedSecret);
+export function verifyOTP(email: string, code: string): boolean {
+  const record = otpStore.get(email.toLowerCase());
+  if (!record) return false;
+  if (Date.now() > record.expiresAt) {
+    otpStore.delete(email.toLowerCase());
+    return false;
+  }
+  if (record.code === code.trim()) {
+    otpStore.delete(email.toLowerCase());
+    return true;
+  }
+  return false;
 }
 
-export async function verifySessionToken(token: string): Promise<SessionData | null> {
+export function verifyAdminPassword(password: string): boolean {
+  return password === ADMIN_PASSWORD;
+}
+
+export function checkAdminPassword(password: string): boolean {
+  return password === ADMIN_PASSWORD;
+}
+
+export function verifyCeoPassword(password: string): boolean {
+  return password === CEO_PASSWORD;
+}
+
+// Minimalistic Base64URL-encoded HMAC-SHA256 Token (Edge / Node.js compatible)
+export function createSessionToken(payload: { username: string; email?: string } | string, maybeEmail?: string): string {
+  const finalPayload = typeof payload === "string"
+    ? { username: payload, email: maybeEmail, role: "admin" }
+    : { ...payload, role: "admin" };
+
+  const header = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url");
+  const body = Buffer.from(
+    JSON.stringify({
+      ...finalPayload,
+      iat: Math.floor(Date.now() / 1000),
+      exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 30, // 30 days session
+    })
+  ).toString("base64url");
+
+  const signature = crypto
+    .createHmac("sha256", JWT_SECRET)
+    .update(`${header}.${body}`)
+    .digest("base64url");
+
+  return `${header}.${body}.${signature}`;
+}
+
+export function verifySessionToken(token: string): { username: string; email?: string; role?: string } | null {
   try {
-    const { payload } = await jwtVerify(token, encodedSecret);
-    if (payload.role === "admin") {
-      return {
-        role: String(payload.role),
-        username: payload.username ? String(payload.username) : undefined,
-        email: payload.email ? String(payload.email) : undefined,
-      };
+    const parts = token.split(".");
+    if (parts.length !== 3) return null;
+
+    const [header, body, signature] = parts;
+    const expectedSignature = crypto
+      .createHmac("sha256", JWT_SECRET)
+      .update(`${header}.${body}`)
+      .digest("base64url");
+
+    if (signature !== expectedSignature) return null;
+
+    const decoded = JSON.parse(Buffer.from(body, "base64url").toString("utf8"));
+    if (decoded.exp && decoded.exp < Math.floor(Date.now() / 1000)) {
+      return null;
     }
-    return null;
+
+    return { username: decoded.username, email: decoded.email, role: decoded.role || "admin" };
   } catch {
     return null;
   }
 }
 
-export async function setAdminSession(username?: string, email?: string) {
-  const token = await createSessionToken(username, email);
+export async function setAdminSession(username: string, email?: string): Promise<void> {
+  const token = createSessionToken({ username, email });
   const cookieStore = await cookies();
-  cookieStore.set(ADMIN_COOKIE_NAME, token, {
+  cookieStore.set({
+    name: COOKIE_NAME,
+    value: token,
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
+    maxAge: 60 * 60 * 24 * 30,
     path: "/",
-    maxAge: 60 * 60 * 24 * 30, // 30 days
   });
 }
 
-export async function clearAdminSession() {
+export async function clearAdminSession(): Promise<void> {
   const cookieStore = await cookies();
-  cookieStore.delete(ADMIN_COOKIE_NAME);
-}
-
-export async function getSessionUser(): Promise<SessionData | null> {
-  const cookieStore = await cookies();
-  const sessionToken = cookieStore.get(ADMIN_COOKIE_NAME)?.value;
-  if (!sessionToken) return null;
-  return await verifySessionToken(sessionToken);
+  cookieStore.set({
+    name: COOKIE_NAME,
+    value: "",
+    httpOnly: true,
+    maxAge: 0,
+    path: "/",
+  });
 }
 
 export async function isAuthenticated(): Promise<boolean> {
-  const user = await getSessionUser();
-  return user !== null;
+  const cookieStore = await cookies();
+  const token = cookieStore.get(COOKIE_NAME)?.value;
+  if (!token) return false;
+  return verifySessionToken(token) !== null;
 }
 
-export function checkAdminPassword(password: string): boolean {
-  const correctPassword = process.env.ADMIN_PASSWORD;
-  if (!correctPassword) {
+export async function getSessionUser(): Promise<{ username: string; email?: string } | null> {
+  const cookieStore = await cookies();
+  const token = cookieStore.get(COOKIE_NAME)?.value;
+  if (!token) return null;
+  return verifySessionToken(token);
+}
+
+// CEO Master Authentication Helpers
+export function createCeoSessionToken(): string {
+  const header = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url");
+  const body = Buffer.from(
+    JSON.stringify({
+      role: "ceo",
+      master: true,
+      iat: Math.floor(Date.now() / 1000),
+      exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 7, // 7 days master session
+    })
+  ).toString("base64url");
+
+  const signature = crypto
+    .createHmac("sha256", JWT_SECRET + "-ceo-master")
+    .update(`${header}.${body}`)
+    .digest("base64url");
+
+  return `${header}.${body}.${signature}`;
+}
+
+export function verifyCeoSessionToken(token: string): boolean {
+  try {
+    const parts = token.split(".");
+    if (parts.length !== 3) return false;
+
+    const [header, body, signature] = parts;
+    const expectedSignature = crypto
+      .createHmac("sha256", JWT_SECRET + "-ceo-master")
+      .update(`${header}.${body}`)
+      .digest("base64url");
+
+    if (signature !== expectedSignature) return false;
+
+    const decoded = JSON.parse(Buffer.from(body, "base64url").toString("utf8"));
+    if (decoded.exp && decoded.exp < Math.floor(Date.now() / 1000)) {
+      return false;
+    }
+
+    return decoded.role === "ceo" && decoded.master === true;
+  } catch {
     return false;
   }
-  return password === correctPassword;
 }
+
+export async function isCeoAuthenticated(): Promise<boolean> {
+  const cookieStore = await cookies();
+  const token = cookieStore.get(CEO_COOKIE_NAME)?.value;
+  if (!token) return false;
+  return verifyCeoSessionToken(token);
+}
+
+export { COOKIE_NAME, CEO_COOKIE_NAME };

@@ -63,8 +63,27 @@ export const clickEvents = pgTable(
   ]
 );
 
+export const employees = pgTable(
+  "employees",
+  {
+    id: serial("id").primaryKey(),
+    name: varchar("name", { length: 128 }).notNull(),
+    email: varchar("email", { length: 255 }).notNull(),
+    role: varchar("role", { length: 64 }).notNull().default("Support Moderator"), // e.g. "Link Manager", "Support Moderator", "Analyst"
+    status: varchar("status", { length: 32 }).notNull().default("active"), // "active" | "suspended"
+    permissions: text("permissions").notNull().default("[\"view_links\", \"manage_support\"]"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("employee_email_idx").on(table.email),
+  ]
+);
+
 export type Redirect = InferSelectModel<typeof redirects>;
 export type NewRedirect = InferInsertModel<typeof redirects>;
 export type Bio = InferSelectModel<typeof bios>;
 export type NewBio = InferInsertModel<typeof bios>;
 export type ClickEvent = InferSelectModel<typeof clickEvents>;
+export type Employee = InferSelectModel<typeof employees>;
+export type NewEmployee = InferInsertModel<typeof employees>;
