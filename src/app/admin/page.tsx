@@ -124,6 +124,23 @@ export default function AdminDashboardPage() {
     }
   };
 
+  const handleExpireLink = async (redirect: Redirect) => {
+    try {
+      const res = await fetch(`/api/redirects/${redirect.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ expiresAt: new Date(Date.now() - 1000).toISOString() }),
+      });
+
+      if (res.ok) {
+        showToast("Link expired and moved to Expired tab");
+        fetchRedirects();
+      }
+    } catch (err) {
+      console.error("Expire link error:", err);
+    }
+  };
+
   return (
     <main className="min-h-screen bg-white text-neutral-900 font-sans selection:bg-black selection:text-white">
       {/* Toast Notification */}
@@ -330,6 +347,7 @@ export default function AdminDashboardPage() {
             onCreateOpen={() => setIsCreateOpen(true)}
             onCreateSublink={(r) => setSublinkParent(r)}
             onToggleProfileVisibility={handleToggleProfileVisibility}
+            onExpireLink={handleExpireLink}
             isExpiredView={false}
           />
         ) : activeTab === "expired" ? (

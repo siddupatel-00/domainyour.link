@@ -18,6 +18,7 @@ import {
   MousePointerClick,
   Eye,
   EyeOff,
+  TimerOff,
 } from "lucide-react";
 
 interface RedirectTableProps {
@@ -28,6 +29,7 @@ interface RedirectTableProps {
   onCreateOpen: () => void;
   onCreateSublink?: (parentRedirect: Redirect) => void;
   onToggleProfileVisibility?: (redirect: Redirect, nextVal: boolean) => void;
+  onExpireLink?: (redirect: Redirect) => void;
   isExpiredView?: boolean;
 }
 
@@ -39,6 +41,7 @@ export function RedirectTable({
   onCreateOpen,
   onCreateSublink,
   onToggleProfileVisibility,
+  onExpireLink,
   isExpiredView = false,
 }: RedirectTableProps) {
   const [searchTerm, setSearchTerm] = useState("");
@@ -139,7 +142,7 @@ export function RedirectTable({
         </h3>
         <p className="text-xs text-neutral-500 max-w-xs mx-auto mt-1 mb-5">
           {isExpiredView
-            ? "When a temporary link's timer completes, it will appear here with click counts and expiration date."
+            ? "When a link expires, it will appear here with click counts and expiration date."
             : "Create your first permanent link and share it anywhere."}
         </p>
         {!isExpiredView && (
@@ -326,7 +329,7 @@ export function RedirectTable({
 
                       {/* 3-Dots Dropdown Menu */}
                       {isMenuOpen && (
-                        <div className="absolute right-4 top-12 z-50 w-52 rounded-2xl bg-white border border-neutral-200 p-1.5 shadow-xl animate-in fade-in zoom-in-95 duration-150">
+                        <div className="absolute right-4 top-12 z-50 w-52 rounded-2xl bg-white border border-neutral-200 p-1.5 shadow-xl animate-in fade-in zoom-in-95 duration-150 text-left">
                           {/* Add Sublink option */}
                           {onCreateSublink && !isExpiredView && (
                             <>
@@ -366,6 +369,21 @@ export function RedirectTable({
                                   <span>Show on profile page</span>
                                 </>
                               )}
+                            </button>
+                          )}
+
+                          {/* Expire Link Button for Active Links */}
+                          {onExpireLink && !isExpiredView && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenMenuId(null);
+                                onExpireLink(r);
+                              }}
+                              className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 hover:text-black hover:bg-neutral-50 rounded-xl transition text-left"
+                            >
+                              <TimerOff className="w-3.5 h-3.5 text-neutral-500" />
+                              <span>Expire link now</span>
                             </button>
                           )}
 
