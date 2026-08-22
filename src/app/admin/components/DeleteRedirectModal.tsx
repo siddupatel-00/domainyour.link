@@ -47,48 +47,48 @@ export function DeleteRedirectModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="relative w-full max-w-sm rounded-xl bg-neutral-950 border border-neutral-800 p-6 shadow-2xl">
-        <div className="flex items-center justify-between pb-4 border-b border-neutral-800">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-150">
+      <div className="relative w-full max-w-md rounded-3xl bg-white border border-neutral-200 p-7 shadow-2xl">
+        <div className="flex items-center justify-between pb-4 border-b border-neutral-100">
           <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-neutral-900 border border-neutral-700 text-white flex items-center justify-center font-bold">
-              <AlertTriangle className="w-3.5 h-3.5" />
+            <div className="w-9 h-9 rounded-xl bg-neutral-100 border border-neutral-200 text-neutral-900 flex items-center justify-center font-bold">
+              <AlertTriangle className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-sm font-semibold text-white">Delete Redirect</h2>
-              <p className="text-[11px] text-neutral-400">Confirm permanent deletion</p>
+              <h2 className="text-base font-bold text-neutral-900">Delete Redirect</h2>
+              <p className="text-xs text-neutral-500">Confirm link deletion</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg text-neutral-400 hover:text-white hover:bg-neutral-800 transition"
+            className="p-1 rounded-lg text-neutral-400 hover:text-black hover:bg-neutral-100 transition"
           >
-            <X className="w-4 h-4" />
+            <X className="w-5 h-5" />
           </button>
         </div>
 
         {error && (
-          <div className="mt-4 p-3 rounded-lg border border-neutral-700 bg-neutral-900 text-white text-xs">
+          <div className="mt-4 p-3.5 rounded-xl border border-neutral-200 bg-neutral-50 text-neutral-800 text-xs">
             {error}
           </div>
         )}
 
-        <div className="mt-4 space-y-3">
-          <p className="text-xs text-neutral-300">
-            Are you sure you want to delete this permanent link?
+        <div className="mt-5 space-y-3.5">
+          <p className="text-xs text-neutral-600 leading-relaxed">
+            Are you sure you want to delete this permanent link? Visitors will receive a 404 error.
           </p>
-          <div className="p-2.5 rounded-lg bg-black border border-neutral-900 text-xs font-mono">
-            <div className="text-white font-semibold">{publicLink}</div>
-            <div className="text-neutral-500 truncate text-[11px] mt-0.5">↳ {redirect.destinationUrl}</div>
+          <div className="p-3.5 rounded-xl bg-neutral-50 border border-neutral-200 text-xs font-mono">
+            <div className="text-neutral-900 font-bold">{publicLink}</div>
+            <div className="text-neutral-500 truncate text-[11px] mt-1">↳ {redirect.destinationUrl}</div>
           </div>
         </div>
 
-        <div className="flex items-center justify-end gap-2 mt-6 pt-3 border-t border-neutral-800">
+        <div className="flex items-center justify-end gap-2 mt-6 pt-4 border-t border-neutral-100">
           <button
             type="button"
             onClick={onClose}
             disabled={loading}
-            className="px-3 py-1.5 text-xs text-neutral-400 hover:text-white border border-neutral-800 rounded-lg transition"
+            className="px-4 py-2 text-xs font-medium text-neutral-600 hover:text-black border border-neutral-200 rounded-xl hover:bg-neutral-50 transition"
           >
             Cancel
           </button>
@@ -96,7 +96,7 @@ export function DeleteRedirectModal({
             type="button"
             onClick={handleDelete}
             disabled={loading}
-            className="px-3.5 py-1.5 text-xs font-semibold text-black bg-white hover:bg-neutral-200 rounded-lg transition disabled:opacity-50"
+            className="px-4 py-2 text-xs font-semibold text-white bg-black hover:bg-neutral-800 rounded-xl transition disabled:opacity-50 shadow-sm"
           >
             {loading ? "Deleting..." : "Delete Link"}
           </button>

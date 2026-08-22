@@ -44,13 +44,13 @@ export async function GET(
             <title>PermanentLink - Not Found</title>
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <style>
-              body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #000000; color: #ffffff; }
-              .card { text-align: center; max-width: 440px; padding: 2rem; background: #0a0a0a; border-radius: 0.75rem; border: 1px solid #262626; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.8); }
-              h1 { font-size: 1.25rem; font-weight: 600; margin-bottom: 0.5rem; color: #ffffff; letter-spacing: -0.02em; }
-              p { color: #a3a3a3; font-size: 0.85rem; line-height: 1.5; margin-bottom: 1.5rem; }
-              code { background: #171717; border: 1px solid #262626; padding: 0.2rem 0.4rem; border-radius: 0.25rem; color: #ffffff; font-family: monospace; font-size: 0.8rem; }
-              a { display: inline-block; background: #ffffff; color: #000000; text-decoration: none; padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: 600; font-size: 0.8rem; transition: background 0.2s; }
-              a:hover { background: #e5e5e5; }
+              body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #ffffff; color: #0a0a0a; }
+              .card { text-align: center; max-width: 440px; padding: 2.5rem; background: #ffffff; border-radius: 1.5rem; border: 1px solid #e5e5e5; box-shadow: 0 4px 20px rgba(0,0,0,0.05); }
+              h1 { font-size: 1.4rem; font-weight: 700; margin-bottom: 0.5rem; color: #0a0a0a; letter-spacing: -0.02em; }
+              p { color: #525252; font-size: 0.9rem; line-height: 1.5; margin-bottom: 1.5rem; }
+              code { background: #f5f5f5; border: 1px solid #e5e5e5; padding: 0.2rem 0.4rem; border-radius: 0.35rem; color: #0a0a0a; font-family: monospace; font-size: 0.85rem; font-weight: 600; }
+              a { display: inline-block; background: #000000; color: #ffffff; text-decoration: none; padding: 0.6rem 1.2rem; border-radius: 0.75rem; font-weight: 600; font-size: 0.85rem; transition: background 0.2s; }
+              a:hover { background: #262626; }
             </style>
           </head>
           <body>

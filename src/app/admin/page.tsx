@@ -16,6 +16,7 @@ import {
   Activity,
   AlertCircle,
   Check,
+  Globe,
 } from "lucide-react";
 
 export default function AdminDashboardPage() {
@@ -76,51 +77,49 @@ export default function AdminDashboardPage() {
   const handleLogout = async () => {
     try {
       await fetch("/api/auth", { method: "DELETE" });
-      router.push("/admin/login");
+      router.push("/");
     } catch (err) {
       console.error("Logout error:", err);
     }
   };
 
   return (
-    <main className="min-h-screen bg-black text-white pb-20">
+    <main className="min-h-screen bg-white text-neutral-900 pb-20 font-sans selection:bg-black selection:text-white">
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 bg-white text-black px-4 py-2.5 rounded-lg shadow-2xl animate-in slide-in-from-bottom-5 duration-200">
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 bg-black text-white px-4 py-2.5 rounded-xl shadow-2xl animate-in slide-in-from-bottom-5 duration-200">
           <Check className="w-4 h-4" />
           <span className="text-xs font-semibold">{toastMessage}</span>
         </div>
       )}
 
       {/* Top Navigation */}
-      <header className="sticky top-0 z-40 bg-black/90 backdrop-blur-md border-b border-neutral-800 px-4 sm:px-8 py-3.5">
-        <div className="max-w-5xl mx-auto flex items-center justify-between">
+      <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-neutral-200 px-6 sm:px-12 py-3.5">
+        <div className="max-w-6xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-white text-black flex items-center justify-center font-bold">
-              <Link2 className="w-4 h-4" />
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="font-semibold text-sm tracking-tight text-white">
+            <a href="/" className="flex items-center gap-2">
+              <Link2 className="w-5 h-5 text-black stroke-[2.2]" />
+              <span className="font-bold text-base tracking-tight text-neutral-900">
                 PermanentLink
               </span>
-              <span className="text-[10px] font-mono uppercase px-1.5 py-0.5 rounded border border-neutral-700 text-neutral-400 bg-neutral-900">
-                Admin
-              </span>
-            </div>
+            </a>
+            <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded border border-neutral-200 text-neutral-500 bg-neutral-50">
+              Dashboard
+            </span>
           </div>
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-3">
             <button
               onClick={() => setIsCreateOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-black rounded-lg text-xs font-semibold hover:bg-neutral-200 transition"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-black hover:bg-neutral-800 text-white rounded-xl text-xs font-semibold transition shadow-sm"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>New Link</span>
+              <span>Create Link</span>
             </button>
             <button
               onClick={handleLogout}
               title="Sign Out"
-              className="p-1.5 rounded-lg text-neutral-400 hover:text-white border border-neutral-800 hover:border-neutral-600 transition"
+              className="p-2 rounded-xl text-neutral-500 hover:text-black border border-neutral-200 hover:border-neutral-400 transition"
             >
               <LogOut className="w-4 h-4" />
             </button>
@@ -128,39 +127,39 @@ export default function AdminDashboardPage() {
         </div>
       </header>
 
-      {/* Main Content */}
-      <div className="max-w-5xl mx-auto px-4 sm:px-8 mt-8">
+      {/* Main Content Area */}
+      <div className="max-w-6xl mx-auto px-6 sm:px-12 mt-8">
         {/* Metric Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-8">
-          <div className="p-4 rounded-xl border border-neutral-800 bg-neutral-950 flex items-center justify-between">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+          <div className="p-5 rounded-2xl border border-neutral-200 bg-neutral-50/50 flex items-center justify-between shadow-sm">
             <div>
-              <p className="text-[11px] font-mono text-neutral-400 uppercase tracking-wider">Active Links</p>
-              <h4 className="text-xl font-bold text-white mt-1">{redirects.length}</h4>
+              <p className="text-[11px] font-mono text-neutral-500 uppercase tracking-wider">Active Links</p>
+              <h4 className="text-2xl font-bold text-neutral-900 mt-1">{redirects.length}</h4>
             </div>
-            <div className="w-8 h-8 rounded-lg border border-neutral-800 bg-black flex items-center justify-center text-neutral-300">
-              <Link2 className="w-4 h-4" />
+            <div className="w-10 h-10 rounded-xl border border-neutral-200 bg-white flex items-center justify-center text-neutral-800 shadow-sm">
+              <Link2 className="w-5 h-5" />
             </div>
           </div>
 
-          <div className="p-4 rounded-xl border border-neutral-800 bg-neutral-950 flex items-center justify-between">
+          <div className="p-5 rounded-2xl border border-neutral-200 bg-neutral-50/50 flex items-center justify-between shadow-sm">
             <div>
-              <p className="text-[11px] font-mono text-neutral-400 uppercase tracking-wider">Redirect Status</p>
-              <h4 className="text-xl font-bold text-white mt-1 font-mono">307 (Instant)</h4>
+              <p className="text-[11px] font-mono text-neutral-500 uppercase tracking-wider">Redirect Status</p>
+              <h4 className="text-2xl font-bold text-neutral-900 mt-1 font-mono">307 (Instant)</h4>
             </div>
-            <div className="w-8 h-8 rounded-lg border border-neutral-800 bg-black flex items-center justify-center text-neutral-300">
-              <Zap className="w-4 h-4" />
+            <div className="w-10 h-10 rounded-xl border border-neutral-200 bg-white flex items-center justify-center text-neutral-800 shadow-sm">
+              <Zap className="w-5 h-5" />
             </div>
           </div>
 
-          <div className="p-4 rounded-xl border border-neutral-800 bg-neutral-950 flex items-center justify-between">
+          <div className="p-5 rounded-2xl border border-neutral-200 bg-neutral-50/50 flex items-center justify-between shadow-sm">
             <div>
-              <p className="text-[11px] font-mono text-neutral-400 uppercase tracking-wider">Total Traffic</p>
-              <h4 className="text-xl font-bold text-white mt-1 font-mono">
+              <p className="text-[11px] font-mono text-neutral-500 uppercase tracking-wider">Total Traffic</p>
+              <h4 className="text-2xl font-bold text-neutral-900 mt-1 font-mono">
                 {redirects.reduce((acc, curr) => acc + (curr.clickCount || 0), 0)} Clicks
               </h4>
             </div>
-            <div className="w-8 h-8 rounded-lg border border-neutral-800 bg-black flex items-center justify-center text-neutral-300">
-              <Activity className="w-4 h-4" />
+            <div className="w-10 h-10 rounded-xl border border-neutral-200 bg-white flex items-center justify-center text-neutral-800 shadow-sm">
+              <Activity className="w-5 h-5" />
             </div>
           </div>
         </div>
@@ -168,36 +167,36 @@ export default function AdminDashboardPage() {
         {/* Section Header */}
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-base font-semibold text-white tracking-tight">
-              Redirects
+            <h1 className="text-lg font-bold text-neutral-900 tracking-tight">
+              Redirect Management
             </h1>
-            <p className="text-xs text-neutral-400">
-              Manage permanent link namespaces and destinations
+            <p className="text-xs text-neutral-500">
+              Manage permanent link namespaces and destination targets
             </p>
           </div>
           <button
             onClick={fetchRedirects}
             disabled={loading}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-mono text-neutral-400 hover:text-white border border-neutral-800 hover:border-neutral-600 bg-neutral-950 transition"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-mono text-neutral-600 hover:text-black border border-neutral-200 hover:border-neutral-400 bg-white transition shadow-sm"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
-            <span>Sync</span>
+            <span>Refresh</span>
           </button>
         </div>
 
         {/* Error Alert */}
         {error && (
-          <div className="mb-6 p-3 rounded-lg border border-neutral-700 bg-neutral-900 text-white text-xs flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 flex-shrink-0 text-neutral-400" />
+          <div className="mb-6 p-4 rounded-xl border border-neutral-200 bg-neutral-50 text-neutral-800 text-xs flex items-center gap-2.5">
+            <AlertCircle className="w-4 h-4 text-neutral-700 flex-shrink-0" />
             <span>{error}</span>
           </div>
         )}
 
-        {/* Table or Loading State */}
+        {/* Table / Content */}
         {loading && redirects.length === 0 ? (
-          <div className="p-12 text-center rounded-xl border border-neutral-800 bg-neutral-950 text-neutral-400 text-xs font-mono">
-            <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-white" />
-            Fetching redirects...
+          <div className="p-16 text-center rounded-2xl border border-neutral-200 bg-neutral-50/50 text-neutral-500 text-xs font-mono">
+            <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-neutral-800" />
+            Loading permanent links...
           </div>
         ) : (
           <RedirectTable

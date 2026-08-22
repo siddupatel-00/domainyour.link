@@ -71,41 +71,43 @@ export function EditRedirectModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="relative w-full max-w-md rounded-xl bg-neutral-950 border border-neutral-800 p-6 shadow-2xl">
-        <div className="flex items-center justify-between pb-4 border-b border-neutral-800">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-150">
+      <div className="relative w-full max-w-lg rounded-3xl bg-white border border-neutral-200 p-7 sm:p-8 shadow-2xl">
+        <div className="flex items-center justify-between pb-4 border-b border-neutral-100">
           <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-white text-black flex items-center justify-center font-bold">
-              <Edit3 className="w-3.5 h-3.5" />
+            <div className="w-9 h-9 rounded-xl bg-black text-white flex items-center justify-center font-bold">
+              <Edit3 className="w-4 h-4 stroke-[2.2]" />
             </div>
             <div>
-              <h2 className="text-sm font-semibold text-white">Update Destination</h2>
-              <p className="text-[11px] text-neutral-400">Change redirect destination</p>
+              <h2 className="text-base font-bold text-neutral-900">Update Destination</h2>
+              <p className="text-xs text-neutral-500">Change where your permanent link points</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg text-neutral-400 hover:text-white hover:bg-neutral-800 transition"
+            className="p-1 rounded-lg text-neutral-400 hover:text-black hover:bg-neutral-100 transition"
           >
-            <X className="w-4 h-4" />
+            <X className="w-5 h-5" />
           </button>
         </div>
 
         {error && (
-          <div className="mt-4 p-3 rounded-lg border border-neutral-700 bg-neutral-900 text-white text-xs flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 flex-shrink-0 text-neutral-400" />
+          <div className="mt-4 p-3.5 rounded-xl border border-neutral-200 bg-neutral-50 text-neutral-800 text-xs flex items-center gap-2.5">
+            <AlertCircle className="w-4 h-4 flex-shrink-0 text-neutral-700" />
             <span>{error}</span>
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="mt-4 space-y-3.5">
-          <div className="p-3 rounded-lg bg-black border border-neutral-900 text-xs font-mono">
-            <span className="text-[10px] text-neutral-500 uppercase tracking-wider block mb-1">Permanent Public URL</span>
-            <span className="text-white font-medium">{publicLink}</span>
+        <form onSubmit={handleSubmit} className="mt-5 space-y-4">
+          <div className="p-4 rounded-xl bg-neutral-50 border border-neutral-200 text-xs font-mono">
+            <span className="text-[10px] text-neutral-500 uppercase tracking-wider block mb-1 font-semibold">
+              Permanent Public URL (Never Changes)
+            </span>
+            <span className="text-neutral-900 font-bold">{publicLink}</span>
           </div>
 
           <div>
-            <label className="block text-[11px] font-mono uppercase text-neutral-400 mb-1">
+            <label className="block text-xs font-semibold text-neutral-800 mb-1.5">
               New Destination URL
             </label>
             <input
@@ -114,17 +116,17 @@ export function EditRedirectModal({
               onChange={(e) => setDestinationUrl(e.target.value)}
               placeholder="https://newdestination.com"
               required
-              className="w-full px-3 py-1.5 text-xs bg-black border border-neutral-800 rounded-lg text-white placeholder-neutral-600 focus:outline-none focus:border-white"
+              className="w-full px-3.5 py-2.5 text-xs bg-white border border-neutral-300 rounded-xl text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-black focus:ring-1 focus:ring-black font-mono"
             />
           </div>
 
-          <div className="flex items-center justify-between pt-3 border-t border-neutral-800">
+          <div className="flex items-center justify-between pt-4 border-t border-neutral-100">
             <div className="flex items-center gap-2">
-              <span className="text-[11px] font-mono text-neutral-400">Code:</span>
+              <span className="text-xs font-mono text-neutral-500">Status:</span>
               <select
                 value={redirectCode}
                 onChange={(e) => setRedirectCode(Number(e.target.value))}
-                className="bg-black border border-neutral-800 text-xs text-white rounded px-2 py-1 focus:outline-none focus:border-white font-mono"
+                className="bg-white border border-neutral-300 text-xs text-neutral-900 rounded-lg px-2.5 py-1 focus:outline-none focus:border-black font-mono"
               >
                 <option value={307}>307 (Temporary)</option>
                 <option value={308}>308 (Permanent)</option>
@@ -136,14 +138,14 @@ export function EditRedirectModal({
                 type="button"
                 onClick={onClose}
                 disabled={loading}
-                className="px-3 py-1.5 text-xs text-neutral-400 hover:text-white border border-neutral-800 rounded-lg transition"
+                className="px-4 py-2 text-xs font-medium text-neutral-600 hover:text-black border border-neutral-200 rounded-xl hover:bg-neutral-50 transition"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={loading}
-                className="px-3.5 py-1.5 text-xs font-semibold text-black bg-white hover:bg-neutral-200 rounded-lg transition disabled:opacity-50"
+                className="px-4 py-2 text-xs font-semibold text-white bg-black hover:bg-neutral-800 rounded-xl transition disabled:opacity-50 shadow-sm"
               >
                 {loading ? "Updating..." : "Save Changes"}
               </button>

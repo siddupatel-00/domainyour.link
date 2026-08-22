@@ -80,41 +80,41 @@ export function CreateRedirectModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="relative w-full max-w-lg rounded-2xl bg-neutral-950 border border-neutral-800 p-6 sm:p-7 shadow-2xl">
-        <div className="flex items-center justify-between pb-4 border-b border-neutral-800">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-150">
+      <div className="relative w-full max-w-lg rounded-3xl bg-white border border-neutral-200 p-7 sm:p-8 shadow-2xl">
+        <div className="flex items-center justify-between pb-4 border-b border-neutral-100">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-white text-black flex items-center justify-center font-bold">
-              <Link2 className="w-4 h-4" />
+            <div className="w-9 h-9 rounded-xl bg-black text-white flex items-center justify-center font-bold">
+              <Link2 className="w-4 h-4 stroke-[2.2]" />
             </div>
             <div>
-              <h2 className="text-sm font-semibold text-white">Create Permanent Link</h2>
-              <p className="text-[11px] text-neutral-400">Add a permanent URL with dynamic destination</p>
+              <h2 className="text-base font-bold text-neutral-900">Create Permanent Link</h2>
+              <p className="text-xs text-neutral-500">Set a permanent URL with dynamic destination</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg text-neutral-400 hover:text-white hover:bg-neutral-800 transition"
+            className="p-1 rounded-lg text-neutral-400 hover:text-black hover:bg-neutral-100 transition"
           >
-            <X className="w-4 h-4" />
+            <X className="w-5 h-5" />
           </button>
         </div>
 
         {error && (
-          <div className="mt-4 p-3 rounded-lg border border-neutral-700 bg-neutral-900 text-white text-xs flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 flex-shrink-0 text-neutral-400" />
+          <div className="mt-4 p-3.5 rounded-xl border border-neutral-200 bg-neutral-50 text-neutral-800 text-xs flex items-center gap-2.5">
+            <AlertCircle className="w-4 h-4 flex-shrink-0 text-neutral-700" />
             <span>{error}</span>
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="mt-4 space-y-4">
+        <form onSubmit={handleSubmit} className="mt-5 space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="block text-[11px] font-mono uppercase text-neutral-300 font-medium">
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-semibold text-neutral-800">
                   Username
                 </label>
-                <span className="text-[10px] font-mono text-neutral-400 flex items-center gap-1">
+                <span className="text-[10px] font-mono text-neutral-500 flex items-center gap-1">
                   <Lock className="w-2.5 h-2.5" /> Permanent
                 </span>
               </div>
@@ -126,14 +126,14 @@ export function CreateRedirectModal({
                 onBlur={() => setIsUsernameFocused(false)}
                 placeholder="siddu"
                 required
-                className={`w-full px-3 py-2 text-xs bg-black border rounded-lg text-white placeholder-neutral-600 focus:outline-none transition ${
-                  isUsernameFocused || username ? "border-white" : "border-neutral-800"
+                className={`w-full px-3.5 py-2.5 text-xs bg-white border rounded-xl text-neutral-900 placeholder-neutral-400 focus:outline-none transition ${
+                  isUsernameFocused || username ? "border-black ring-1 ring-black" : "border-neutral-300"
                 }`}
               />
             </div>
 
             <div>
-              <label className="block text-[11px] font-mono uppercase text-neutral-300 mb-1 font-medium">
+              <label className="block text-xs font-semibold text-neutral-800 mb-1.5">
                 Webname / Slug
               </label>
               <input
@@ -142,22 +142,22 @@ export function CreateRedirectModal({
                 onChange={(e) => setWebname(e.target.value)}
                 placeholder="linkedin"
                 required
-                className="w-full px-3 py-2 text-xs bg-black border border-neutral-800 rounded-lg text-white placeholder-neutral-600 focus:outline-none focus:border-white"
+                className="w-full px-3.5 py-2.5 text-xs bg-white border border-neutral-300 rounded-xl text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-black focus:ring-1 focus:ring-black"
               />
             </div>
           </div>
 
           {/* Prominent warning notice that username cannot be changed */}
-          <div className="p-2.5 rounded-lg border border-neutral-800 bg-black flex items-start gap-2.5 text-xs text-neutral-300">
-            <AlertTriangle className="w-4 h-4 text-white flex-shrink-0 mt-0.5" />
-            <div className="text-[11px] leading-relaxed">
-              <span className="text-white font-medium">Username is permanent: </span>
-              Once created, <code className="text-white bg-neutral-900 px-1 py-0.5 rounded font-mono">/{cleanUsername || "username"}</code> cannot be renamed. Only destination URLs can be edited later.
+          <div className="p-3 rounded-xl border border-neutral-200 bg-neutral-50 flex items-start gap-2.5 text-xs text-neutral-700">
+            <AlertTriangle className="w-4 h-4 text-black flex-shrink-0 mt-0.5" />
+            <div className="text-xs leading-relaxed">
+              <span className="font-semibold text-neutral-900">Username is permanent: </span>
+              Once created, <code className="bg-white border border-neutral-200 px-1.5 py-0.5 rounded font-mono text-[11px] text-neutral-900">/{cleanUsername || "username"}</code> cannot be renamed. Only destination URLs can be updated later.
             </div>
           </div>
 
           <div>
-            <label className="block text-[11px] font-mono uppercase text-neutral-300 mb-1 font-medium">
+            <label className="block text-xs font-semibold text-neutral-800 mb-1.5">
               Destination URL
             </label>
             <input
@@ -166,29 +166,29 @@ export function CreateRedirectModal({
               onChange={(e) => setDestinationUrl(e.target.value)}
               placeholder="https://linkedin.com/in/currentusername"
               required
-              className="w-full px-3 py-2 text-xs bg-black border border-neutral-800 rounded-lg text-white placeholder-neutral-600 focus:outline-none focus:border-white"
+              className="w-full px-3.5 py-2.5 text-xs bg-white border border-neutral-300 rounded-xl text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-black focus:ring-1 focus:ring-black"
             />
           </div>
 
           {/* Live Preview */}
-          <div className="p-3.5 rounded-lg bg-black border border-neutral-900 font-mono text-[11px]">
-            <span className="text-[10px] text-neutral-500 uppercase tracking-wider block mb-1.5">
+          <div className="p-4 rounded-xl bg-neutral-50 border border-neutral-200 font-mono text-xs">
+            <span className="text-[10px] text-neutral-500 uppercase tracking-wider block mb-1.5 font-semibold">
               Live Preview
             </span>
-            <div className="text-white truncate font-medium">{previewPath}</div>
-            <div className="flex items-center gap-1.5 text-neutral-400 mt-1 truncate">
-              <CornerDownRight className="w-3.5 h-3.5 text-neutral-600 flex-shrink-0" />
+            <div className="text-neutral-900 font-semibold truncate">{previewPath}</div>
+            <div className="flex items-center gap-1.5 text-neutral-600 mt-1 truncate">
+              <CornerDownRight className="w-3.5 h-3.5 text-neutral-400 flex-shrink-0" />
               <span className="truncate">{destinationUrl.trim() || "(destination URL)"}</span>
             </div>
           </div>
 
-          <div className="flex items-center justify-between pt-3 border-t border-neutral-800">
+          <div className="flex items-center justify-between pt-4 border-t border-neutral-100">
             <div className="flex items-center gap-2">
-              <span className="text-[11px] font-mono text-neutral-400">Code:</span>
+              <span className="text-xs font-mono text-neutral-500">Status:</span>
               <select
                 value={redirectCode}
                 onChange={(e) => setRedirectCode(Number(e.target.value))}
-                className="bg-black border border-neutral-800 text-xs text-white rounded px-2 py-1 focus:outline-none focus:border-white font-mono"
+                className="bg-white border border-neutral-300 text-xs text-neutral-900 rounded-lg px-2.5 py-1 focus:outline-none focus:border-black font-mono"
               >
                 <option value={307}>307 (Temporary)</option>
                 <option value={308}>308 (Permanent)</option>
@@ -200,14 +200,14 @@ export function CreateRedirectModal({
                 type="button"
                 onClick={onClose}
                 disabled={loading}
-                className="px-3 py-1.5 text-xs text-neutral-400 hover:text-white border border-neutral-800 rounded-lg transition"
+                className="px-4 py-2 text-xs font-medium text-neutral-600 hover:text-black border border-neutral-200 rounded-xl hover:bg-neutral-50 transition"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={loading}
-                className="px-4 py-1.5 text-xs font-semibold text-black bg-white hover:bg-neutral-200 rounded-lg transition disabled:opacity-50"
+                className="px-4 py-2 text-xs font-semibold text-white bg-black hover:bg-neutral-800 rounded-xl transition disabled:opacity-50 shadow-sm"
               >
                 {loading ? "Creating..." : "Create Link"}
               </button>
