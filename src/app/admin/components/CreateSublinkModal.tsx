@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, GitFork, AlertCircle, CornerDownRight, Clock, ShieldCheck, Calendar, Sparkles } from "lucide-react";
+import { X, GitFork, AlertCircle, CornerDownRight, Clock, ShieldCheck, Calendar } from "lucide-react";
 import { sanitizeSlug } from "@/lib/utils";
 import { Redirect } from "@/lib/db/schema";
 
@@ -63,25 +63,14 @@ export function CreateSublinkModal({
   if (!isOpen || !parentRedirect) return null;
 
   const cleanWebname = sanitizeSlug(webname);
-  const previewPath = `${baseUrl}/${currentUser}/${cleanWebname || "sublink-name"}`;
-
-  const applyPreset = (presetName: string, tempDuration?: string) => {
-    const parentSlug = parentRedirect.webname;
-    setWebname(`${parentSlug}-${presetName}`);
-    if (tempDuration) {
-      setLinkType("temporary");
-      setDuration(tempDuration);
-    } else {
-      setLinkType("permanent");
-    }
-  };
+  const previewPath = `${baseUrl}/${currentUser}/${cleanWebname || "name"}`;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
     if (!cleanWebname) {
-      setError("Please enter a name for your sub-link (e.g. reddit, x, group24hr)");
+      setError("Please enter a name for your sub-link");
       return;
     }
     if (!destinationUrl.trim()) {
@@ -165,7 +154,7 @@ export function CreateSublinkModal({
                 Add Sub-link for /{parentRedirect.webname}
               </h2>
               <p className="text-xs text-neutral-500">
-                Track clicks from Reddit, X, Instagram, or share temporary group links
+                Create a permanent or temporary sub-link pointing to the same destination
               </p>
             </div>
           </div>
@@ -187,60 +176,16 @@ export function CreateSublinkModal({
         )}
 
         <form onSubmit={handleSubmit} className="mt-5 space-y-4">
-          {/* Quick Preset Ideas */}
-          <div>
-            <span className="block text-[11px] font-semibold text-neutral-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-black" /> Quick Source / Campaign Presets:
-            </span>
-            <div className="flex flex-wrap gap-1.5">
-              <button
-                type="button"
-                onClick={() => applyPreset("reddit")}
-                className="px-3 py-1.5 rounded-xl border border-neutral-200 hover:border-black bg-neutral-50 text-xs font-semibold text-neutral-800 transition"
-              >
-                Reddit
-              </button>
-              <button
-                type="button"
-                onClick={() => applyPreset("x")}
-                className="px-3 py-1.5 rounded-xl border border-neutral-200 hover:border-black bg-neutral-50 text-xs font-semibold text-neutral-800 transition"
-              >
-                X (Twitter)
-              </button>
-              <button
-                type="button"
-                onClick={() => applyPreset("insta")}
-                className="px-3 py-1.5 rounded-xl border border-neutral-200 hover:border-black bg-neutral-50 text-xs font-semibold text-neutral-800 transition"
-              >
-                Instagram
-              </button>
-              <button
-                type="button"
-                onClick={() => applyPreset("group", "24h")}
-                className="px-3 py-1.5 rounded-xl border border-neutral-200 hover:border-black bg-neutral-50 text-xs font-semibold text-neutral-800 transition"
-              >
-                ⏳ Group (24h)
-              </button>
-              <button
-                type="button"
-                onClick={() => applyPreset("temp", "7d")}
-                className="px-3 py-1.5 rounded-xl border border-neutral-200 hover:border-black bg-neutral-50 text-xs font-semibold text-neutral-800 transition"
-              >
-                ⏳ Temporary (7d)
-              </button>
-            </div>
-          </div>
-
           {/* Sub-link Name */}
           <div>
             <label className="block text-xs font-semibold text-neutral-800 mb-1.5">
-              Sub-link Name
+              Name
             </label>
             <input
               type="text"
               value={webname}
               onChange={(e) => setWebname(e.target.value)}
-              placeholder="e.g. linkedin-reddit, linkedin-x, share24hr"
+              placeholder="e.g. reddit, x, insta, share24hr"
               autoFocus
               required
               className="w-full px-3.5 py-2.5 text-xs bg-white border border-neutral-300 rounded-xl text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-black focus:ring-1 focus:ring-black"
