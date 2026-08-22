@@ -63,7 +63,7 @@ export async function GET(
     }
   }
 
-  // If link does not exist
+  // If link does not exist (404)
   if (!destination) {
     return new NextResponse(
       `<!DOCTYPE html>
@@ -76,16 +76,15 @@ export async function GET(
             .card { text-align: center; max-width: 440px; padding: 2.5rem; background: #ffffff; border-radius: 1.5rem; border: 1px solid #e5e5e5; box-shadow: 0 4px 20px rgba(0,0,0,0.05); }
             h1 { font-size: 1.4rem; font-weight: 700; margin-bottom: 0.5rem; color: #0a0a0a; letter-spacing: -0.02em; }
             p { color: #525252; font-size: 0.9rem; line-height: 1.5; margin-bottom: 1.5rem; }
-            code { background: #f5f5f5; border: 1px solid #e5e5e5; padding: 0.2rem 0.4rem; border-radius: 0.35rem; color: #0a0a0a; font-family: monospace; font-size: 0.85rem; font-weight: 600; }
-            a { display: inline-block; background: #000000; color: #ffffff; text-decoration: none; padding: 0.6rem 1.2rem; border-radius: 0.75rem; font-weight: 600; font-size: 0.85rem; transition: background 0.2s; }
+            a { display: inline-block; background: #000000; color: #ffffff; text-decoration: none; padding: 0.75rem 1.4rem; border-radius: 0.75rem; font-weight: 600; font-size: 0.85rem; transition: background 0.2s; }
             a:hover { background: #262626; }
           </style>
         </head>
         <body>
           <div class="card">
             <h1>Link Not Found</h1>
-            <p>The link <code>/${cleanUsername}/${cleanWebname}</code> does not exist.</p>
-            <a href="/">Return to Home</a>
+            <p>This link does not exist or has been removed.</p>
+            <a href="/">Create Your Own Permanent Link</a>
           </div>
         </body>
       </html>`,
@@ -96,7 +95,7 @@ export async function GET(
     );
   }
 
-  // Check if link has expired
+  // Check if link has expired (410)
   if (expiresAt && new Date(expiresAt).getTime() <= Date.now()) {
     return new NextResponse(
       `<!DOCTYPE html>
@@ -110,8 +109,7 @@ export async function GET(
             .icon { font-size: 2.5rem; margin-bottom: 0.75rem; }
             h1 { font-size: 1.4rem; font-weight: 700; margin-bottom: 0.5rem; color: #0a0a0a; letter-spacing: -0.02em; }
             p { color: #525252; font-size: 0.9rem; line-height: 1.5; margin-bottom: 1.5rem; }
-            code { background: #f5f5f5; border: 1px solid #e5e5e5; padding: 0.2rem 0.4rem; border-radius: 0.35rem; color: #0a0a0a; font-family: monospace; font-size: 0.85rem; font-weight: 600; }
-            a { display: inline-block; background: #000000; color: #ffffff; text-decoration: none; padding: 0.6rem 1.2rem; border-radius: 0.75rem; font-weight: 600; font-size: 0.85rem; transition: background 0.2s; }
+            a { display: inline-block; background: #000000; color: #ffffff; text-decoration: none; padding: 0.75rem 1.4rem; border-radius: 0.75rem; font-weight: 600; font-size: 0.85rem; transition: background 0.2s; }
             a:hover { background: #262626; }
           </style>
         </head>
@@ -119,7 +117,7 @@ export async function GET(
           <div class="card">
             <div class="icon">⏳</div>
             <h1>This Link Has Expired</h1>
-            <p>The temporary link <code>/${cleanUsername}/${cleanWebname}</code> was set to expire and is no longer active.</p>
+            <p>This link is no longer active.</p>
             <a href="/">Create Your Own Permanent Link</a>
           </div>
         </body>
