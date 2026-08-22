@@ -23,7 +23,8 @@ export function CreateRedirectModal({
   const [destinationUrl, setDestinationUrl] = useState("");
   const [linkType, setLinkType] = useState<"permanent" | "temporary">("permanent");
   const [duration, setDuration] = useState<string>("24h");
-  const [customDateTime, setCustomDateTime] = useState<string>("");
+  const [customDate, setCustomDate] = useState<string>("");
+  const [customTime, setCustomTime] = useState<string>("18:00");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -38,14 +39,14 @@ export function CreateRedirectModal({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, onClose]);
 
-  // Set default custom date-time to tomorrow at current time
+  // Set default custom date to tomorrow
   useEffect(() => {
-    if (!customDateTime) {
+    if (!customDate) {
       const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
-      const iso = tomorrow.toISOString().slice(0, 16);
-      setCustomDateTime(iso);
+      const isoDate = tomorrow.toISOString().slice(0, 10);
+      setCustomDate(isoDate);
     }
-  }, [customDateTime]);
+  }, [customDate]);
 
   if (!isOpen) return null;
 
@@ -56,9 +57,10 @@ export function CreateRedirectModal({
   const getExpirationPreview = () => {
     if (linkType === "permanent") return "♾️ Permanent";
     if (duration === "custom") {
-      if (!customDateTime) return "⏳ Custom date";
-      const date = new Date(customDateTime);
-      return `⏳ Expires ${date.toLocaleDateString([], { month: "short", day: "numeric" })} at ${date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+      if (!customDate) return "⏳ Custom date";
+      const combined = new Date(`${customDate}T${customTime || "00:00"}`);
+      if (isNaN(combined.getTime())) return "⏳ Custom date";
+      return `⏳ Expires ${combined.toLocaleDateString([], { month: "short", day: "numeric" })} at ${combined.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
     }
     return `⏳ Expires in ${duration}`;
   };
@@ -76,12 +78,14 @@ export function CreateRedirectModal({
       return;
     }
 
+    let customTimestamp: Date | null = null;
     if (linkType === "temporary" && duration === "custom") {
-      if (!customDateTime) {
-        setError("Please select an expiration date and time");
+      if (!customDate || !customTime) {
+        setError("Please enter both the expiration date and time");
         return;
       }
-      if (new Date(customDateTime).getTime() <= Date.now()) {
+      customTimestamp = new Date(`${customDate}T${customTime}`);
+      if (isNaN(customTimestamp.getTime()) || customTimestamp.getTime() <= Date.now()) {
         setError("Expiration date and time must be in the future");
         return;
       }
@@ -100,8 +104,8 @@ export function CreateRedirectModal({
       };
 
       if (linkType === "temporary") {
-        if (duration === "custom") {
-          payload.expiresAt = new Date(customDateTime).toISOString();
+        if (duration === "custom" && customTimestamp) {
+          payload.expiresAt = customTimestamp.toISOString();
         } else {
           payload.duration = duration;
         }
@@ -133,7 +137,7 @@ export function CreateRedirectModal({
     }
   };
 
-  const minDateTime = new Date().toISOString().slice(0, 16);
+  const minDate = new Date().toISOString().slice(0, 10);
 
   return (
     <div
@@ -241,23 +245,44 @@ export function CreateRedirectModal({
                 ))}
               </div>
 
-              {/* Custom Date & Time Picker */}
+              {/* Step 1: Date, Step 2: Time Side-by-Side */}
               {duration === "custom" && (
-                <div className="pt-2 border-t border-neutral-200/80 space-y-1.5">
-                  <div className="flex items-center justify-between text-xs text-neutral-700">
-                    <span className="font-semibold flex items-center gap-1.5">
-                      <Calendar className="w-3.5 h-3.5 text-neutral-500" />
-                      Set Exact Date & Time:
-                    </span>
+                <div className="pt-2.5 border-t border-neutral-200/80 space-y-2">
+                  <span className="block text-[11px] font-semibold text-neutral-600">
+                    Set Expiration Date & Time:
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {/* 1. Date */}
+                    <div>
+                      <label className="block text-[10px] font-semibold text-neutral-500 uppercase tracking-wider mb-1 flex items-center gap-1">
+                        <Calendar className="w-3 h-3 text-neutral-700" />
+                        1. Select Date
+                      </label>
+                      <input
+                        type="date"
+                        min={minDate}
+                        value={customDate}
+                        onChange={(e) => setCustomDate(e.target.value)}
+                        required={duration === "custom"}
+                        className="w-full px-3 py-2 text-xs font-medium bg-white border border-neutral-300 rounded-xl text-neutral-900 focus:outline-none focus:border-black focus:ring-1 focus:ring-black shadow-sm"
+                      />
+                    </div>
+
+                    {/* 2. Time */}
+                    <div>
+                      <label className="block text-[10px] font-semibold text-neutral-500 uppercase tracking-wider mb-1 flex items-center gap-1">
+                        <Clock className="w-3 h-3 text-neutral-700" />
+                        2. Select Time
+                      </label>
+                      <input
+                        type="time"
+                        value={customTime}
+                        onChange={(e) => setCustomTime(e.target.value)}
+                        required={duration === "custom"}
+                        className="w-full px-3 py-2 text-xs font-medium bg-white border border-neutral-300 rounded-xl text-neutral-900 focus:outline-none focus:border-black focus:ring-1 focus:ring-black shadow-sm"
+                      />
+                    </div>
                   </div>
-                  <input
-                    type="datetime-local"
-                    min={minDateTime}
-                    value={customDateTime}
-                    onChange={(e) => setCustomDateTime(e.target.value)}
-                    required={duration === "custom"}
-                    className="w-full px-3.5 py-2 text-xs font-medium bg-white border border-neutral-300 rounded-xl text-neutral-900 focus:outline-none focus:border-black focus:ring-1 focus:ring-black shadow-sm"
-                  />
                 </div>
               )}
             </div>
