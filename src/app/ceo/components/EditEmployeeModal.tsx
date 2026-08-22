@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Employee } from "@/lib/db/schema";
-import { X, Edit2, AlertCircle, Shield, Check } from "lucide-react";
+import { X, Edit2, AlertCircle, Eye, Check } from "lucide-react";
 
 interface EditEmployeeModalProps {
   employee: Employee | null;
@@ -11,35 +11,21 @@ interface EditEmployeeModalProps {
   onUpdated: () => void;
 }
 
-const availableRoles = [
-  { id: "Support Moderator", desc: "User tickets & support" },
-  { id: "Link Manager", desc: "Inspect & moderate links" },
-  { id: "Lead Analyst", desc: "View all worldwide metrics" },
-  { id: "Operations Admin", desc: "Full administrative operations" },
-];
-
 export function EditEmployeeModal({
   employee,
   isOpen,
   onClose,
   onUpdated,
 }: EditEmployeeModalProps) {
-  const [role, setRole] = useState("Support Moderator");
+  const [role, setRole] = useState("Insights Viewer");
   const [status, setStatus] = useState<"active" | "suspended">("active");
-  const [permissions, setPermissions] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (employee && isOpen) {
-      setRole(employee.role);
+      setRole(employee.role || "Insights Viewer");
       setStatus(employee.status as "active" | "suspended");
-      try {
-        const parsed = JSON.parse(employee.permissions || "[]");
-        setPermissions(Array.isArray(parsed) ? parsed : []);
-      } catch {
-        setPermissions(["view_links"]);
-      }
       setError(null);
     }
   }, [employee, isOpen]);
@@ -54,14 +40,6 @@ export function EditEmployeeModal({
 
   if (!isOpen || !employee) return null;
 
-  const togglePermission = (key: string) => {
-    if (permissions.includes(key)) {
-      setPermissions(permissions.filter((p) => p !== key));
-    } else {
-      setPermissions([...permissions, key]);
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -72,9 +50,9 @@ export function EditEmployeeModal({
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          role,
+          role: role.trim() || "Insights Viewer",
           status,
-          permissions,
+          permissions: ["view_insights"],
         }),
       });
 
@@ -99,7 +77,7 @@ export function EditEmployeeModal({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-lg rounded-3xl bg-neutral-900 border border-neutral-800 p-7 sm:p-8 shadow-2xl cursor-default font-sans my-8 text-white"
+        className="relative w-full max-w-md rounded-3xl bg-neutral-900 border border-neutral-800 p-7 sm:p-8 shadow-2xl cursor-default font-sans my-8 text-white"
       >
         <div className="flex items-center justify-between pb-4 border-b border-neutral-800">
           <div className="flex items-center gap-2.5">
@@ -146,7 +124,7 @@ export function EditEmployeeModal({
               >
                 <div>
                   <div className="text-xs font-bold text-white">Active</div>
-                  <div className="text-[10px] text-neutral-400">Can log in and work</div>
+                  <div className="text-[10px] text-neutral-400">Can log in and view insights</div>
                 </div>
                 {status === "active" && (
                   <div className="w-4 h-4 rounded-full bg-emerald-400 text-black flex items-center justify-center flex-shrink-0">
@@ -166,7 +144,7 @@ export function EditEmployeeModal({
               >
                 <div>
                   <div className="text-xs font-bold text-white">Suspended</div>
-                  <div className="text-[10px] text-neutral-400">Access temporarily paused</div>
+                  <div className="text-[10px] text-neutral-400">Access paused</div>
                 </div>
                 {status === "suspended" && (
                   <div className="w-4 h-4 rounded-full bg-red-400 text-black flex items-center justify-center flex-shrink-0">
@@ -177,70 +155,31 @@ export function EditEmployeeModal({
             </div>
           </div>
 
-          {/* Segmented Role Selector */}
           <div>
             <label className="block text-xs font-semibold text-neutral-300 mb-1.5">
-              Role
+              Role Title
             </label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {availableRoles.map((r) => (
-                <button
-                  key={r.id}
-                  type="button"
-                  onClick={() => setRole(r.id)}
-                  className={`p-3 rounded-xl border text-left transition flex items-start justify-between cursor-pointer ${
-                    role === r.id
-                      ? "border-white bg-neutral-800 ring-1 ring-white"
-                      : "border-neutral-800 bg-neutral-950 hover:border-neutral-700"
-                  }`}
-                >
-                  <div>
-                    <div className="text-xs font-bold text-white">{r.id}</div>
-                    <div className="text-[10px] text-neutral-400 mt-0.5">{r.desc}</div>
-                  </div>
-                  {role === r.id && (
-                    <div className="w-4 h-4 rounded-full bg-white text-black flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <Check className="w-2.5 h-2.5 stroke-[3]" />
-                    </div>
-                  )}
-                </button>
-              ))}
-            </div>
+            <input
+              type="text"
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+              placeholder="e.g. Insights Viewer"
+              className="w-full px-3.5 py-2.5 text-xs bg-neutral-950 border border-neutral-800 rounded-xl text-white placeholder-neutral-500 focus:outline-none focus:border-white transition font-medium"
+            />
           </div>
 
-          {/* Permissions Checklist */}
-          <div>
-            <label className="block text-xs font-semibold text-neutral-300 mb-1.5 flex items-center gap-1.5">
-              <Shield className="w-3.5 h-3.5 text-neutral-400" />
-              <span>Permissions & Capabilities</span>
-            </label>
-            <div className="space-y-1.5 p-3 rounded-2xl bg-neutral-950 border border-neutral-800 text-xs">
-              {[
-                { key: "view_links", label: "View worldwide links & traffic analytics" },
-                { key: "manage_support", label: "Handle support & user requests" },
-                { key: "manage_redirects", label: "Inspect & moderate active redirects" },
-              ].map((p) => {
-                const isSelected = permissions.includes(p.key);
-                return (
-                  <div
-                    key={p.key}
-                    onClick={() => togglePermission(p.key)}
-                    className="flex items-center gap-2.5 cursor-pointer py-1 select-none hover:text-white transition text-neutral-300"
-                  >
-                    <div
-                      className={`w-4 h-4 rounded-md border flex items-center justify-center transition flex-shrink-0 ${
-                        isSelected
-                          ? "bg-white border-white text-black"
-                          : "border-neutral-700 bg-neutral-900"
-                      }`}
-                    >
-                      {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
-                    </div>
-                    <span className="font-medium text-xs">{p.label}</span>
-                  </div>
-                );
-              })}
-            </div>
+          {/* Access Scope Notice */}
+          <div className="p-3.5 rounded-2xl bg-neutral-950 border border-neutral-800 text-xs space-y-2">
+            <span className="text-[11px] font-semibold text-neutral-300 flex items-center gap-1.5">
+              <Eye className="w-3.5 h-3.5 text-neutral-400" />
+              <span>What this employee can see:</span>
+            </span>
+            <ul className="space-y-1 text-[11px] text-neutral-400 pl-4 list-disc">
+              <li>How many people used the app (total count)</li>
+              <li>Total links created & expired/deleted counts</li>
+              <li>Worldwide clicks & traffic timeframe insights</li>
+              <li className="text-emerald-400 font-medium">No creator names or private user accounts</li>
+            </ul>
           </div>
 
           <div className="flex items-center justify-end gap-2 pt-4 border-t border-neutral-800">
