@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Lock, ArrowRight, ShieldCheck, AlertCircle } from "lucide-react";
+import { Lock, ArrowRight, Shield, AlertCircle } from "lucide-react";
 
 export default function AdminLoginPage() {
   const [password, setPassword] = useState("");
@@ -37,35 +37,35 @@ export default function AdminLoginPage() {
   };
 
   return (
-    <main className="min-h-screen flex items-center justify-center p-4 bg-[#090d16] text-white">
-      <div className="w-full max-w-md">
+    <main className="min-h-screen flex items-center justify-center p-4 bg-black text-white">
+      <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 mb-4 shadow-lg shadow-indigo-500/10">
-            <ShieldCheck className="w-7 h-7" />
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-white text-black mb-4">
+            <Shield className="w-6 h-6" />
           </div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">
+          <h1 className="text-xl font-bold tracking-tight text-white">
             PermanentLink Admin
           </h1>
-          <p className="text-xs text-slate-400 mt-1.5">
-            Enter your admin password to manage permanent redirects
+          <p className="text-xs text-neutral-400 mt-1">
+            Enter admin password to manage redirects
           </p>
         </div>
 
-        <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-2xl backdrop-blur-xl">
+        <div className="bg-neutral-950 border border-neutral-800 rounded-xl p-6 shadow-2xl">
           {error && (
-            <div className="mb-5 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-start gap-2.5 text-rose-300 text-xs">
-              <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+            <div className="mb-4 p-3 rounded-lg border border-neutral-700 bg-neutral-900 text-white text-xs flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 flex-shrink-0 text-neutral-400" />
               <span>{error}</span>
             </div>
           )}
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1.5">
-                Admin Password
+              <label className="block text-xs font-medium text-neutral-300 mb-1.5 font-mono">
+                PASSWORD
               </label>
               <div className="relative">
-                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500" />
                 <input
                   type="password"
                   value={password}
@@ -73,7 +73,7 @@ export default function AdminLoginPage() {
                   placeholder="••••••••••••"
                   required
                   autoFocus
-                  className="w-full pl-10 pr-4 py-2.5 text-sm bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition"
+                  className="w-full pl-9 pr-3 py-2 text-xs bg-black border border-neutral-800 rounded-lg text-white placeholder-neutral-600 focus:outline-none focus:border-white transition"
                 />
               </div>
             </div>
@@ -81,23 +81,23 @@ export default function AdminLoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-semibold transition duration-200 shadow-lg shadow-indigo-500/25 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full flex items-center justify-center gap-2 py-2 px-4 bg-white hover:bg-neutral-200 text-black rounded-lg text-xs font-semibold transition disabled:opacity-50"
             >
               {loading ? (
                 "Authenticating..."
               ) : (
                 <>
-                  <span>Sign In to Dashboard</span>
-                  <ArrowRight className="w-4 h-4" />
+                  <span>Sign In</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
                 </>
               )}
             </button>
           </form>
 
-          <div className="mt-6 pt-4 border-t border-slate-800 text-center">
+          <div className="mt-6 pt-4 border-t border-neutral-800 text-center">
             <a
               href="/"
-              className="text-xs text-slate-500 hover:text-slate-300 transition"
+              className="text-xs text-neutral-500 hover:text-white transition"
             >
               ← Back to Home
             </a>

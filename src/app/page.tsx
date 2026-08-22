@@ -1,86 +1,86 @@
 import Link from "next/link";
-import {
-  Link2,
-  Zap,
-  ArrowRight,
-  ShieldCheck,
-  Globe2,
-  Layers,
-  Sparkles,
-} from "lucide-react";
+import { ArrowRight, ArrowUpRight, Link2, Shield, Zap, Globe, CornerDownRight } from "lucide-react";
 
 export default function HomePage() {
   return (
-    <main className="min-h-screen bg-[#090d16] text-slate-100 flex flex-col justify-between selection:bg-indigo-500 selection:text-white">
-      {/* Header */}
-      <header className="border-b border-slate-800/80 px-6 sm:px-12 py-4">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
+    <main className="min-h-screen bg-black text-white flex flex-col justify-between">
+      {/* Top Navigation */}
+      <header className="border-b border-neutral-800 px-6 sm:px-12 py-4">
+        <div className="max-w-5xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-indigo-600/10 border border-indigo-500/20 text-indigo-400">
-              <Link2 className="w-5 h-5" />
+            <div className="w-8 h-8 rounded-lg bg-white text-black flex items-center justify-center font-bold">
+              <Link2 className="w-4 h-4" />
             </div>
-            <span className="font-bold text-base text-white tracking-tight">
+            <span className="font-semibold text-sm tracking-tight text-white">
               PermanentLink
             </span>
           </div>
 
           <Link
             href="/admin"
-            className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold transition shadow-lg shadow-indigo-600/20"
+            className="flex items-center gap-2 px-4 py-2 bg-white text-black rounded-lg text-xs font-medium hover:bg-neutral-200 transition"
           >
-            <span>Admin Dashboard</span>
+            <span>Dashboard</span>
             <ArrowRight className="w-3.5 h-3.5" />
           </Link>
         </div>
       </header>
 
       {/* Hero Section */}
-      <section className="max-w-4xl mx-auto px-6 py-16 sm:py-24 text-center">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-semibold mb-6">
-          <Sparkles className="w-3.5 h-3.5" />
-          <span>Ultra-Fast Dynamic Redirection</span>
+      <section className="max-w-4xl mx-auto px-6 py-20 sm:py-28 text-center">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-neutral-800 bg-neutral-950 text-neutral-400 text-xs font-mono mb-8">
+          <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+          <span>HTTP 307 Dynamic Redirection</span>
         </div>
 
-        <h1 className="text-4xl sm:text-6xl font-extrabold text-white tracking-tight leading-tight">
-          Permanent URLs that adapt to <br className="hidden sm:inline" />
-          <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400">
-            changing destinations.
-          </span>
+        <h1 className="text-4xl sm:text-6xl font-bold tracking-tight text-white leading-tight">
+          Permanent URLs that adapt to changing destinations.
         </h1>
 
-        <p className="mt-6 text-sm sm:text-base text-slate-400 max-w-2xl mx-auto leading-relaxed">
-          Share clean, branded public URLs like <code className="text-indigo-400 bg-slate-900 px-1.5 py-0.5 rounded font-mono">domain.com/siddu/linkedin</code>.
-          Update where they point anytime in your dashboard without ever breaking your public link.
+        <p className="mt-6 text-sm sm:text-base text-neutral-400 max-w-2xl mx-auto leading-relaxed">
+          Share clean, unchanging links like <code className="text-white bg-neutral-900 border border-neutral-800 px-2 py-0.5 rounded font-mono text-xs">domain.com/siddu/linkedin</code>.
+          Update where they redirect at any time from your dashboard without ever breaking your public link.
         </p>
 
-        {/* Live Visual Demonstration */}
-        <div className="mt-10 max-w-xl mx-auto p-5 rounded-2xl bg-slate-900/90 border border-slate-800 text-left shadow-2xl">
-          <div className="flex items-center justify-between text-xs font-semibold text-slate-400 mb-3 border-b border-slate-800/80 pb-2">
-            <span>How It Works</span>
-            <span className="text-emerald-400 font-mono">HTTP 307 Instant Redirect</span>
+        {/* Visual Route Example Card */}
+        <div className="mt-12 max-w-xl mx-auto rounded-xl border border-neutral-800 bg-neutral-950 p-5 text-left font-mono text-xs shadow-2xl">
+          <div className="flex items-center justify-between border-b border-neutral-800 pb-3 mb-4 text-neutral-400">
+            <span className="text-[11px] uppercase tracking-wider font-semibold">Public Link</span>
+            <span className="text-[11px] uppercase tracking-wider font-semibold">Destination</span>
           </div>
 
-          <div className="space-y-2.5 text-xs font-mono">
-            <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 flex items-center justify-between">
-              <span className="text-indigo-400 font-medium">/siddu/linkedin</span>
-              <span className="text-slate-500">↳ https://linkedin.com/in/currentusername</span>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between p-2.5 rounded-lg border border-neutral-900 bg-black">
+              <span className="text-white font-medium">/siddu/linkedin</span>
+              <div className="flex items-center gap-1.5 text-neutral-400">
+                <CornerDownRight className="w-3.5 h-3.5 text-neutral-600" />
+                <span className="truncate max-w-[200px] text-neutral-300">linkedin.com/in/siddu</span>
+              </div>
             </div>
-            <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 flex items-center justify-between">
-              <span className="text-indigo-400 font-medium">/siddu/github</span>
-              <span className="text-slate-500">↳ https://github.com/currentusername</span>
+
+            <div className="flex items-center justify-between p-2.5 rounded-lg border border-neutral-900 bg-black">
+              <span className="text-white font-medium">/siddu/github</span>
+              <div className="flex items-center gap-1.5 text-neutral-400">
+                <CornerDownRight className="w-3.5 h-3.5 text-neutral-600" />
+                <span className="truncate max-w-[200px] text-neutral-300">github.com/siddu</span>
+              </div>
             </div>
-            <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 flex items-center justify-between">
-              <span className="text-indigo-400 font-medium">/siddu/lifeagent</span>
-              <span className="text-slate-500">↳ https://lifeagent.ai</span>
+
+            <div className="flex items-center justify-between p-2.5 rounded-lg border border-neutral-900 bg-black">
+              <span className="text-white font-medium">/siddu/lifeagent</span>
+              <div className="flex items-center gap-1.5 text-neutral-400">
+                <CornerDownRight className="w-3.5 h-3.5 text-neutral-600" />
+                <span className="truncate max-w-[200px] text-neutral-300">lifeagent.ai</span>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* CTA Buttons */}
-        <div className="mt-8 flex items-center justify-center gap-3">
+        {/* CTA */}
+        <div className="mt-10 flex items-center justify-center gap-3">
           <Link
             href="/admin"
-            className="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-semibold transition shadow-xl shadow-indigo-600/25 flex items-center gap-2"
+            className="px-6 py-3 bg-white text-black font-medium text-sm rounded-lg hover:bg-neutral-200 transition flex items-center gap-2"
           >
             <span>Open Admin Dashboard</span>
             <ArrowRight className="w-4 h-4" />
@@ -89,41 +89,41 @@ export default function HomePage() {
       </section>
 
       {/* Feature Grid */}
-      <section className="max-w-6xl mx-auto px-6 pb-20 grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="p-6 rounded-2xl bg-slate-900/40 border border-slate-800/80">
-          <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center mb-4">
-            <Zap className="w-5 h-5" />
+      <section className="max-w-5xl mx-auto px-6 pb-24 grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="p-6 rounded-xl border border-neutral-800 bg-neutral-950">
+          <div className="w-8 h-8 rounded-lg border border-neutral-800 bg-black flex items-center justify-center mb-4 text-white">
+            <Zap className="w-4 h-4" />
           </div>
-          <h3 className="text-base font-semibold text-white">Instant Server-Side 307</h3>
-          <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-            One single indexed lookup and immediate redirect headers. Zero intermediate web pages or script lag.
+          <h3 className="text-sm font-semibold text-white">Zero Latency 307</h3>
+          <p className="text-xs text-neutral-400 mt-2 leading-relaxed">
+            Direct single indexed database lookup followed by an immediate server-side HTTP 307 redirect.
           </p>
         </div>
 
-        <div className="p-6 rounded-2xl bg-slate-900/40 border border-slate-800/80">
-          <div className="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center mb-4">
-            <Globe2 className="w-5 h-5" />
+        <div className="p-6 rounded-xl border border-neutral-800 bg-neutral-950">
+          <div className="w-8 h-8 rounded-lg border border-neutral-800 bg-black flex items-center justify-center mb-4 text-white">
+            <Globe className="w-4 h-4" />
           </div>
-          <h3 className="text-base font-semibold text-white">Never Broken URLs</h3>
-          <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-            Printed links on resumes, business cards, NFC tags, or bios never become obsolete when social handles change.
+          <h3 className="text-sm font-semibold text-white">Permanent URLs</h3>
+          <p className="text-xs text-neutral-400 mt-2 leading-relaxed">
+            Printed links on resumes, cards, or bios never break when your social usernames or portfolios change.
           </p>
         </div>
 
-        <div className="p-6 rounded-2xl bg-slate-900/40 border border-slate-800/80">
-          <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center mb-4">
-            <ShieldCheck className="w-5 h-5" />
+        <div className="p-6 rounded-xl border border-neutral-800 bg-neutral-950">
+          <div className="w-8 h-8 rounded-lg border border-neutral-800 bg-black flex items-center justify-center mb-4 text-white">
+            <Shield className="w-4 h-4" />
           </div>
-          <h3 className="text-base font-semibold text-white">Self-Hosted & Secure</h3>
-          <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-            Backed by PostgreSQL / Neon and deployable to Vercel in seconds with protected admin authentication.
+          <h3 className="text-sm font-semibold text-white">Secure Admin</h3>
+          <p className="text-xs text-neutral-400 mt-2 leading-relaxed">
+            Protected password dashboard to create, update destinations, copy links, and track click counts.
           </p>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-slate-800/80 py-6 text-center text-xs text-slate-500">
-        <p>PermanentLink — Simple, Ultra-Fast URL Redirection Engine</p>
+      <footer className="border-t border-neutral-800 py-6 text-center text-xs text-neutral-500 font-mono">
+        PermanentLink — Minimalist Dynamic Redirection Service
       </footer>
     </main>
   );

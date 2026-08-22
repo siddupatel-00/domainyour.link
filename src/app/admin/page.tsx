@@ -13,8 +13,9 @@ import {
   LogOut,
   RefreshCw,
   Zap,
-  CheckCircle2,
+  Activity,
   AlertCircle,
+  Check,
 } from "lucide-react";
 
 export default function AdminDashboardPage() {
@@ -82,36 +83,36 @@ export default function AdminDashboardPage() {
   };
 
   return (
-    <main className="min-h-screen bg-[#090d16] text-slate-100 pb-16">
+    <main className="min-h-screen bg-black text-white pb-20">
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 bg-slate-900 border border-slate-700 text-emerald-400 px-4 py-3 rounded-xl shadow-2xl animate-in slide-in-from-bottom-5 duration-200">
-          <CheckCircle2 className="w-4 h-4" />
-          <span className="text-xs font-medium text-slate-200">{toastMessage}</span>
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 bg-white text-black px-4 py-2.5 rounded-lg shadow-2xl animate-in slide-in-from-bottom-5 duration-200">
+          <Check className="w-4 h-4" />
+          <span className="text-xs font-semibold">{toastMessage}</span>
         </div>
       )}
 
       {/* Top Navigation */}
-      <header className="sticky top-0 z-40 bg-slate-950/80 backdrop-blur-md border-b border-slate-800/80 px-4 sm:px-8 py-3.5">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
+      <header className="sticky top-0 z-40 bg-black/90 backdrop-blur-md border-b border-neutral-800 px-4 sm:px-8 py-3.5">
+        <div className="max-w-5xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-indigo-600/10 border border-indigo-500/20 text-indigo-400">
-              <Link2 className="w-5 h-5" />
+            <div className="w-8 h-8 rounded-lg bg-white text-black flex items-center justify-center font-bold">
+              <Link2 className="w-4 h-4" />
             </div>
-            <div>
-              <span className="font-bold text-sm text-white tracking-tight">
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-sm tracking-tight text-white">
                 PermanentLink
               </span>
-              <span className="ml-2 text-[10px] uppercase font-semibold px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+              <span className="text-[10px] font-mono uppercase px-1.5 py-0.5 rounded border border-neutral-700 text-neutral-400 bg-neutral-900">
                 Admin
               </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
             <button
               onClick={() => setIsCreateOpen(true)}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold transition shadow-md shadow-indigo-600/20"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-black rounded-lg text-xs font-semibold hover:bg-neutral-200 transition"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>New Link</span>
@@ -119,7 +120,7 @@ export default function AdminDashboardPage() {
             <button
               onClick={handleLogout}
               title="Sign Out"
-              className="p-2 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition border border-slate-800"
+              className="p-1.5 rounded-lg text-neutral-400 hover:text-white border border-neutral-800 hover:border-neutral-600 transition"
             >
               <LogOut className="w-4 h-4" />
             </button>
@@ -127,76 +128,76 @@ export default function AdminDashboardPage() {
         </div>
       </header>
 
-      {/* Main Content Area */}
-      <div className="max-w-6xl mx-auto px-4 sm:px-8 mt-8">
-        {/* Metric / Feature Highlights */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-          <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800/80 flex items-center gap-3.5">
-            <div className="p-2.5 rounded-xl bg-indigo-500/10 text-indigo-400">
-              <Link2 className="w-5 h-5" />
-            </div>
+      {/* Main Content */}
+      <div className="max-w-5xl mx-auto px-4 sm:px-8 mt-8">
+        {/* Metric Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-8">
+          <div className="p-4 rounded-xl border border-neutral-800 bg-neutral-950 flex items-center justify-between">
             <div>
-              <p className="text-[11px] text-slate-400 font-medium">Permanent Links</p>
-              <h4 className="text-xl font-bold text-white">{redirects.length} Active</h4>
+              <p className="text-[11px] font-mono text-neutral-400 uppercase tracking-wider">Active Links</p>
+              <h4 className="text-xl font-bold text-white mt-1">{redirects.length}</h4>
+            </div>
+            <div className="w-8 h-8 rounded-lg border border-neutral-800 bg-black flex items-center justify-center text-neutral-300">
+              <Link2 className="w-4 h-4" />
             </div>
           </div>
 
-          <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800/80 flex items-center gap-3.5">
-            <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400">
-              <Zap className="w-5 h-5" />
-            </div>
+          <div className="p-4 rounded-xl border border-neutral-800 bg-neutral-950 flex items-center justify-between">
             <div>
-              <p className="text-[11px] text-slate-400 font-medium">Redirect Latency</p>
-              <h4 className="text-xl font-bold text-white">HTTP 307 (Instant)</h4>
+              <p className="text-[11px] font-mono text-neutral-400 uppercase tracking-wider">Redirect Status</p>
+              <h4 className="text-xl font-bold text-white mt-1 font-mono">307 (Instant)</h4>
+            </div>
+            <div className="w-8 h-8 rounded-lg border border-neutral-800 bg-black flex items-center justify-center text-neutral-300">
+              <Zap className="w-4 h-4" />
             </div>
           </div>
 
-          <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800/80 flex items-center gap-3.5">
-            <div className="p-2.5 rounded-xl bg-purple-500/10 text-purple-400">
-              <CheckCircle2 className="w-5 h-5" />
-            </div>
+          <div className="p-4 rounded-xl border border-neutral-800 bg-neutral-950 flex items-center justify-between">
             <div>
-              <p className="text-[11px] text-slate-400 font-medium">Total Redirect Traffic</p>
-              <h4 className="text-xl font-bold text-white">
+              <p className="text-[11px] font-mono text-neutral-400 uppercase tracking-wider">Total Traffic</p>
+              <h4 className="text-xl font-bold text-white mt-1 font-mono">
                 {redirects.reduce((acc, curr) => acc + (curr.clickCount || 0), 0)} Clicks
               </h4>
+            </div>
+            <div className="w-8 h-8 rounded-lg border border-neutral-800 bg-black flex items-center justify-center text-neutral-300">
+              <Activity className="w-4 h-4" />
             </div>
           </div>
         </div>
 
-        {/* Header Title with Refresh */}
+        {/* Section Header */}
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-xl font-bold text-white tracking-tight">
-              Redirect Management
+            <h1 className="text-base font-semibold text-white tracking-tight">
+              Redirects
             </h1>
-            <p className="text-xs text-slate-400">
-              Manage your namespaces, links, and destinations
+            <p className="text-xs text-neutral-400">
+              Manage permanent link namespaces and destinations
             </p>
           </div>
           <button
             onClick={fetchRedirects}
             disabled={loading}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white bg-slate-900 border border-slate-800 hover:bg-slate-800 transition"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-mono text-neutral-400 hover:text-white border border-neutral-800 hover:border-neutral-600 bg-neutral-950 transition"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
-            <span>Refresh</span>
+            <span>Sync</span>
           </button>
         </div>
 
         {/* Error Alert */}
         {error && (
-          <div className="mb-6 p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-3">
-            <AlertCircle className="w-5 h-5 flex-shrink-0" />
+          <div className="mb-6 p-3 rounded-lg border border-neutral-700 bg-neutral-900 text-white text-xs flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 flex-shrink-0 text-neutral-400" />
             <span>{error}</span>
           </div>
         )}
 
         {/* Table or Loading State */}
         {loading && redirects.length === 0 ? (
-          <div className="p-12 text-center rounded-2xl bg-slate-900/40 border border-slate-800 text-slate-400 text-xs">
-            <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-indigo-400" />
-            Loading permanent links...
+          <div className="p-12 text-center rounded-xl border border-neutral-800 bg-neutral-950 text-neutral-400 text-xs font-mono">
+            <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-white" />
+            Fetching redirects...
           </div>
         ) : (
           <RedirectTable
@@ -216,7 +217,7 @@ export default function AdminDashboardPage() {
         baseUrl={baseUrl}
         onCreated={() => {
           fetchRedirects();
-          showToast("Permanent link created successfully!");
+          showToast("Permanent link created");
         }}
       />
 
@@ -227,7 +228,7 @@ export default function AdminDashboardPage() {
         baseUrl={baseUrl}
         onUpdated={() => {
           fetchRedirects();
-          showToast("Destination URL updated!");
+          showToast("Destination updated");
         }}
       />
 
@@ -238,7 +239,7 @@ export default function AdminDashboardPage() {
         baseUrl={baseUrl}
         onDeleted={() => {
           fetchRedirects();
-          showToast("Permanent link deleted.");
+          showToast("Redirect deleted");
         }}
       />
     </main>

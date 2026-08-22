@@ -44,20 +44,20 @@ export async function GET(
             <title>PermanentLink - Not Found</title>
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <style>
-              body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #0f172a; color: #f8fafc; }
-              .card { text-align: center; max-width: 480px; padding: 2.5rem; background: #1e293b; border-radius: 1rem; border: 1px solid #334155; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.5); }
-              h1 { font-size: 1.5rem; margin-bottom: 0.75rem; color: #f1f5f9; }
-              p { color: #94a3b8; font-size: 0.95rem; line-height: 1.5; margin-bottom: 1.5rem; }
-              code { background: #334155; padding: 0.2rem 0.4rem; border-radius: 0.25rem; color: #38bdf8; font-family: monospace; }
-              a { display: inline-block; background: #6366f1; color: white; text-decoration: none; padding: 0.6rem 1.2rem; border-radius: 0.5rem; font-weight: 500; font-size: 0.9rem; transition: background 0.2s; }
-              a:hover { background: #4f46e5; }
+              body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #000000; color: #ffffff; }
+              .card { text-align: center; max-width: 440px; padding: 2rem; background: #0a0a0a; border-radius: 0.75rem; border: 1px solid #262626; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.8); }
+              h1 { font-size: 1.25rem; font-weight: 600; margin-bottom: 0.5rem; color: #ffffff; letter-spacing: -0.02em; }
+              p { color: #a3a3a3; font-size: 0.85rem; line-height: 1.5; margin-bottom: 1.5rem; }
+              code { background: #171717; border: 1px solid #262626; padding: 0.2rem 0.4rem; border-radius: 0.25rem; color: #ffffff; font-family: monospace; font-size: 0.8rem; }
+              a { display: inline-block; background: #ffffff; color: #000000; text-decoration: none; padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: 600; font-size: 0.8rem; transition: background 0.2s; }
+              a:hover { background: #e5e5e5; }
             </style>
           </head>
           <body>
             <div class="card">
               <h1>Link Not Found</h1>
-              <p>The permanent link <code>/${cleanUsername}/${cleanWebname}</code> does not exist or has been removed.</p>
-              <a href="/">Go to Home</a>
+              <p>The permanent link <code>/${cleanUsername}/${cleanWebname}</code> does not exist or has been deleted.</p>
+              <a href="/">Return to Home</a>
             </div>
           </body>
         </html>`,
