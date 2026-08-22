@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Edit2, AlertCircle, Shield, Check } from "lucide-react";
 import { Employee } from "@/lib/db/schema";
+import { X, Edit2, AlertCircle, Shield, Check } from "lucide-react";
 
 interface EditEmployeeModalProps {
   employee: Employee | null;
@@ -11,6 +11,13 @@ interface EditEmployeeModalProps {
   onUpdated: () => void;
 }
 
+const availableRoles = [
+  { id: "Support Moderator", desc: "User tickets & support" },
+  { id: "Link Manager", desc: "Inspect & moderate links" },
+  { id: "Lead Analyst", desc: "View all worldwide metrics" },
+  { id: "Operations Admin", desc: "Full administrative operations" },
+];
+
 export function EditEmployeeModal({
   employee,
   isOpen,
@@ -18,20 +25,20 @@ export function EditEmployeeModal({
   onUpdated,
 }: EditEmployeeModalProps) {
   const [role, setRole] = useState("Support Moderator");
-  const [status, setStatus] = useState("active");
+  const [status, setStatus] = useState<"active" | "suspended">("active");
   const [permissions, setPermissions] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (employee && isOpen) {
-      setRole(employee.role || "Support Moderator");
-      setStatus(employee.status || "active");
+      setRole(employee.role);
+      setStatus(employee.status as "active" | "suspended");
       try {
-        const parsed = JSON.parse(employee.permissions);
-        setPermissions(Array.isArray(parsed) ? parsed : ["view_links", "manage_support"]);
+        const parsed = JSON.parse(employee.permissions || "[]");
+        setPermissions(Array.isArray(parsed) ? parsed : []);
       } catch {
-        setPermissions(["view_links", "manage_support"]);
+        setPermissions(["view_links"]);
       }
       setError(null);
     }
@@ -65,8 +72,8 @@ export function EditEmployeeModal({
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          role: role.trim(),
-          status: status.trim(),
+          role,
+          status,
           permissions,
         }),
       });
@@ -88,26 +95,26 @@ export function EditEmployeeModal({
   return (
     <div
       onClick={onClose}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-150 cursor-pointer overflow-y-auto"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-150 cursor-pointer overflow-y-auto"
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-md rounded-3xl bg-white border border-neutral-200 p-7 sm:p-8 shadow-2xl cursor-default font-sans my-8"
+        className="relative w-full max-w-lg rounded-3xl bg-neutral-900 border border-neutral-800 p-7 sm:p-8 shadow-2xl cursor-default font-sans my-8 text-white"
       >
-        <div className="flex items-center justify-between pb-4 border-b border-neutral-100">
+        <div className="flex items-center justify-between pb-4 border-b border-neutral-800">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-black text-white flex items-center justify-center font-bold">
+            <div className="w-9 h-9 rounded-xl bg-white text-black flex items-center justify-center font-bold">
               <Edit2 className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-neutral-900">Edit Access: {employee.name}</h2>
-              <p className="text-xs text-neutral-500 font-mono">{employee.email}</p>
+              <h2 className="text-base font-bold text-white">Edit Employee Access</h2>
+              <p className="text-xs text-neutral-400">{employee.name} ({employee.email})</p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-1 rounded-lg text-neutral-400 hover:text-black hover:bg-neutral-100 transition"
+            className="p-1 rounded-lg text-neutral-400 hover:text-white hover:bg-neutral-800 transition cursor-pointer"
             title="Close"
           >
             <X className="w-5 h-5" />
@@ -115,69 +122,102 @@ export function EditEmployeeModal({
         </div>
 
         {error && (
-          <div className="mt-4 p-3.5 rounded-xl border border-neutral-200 bg-neutral-50 text-neutral-800 text-xs flex items-center gap-2.5">
-            <AlertCircle className="w-4 h-4 flex-shrink-0 text-neutral-700" />
+          <div className="mt-4 p-3.5 rounded-xl border border-red-900/50 bg-red-950/30 text-red-300 text-xs flex items-center gap-2.5">
+            <AlertCircle className="w-4 h-4 flex-shrink-0 text-red-400" />
             <span>{error}</span>
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="mt-5 space-y-4">
+          {/* Status Switcher */}
           <div>
-            <label className="block text-xs font-semibold text-neutral-800 mb-1.5">
-              Role
-            </label>
-            <select
-              value={role}
-              onChange={(e) => setRole(e.target.value)}
-              className="w-full px-3.5 py-2.5 text-xs bg-white border border-neutral-300 rounded-xl text-neutral-900 focus:outline-none focus:border-black focus:ring-1 focus:ring-black"
-            >
-              <option value="Support Moderator">Support Moderator</option>
-              <option value="Link Manager">Link Manager</option>
-              <option value="Lead Analyst">Lead Analyst</option>
-              <option value="Operations Admin">Operations Admin</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-neutral-800 mb-1.5">
+            <label className="block text-xs font-semibold text-neutral-300 mb-1.5">
               Account Status
             </label>
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={() => setStatus("active")}
-                className={`py-2 px-3 rounded-xl border text-xs font-semibold transition ${
+                className={`p-3 rounded-xl border text-left transition flex items-center justify-between cursor-pointer ${
                   status === "active"
-                    ? "bg-black text-white border-black"
-                    : "bg-white text-neutral-600 border-neutral-200 hover:border-neutral-300"
+                    ? "border-emerald-500 bg-emerald-950/40 ring-1 ring-emerald-500"
+                    : "border-neutral-800 bg-neutral-950 hover:border-neutral-700"
                 }`}
               >
-                Active
+                <div>
+                  <div className="text-xs font-bold text-white">Active</div>
+                  <div className="text-[10px] text-neutral-400">Can log in and work</div>
+                </div>
+                {status === "active" && (
+                  <div className="w-4 h-4 rounded-full bg-emerald-400 text-black flex items-center justify-center flex-shrink-0">
+                    <Check className="w-2.5 h-2.5 stroke-[3]" />
+                  </div>
+                )}
               </button>
+
               <button
                 type="button"
                 onClick={() => setStatus("suspended")}
-                className={`py-2 px-3 rounded-xl border text-xs font-semibold transition ${
+                className={`p-3 rounded-xl border text-left transition flex items-center justify-between cursor-pointer ${
                   status === "suspended"
-                    ? "bg-neutral-800 text-white border-neutral-800"
-                    : "bg-white text-neutral-600 border-neutral-200 hover:border-neutral-300"
+                    ? "border-red-500 bg-red-950/40 ring-1 ring-red-500"
+                    : "border-neutral-800 bg-neutral-950 hover:border-neutral-700"
                 }`}
               >
-                Suspended
+                <div>
+                  <div className="text-xs font-bold text-white">Suspended</div>
+                  <div className="text-[10px] text-neutral-400">Access temporarily paused</div>
+                </div>
+                {status === "suspended" && (
+                  <div className="w-4 h-4 rounded-full bg-red-400 text-black flex items-center justify-center flex-shrink-0">
+                    <Check className="w-2.5 h-2.5 stroke-[3]" />
+                  </div>
+                )}
               </button>
+            </div>
+          </div>
+
+          {/* Segmented Role Selector */}
+          <div>
+            <label className="block text-xs font-semibold text-neutral-300 mb-1.5">
+              Role
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {availableRoles.map((r) => (
+                <button
+                  key={r.id}
+                  type="button"
+                  onClick={() => setRole(r.id)}
+                  className={`p-3 rounded-xl border text-left transition flex items-start justify-between cursor-pointer ${
+                    role === r.id
+                      ? "border-white bg-neutral-800 ring-1 ring-white"
+                      : "border-neutral-800 bg-neutral-950 hover:border-neutral-700"
+                  }`}
+                >
+                  <div>
+                    <div className="text-xs font-bold text-white">{r.id}</div>
+                    <div className="text-[10px] text-neutral-400 mt-0.5">{r.desc}</div>
+                  </div>
+                  {role === r.id && (
+                    <div className="w-4 h-4 rounded-full bg-white text-black flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <Check className="w-2.5 h-2.5 stroke-[3]" />
+                    </div>
+                  )}
+                </button>
+              ))}
             </div>
           </div>
 
           {/* Permissions Checklist */}
           <div>
-            <label className="block text-xs font-semibold text-neutral-800 mb-1.5 flex items-center gap-1.5">
-              <Shield className="w-3.5 h-3.5 text-neutral-600" />
-              <span>Assigned Permissions</span>
+            <label className="block text-xs font-semibold text-neutral-300 mb-1.5 flex items-center gap-1.5">
+              <Shield className="w-3.5 h-3.5 text-neutral-400" />
+              <span>Permissions & Capabilities</span>
             </label>
-            <div className="space-y-1.5 p-3 rounded-2xl bg-neutral-50 border border-neutral-200 text-xs">
+            <div className="space-y-1.5 p-3 rounded-2xl bg-neutral-950 border border-neutral-800 text-xs">
               {[
-                { key: "view_links", label: "View platform links & traffic analytics" },
-                { key: "manage_support", label: "Handle support & user ticket requests" },
+                { key: "view_links", label: "View worldwide links & traffic analytics" },
+                { key: "manage_support", label: "Handle support & user requests" },
                 { key: "manage_redirects", label: "Inspect & moderate active redirects" },
               ].map((p) => {
                 const isSelected = permissions.includes(p.key);
@@ -185,37 +225,37 @@ export function EditEmployeeModal({
                   <div
                     key={p.key}
                     onClick={() => togglePermission(p.key)}
-                    className="flex items-center gap-2.5 cursor-pointer py-1 select-none"
+                    className="flex items-center gap-2.5 cursor-pointer py-1 select-none hover:text-white transition text-neutral-300"
                   >
                     <div
-                      className={`w-4 h-4 rounded-md border flex items-center justify-center transition ${
+                      className={`w-4 h-4 rounded-md border flex items-center justify-center transition flex-shrink-0 ${
                         isSelected
-                          ? "bg-black border-black text-white"
-                          : "border-neutral-300 bg-white"
+                          ? "bg-white border-white text-black"
+                          : "border-neutral-700 bg-neutral-900"
                       }`}
                     >
                       {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
                     </div>
-                    <span className="text-neutral-700 font-medium">{p.label}</span>
+                    <span className="font-medium text-xs">{p.label}</span>
                   </div>
                 );
               })}
             </div>
           </div>
 
-          <div className="flex items-center justify-end gap-2 pt-4 border-t border-neutral-100">
+          <div className="flex items-center justify-end gap-2 pt-4 border-t border-neutral-800">
             <button
               type="button"
               onClick={onClose}
               disabled={loading}
-              className="px-4 py-2 text-xs font-medium text-neutral-600 hover:text-black border border-neutral-200 rounded-xl hover:bg-neutral-50 transition"
+              className="px-4 py-2 text-xs font-medium text-neutral-400 hover:text-white border border-neutral-800 rounded-xl hover:bg-neutral-800 transition cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="px-5 py-2 text-xs font-semibold text-white bg-black hover:bg-neutral-800 rounded-xl transition disabled:opacity-50 shadow-sm"
+              className="px-5 py-2 text-xs font-semibold text-black bg-white hover:bg-neutral-200 rounded-xl transition disabled:opacity-50 shadow-sm cursor-pointer"
             >
               {loading ? "Saving..." : "Save Changes"}
             </button>
