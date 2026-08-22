@@ -18,8 +18,9 @@ export const redirects = pgTable(
     destinationUrl: text("destination_url").notNull(),
     redirectCode: integer("redirect_code").default(307).notNull(),
     clickCount: integer("click_count").default(0).notNull(),
+    expiredClickCount: integer("expired_click_count").default(0).notNull(), // Clicks received after link expired
     expiresAt: timestamp("expires_at"), // Null means permanent; Timestamp means temporary expiring link
-    parentId: integer("parent_id"), // Optional parent redirect ID if this is a sub-link (e.g. for reddit, x, insta, or temporary share)
+    parentId: integer("parent_id"), // Optional parent redirect ID if this is a sub-link
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },

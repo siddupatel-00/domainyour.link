@@ -23,6 +23,7 @@ export async function GET(
   let destination = "";
   let recordId: number | null = null;
   let expiresAt: Date | null = null;
+  let fallbackMatch: any = null;
 
   try {
     const results = await db
@@ -59,7 +60,7 @@ export async function GET(
       destination = match.destinationUrl;
       expiresAt = match.expiresAt;
       recordId = match.id;
-      match.clickCount = (match.clickCount || 0) + 1;
+      fallbackMatch = match;
     }
   }
 
@@ -97,6 +98,29 @@ export async function GET(
 
   // Check if link has expired (410)
   if (expiresAt && new Date(expiresAt).getTime() <= Date.now()) {
+    // Increment expired click count
+    if (recordId) {
+      try {
+        after(async () => {
+          try {
+            await db
+              .update(redirects)
+              .set({ expiredClickCount: sql`${redirects.expiredClickCount} + 1` })
+              .where(eq(redirects.id, recordId));
+          } catch {}
+        });
+      } catch {
+        db.update(redirects)
+          .set({ expiredClickCount: sql`${redirects.expiredClickCount} + 1` })
+          .where(eq(redirects.id, recordId))
+          .catch(() => {});
+      }
+    }
+
+    if (fallbackMatch) {
+      fallbackMatch.expiredClickCount = (fallbackMatch.expiredClickCount || 0) + 1;
+    }
+
     return new NextResponse(
       `<!DOCTYPE html>
       <html lang="en">
@@ -129,7 +153,7 @@ export async function GET(
     );
   }
 
-  // Non-blocking analytics increment
+  // Active redirect: increment active click count
   if (recordId) {
     try {
       after(async () => {
@@ -146,6 +170,10 @@ export async function GET(
         .where(eq(redirects.id, recordId))
         .catch(() => {});
     }
+  }
+
+  if (fallbackMatch) {
+    fallbackMatch.clickCount = (fallbackMatch.clickCount || 0) + 1;
   }
 
   // Instant HTTP 307 redirect

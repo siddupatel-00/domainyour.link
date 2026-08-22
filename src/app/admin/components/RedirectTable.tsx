@@ -14,6 +14,7 @@ import {
   MoreVertical,
   RotateCcw,
   GitFork,
+  Eye,
 } from "lucide-react";
 
 interface RedirectTableProps {
@@ -164,7 +165,9 @@ export function RedirectTable({
               <th className="py-3.5 px-5">Your Link</th>
               <th className="py-3.5 px-5">Type / Expiry</th>
               <th className="py-3.5 px-5">Goes To</th>
-              <th className="py-3.5 px-5 text-center">Clicks</th>
+              <th className="py-3.5 px-5 text-center">
+                {isExpiredView ? "Clicks (Active / Expired)" : "Clicks"}
+              </th>
               <th className="py-3.5 px-5 text-right w-16"></th>
             </tr>
           </thead>
@@ -224,9 +227,24 @@ export function RedirectTable({
                     </div>
                   </td>
 
-                  {/* Clicks */}
-                  <td className="py-4 px-5 text-center font-mono font-semibold text-neutral-900">
-                    {r.clickCount || 0}
+                  {/* Clicks (Active & Expired breakdown) */}
+                  <td className="py-4 px-5 text-center font-mono">
+                    {isExpiredView ? (
+                      <div className="space-y-1">
+                        <div className="text-neutral-900 font-bold text-xs">
+                          {r.clickCount || 0}{" "}
+                          <span className="text-[10px] text-neutral-500 font-sans font-normal">active</span>
+                        </div>
+                        <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-neutral-100 text-neutral-800 text-[10px] font-semibold">
+                          <Eye className="w-2.5 h-2.5" />
+                          <span>{r.expiredClickCount || 0} after expiry</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <span className="font-semibold text-neutral-900">
+                        {r.clickCount || 0}
+                      </span>
+                    )}
                   </td>
 
                   {/* 3 Dots Menu Button & Dropdown */}

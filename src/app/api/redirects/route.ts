@@ -145,6 +145,7 @@ export async function POST(request: NextRequest) {
           destinationUrl: formattedDestination,
           redirectCode: 307,
           clickCount: 0,
+          expiredClickCount: 0,
           expiresAt: expirationDate,
           parentId: parentId ? Number(parentId) : null,
         })
@@ -170,6 +171,7 @@ export async function POST(request: NextRequest) {
         destinationUrl: formattedDestination,
         redirectCode: 307,
         clickCount: 0,
+        expiredClickCount: 0,
         expiresAt: expirationDate,
         parentId: parentId ? Number(parentId) : null,
         createdAt: new Date(),
