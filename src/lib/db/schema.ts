@@ -4,6 +4,7 @@ import {
   varchar,
   text,
   integer,
+  boolean,
   timestamp,
   uniqueIndex,
   index,
@@ -22,6 +23,7 @@ export const redirects = pgTable(
     expiredClickCount: integer("expired_click_count").default(0).notNull(), // Clicks received after link expired
     expiresAt: timestamp("expires_at"), // Null means permanent; Timestamp means temporary expiring link
     parentId: integer("parent_id"), // Optional parent redirect ID if this is a sub-link
+    showOnProfile: boolean("show_on_profile").default(true).notNull(), // Whether to show on public profile /username
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },

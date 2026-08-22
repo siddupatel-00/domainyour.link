@@ -16,6 +16,8 @@ import {
   GitFork,
   Clock,
   MousePointerClick,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 
 interface RedirectTableProps {
@@ -25,6 +27,7 @@ interface RedirectTableProps {
   onDelete: (redirect: Redirect) => void;
   onCreateOpen: () => void;
   onCreateSublink?: (parentRedirect: Redirect) => void;
+  onToggleProfileVisibility?: (redirect: Redirect, nextVal: boolean) => void;
   isExpiredView?: boolean;
 }
 
@@ -35,6 +38,7 @@ export function RedirectTable({
   onDelete,
   onCreateOpen,
   onCreateSublink,
+  onToggleProfileVisibility,
   isExpiredView = false,
 }: RedirectTableProps) {
   const [searchTerm, setSearchTerm] = useState("");
@@ -194,6 +198,7 @@ export function RedirectTable({
               const isCopied = copiedId === r.id;
               const isMenuOpen = openMenuId === r.id;
               const isSublink = !!r.parentId;
+              const isShownOnProfile = r.showOnProfile !== false;
 
               return (
                 <tr
@@ -220,6 +225,30 @@ export function RedirectTable({
                           <Copy className="w-3.5 h-3.5" />
                         )}
                       </button>
+
+                      {/* Profile visibility indicator */}
+                      {!isExpiredView && (
+                        <span
+                          title={isShownOnProfile ? "Visible on your public profile page" : "Hidden from your public profile page"}
+                          className={`text-[10px] px-1.5 py-0.5 rounded-full font-sans font-medium flex items-center gap-1 ${
+                            isShownOnProfile
+                              ? "bg-neutral-100 text-neutral-700"
+                              : "bg-neutral-50 text-neutral-400"
+                          }`}
+                        >
+                          {isShownOnProfile ? (
+                            <>
+                              <Eye className="w-2.5 h-2.5 text-neutral-600" />
+                              <span>in bio</span>
+                            </>
+                          ) : (
+                            <>
+                              <EyeOff className="w-2.5 h-2.5 text-neutral-400" />
+                              <span>hidden</span>
+                            </>
+                          )}
+                        </span>
+                      )}
                     </div>
                   </td>
 
@@ -297,7 +326,7 @@ export function RedirectTable({
 
                       {/* 3-Dots Dropdown Menu */}
                       {isMenuOpen && (
-                        <div className="absolute right-4 top-12 z-50 w-48 rounded-2xl bg-white border border-neutral-200 p-1.5 shadow-xl animate-in fade-in zoom-in-95 duration-150">
+                        <div className="absolute right-4 top-12 z-50 w-52 rounded-2xl bg-white border border-neutral-200 p-1.5 shadow-xl animate-in fade-in zoom-in-95 duration-150">
                           {/* Add Sublink option */}
                           {onCreateSublink && !isExpiredView && (
                             <>
@@ -314,6 +343,30 @@ export function RedirectTable({
                               </button>
                               <div className="h-px bg-neutral-100 my-1" />
                             </>
+                          )}
+
+                          {/* Toggle Profile Visibility */}
+                          {onToggleProfileVisibility && !isExpiredView && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenMenuId(null);
+                                onToggleProfileVisibility(r, !isShownOnProfile);
+                              }}
+                              className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 hover:text-black hover:bg-neutral-50 rounded-xl transition text-left"
+                            >
+                              {isShownOnProfile ? (
+                                <>
+                                  <EyeOff className="w-3.5 h-3.5 text-neutral-500" />
+                                  <span>Hide from profile page</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Eye className="w-3.5 h-3.5 text-neutral-500" />
+                                  <span>Show on profile page</span>
+                                </>
+                              )}
+                            </button>
                           )}
 
                           {isExpiredView ? (

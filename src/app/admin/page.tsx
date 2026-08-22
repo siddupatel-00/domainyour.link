@@ -18,6 +18,9 @@ import {
   TrendingUp,
   Clock,
   RotateCw,
+  Copy,
+  ExternalLink,
+  Sparkles,
 } from "lucide-react";
 
 export default function AdminDashboardPage() {
@@ -26,6 +29,7 @@ export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [baseUrl, setBaseUrl] = useState("");
   const [currentUser, setCurrentUser] = useState("siddu");
+  const [profileCopied, setProfileCopied] = useState(false);
 
   // Modals state
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -104,6 +108,33 @@ export default function AdminDashboardPage() {
     }
   };
 
+  const handleCopyProfile = () => {
+    const profileUrl = `${baseUrl}/${currentUser}`;
+    navigator.clipboard.writeText(profileUrl);
+    setProfileCopied(true);
+    showToast("Profile link copied!");
+    setTimeout(() => setProfileCopied(false), 2000);
+  };
+
+  const handleToggleProfileVisibility = async (redirect: Redirect, nextVal: boolean) => {
+    try {
+      const res = await fetch(`/api/redirects/${redirect.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ showOnProfile: nextVal }),
+      });
+
+      if (res.ok) {
+        showToast(nextVal ? "Visible on profile page" : "Hidden from profile page");
+        fetchRedirects();
+      }
+    } catch (err) {
+      console.error("Toggle visibility error:", err);
+    }
+  };
+
+  const profileUrl = `${baseUrl}/${currentUser}`;
+
   return (
     <main className="min-h-screen bg-white text-neutral-900 font-sans selection:bg-black selection:text-white">
       {/* Toast Notification */}
@@ -153,6 +184,55 @@ export default function AdminDashboardPage() {
 
       {/* Main Content Area */}
       <div className="max-w-5xl mx-auto px-6 sm:px-12 py-8 sm:py-10 space-y-8">
+        {/* Your Public Profile Page Link Bar */}
+        <div className="p-4 sm:p-5 rounded-2xl border border-neutral-200 bg-neutral-50/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-black text-white flex items-center justify-center font-bold">
+              <Sparkles className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-neutral-900">Your Public Profile Link:</span>
+                <span className="font-mono text-xs text-neutral-600 font-semibold bg-white px-2 py-0.5 rounded border border-neutral-200">
+                  /{currentUser}
+                </span>
+              </div>
+              <p className="text-[11px] text-neutral-500 mt-0.5">
+                Shows all links you allow on one clean page for your bio
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleCopyProfile}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:text-black bg-white border border-neutral-200 hover:border-neutral-300 rounded-xl transition shadow-sm"
+            >
+              {profileCopied ? (
+                <>
+                  <Check className="w-3.5 h-3.5 text-black" />
+                  <span>Copied!</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3.5 h-3.5 text-neutral-500" />
+                  <span>Copy Bio Link</span>
+                </>
+              )}
+            </button>
+
+            <a
+              href={`/${currentUser}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-black hover:bg-neutral-800 rounded-xl transition shadow-sm"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              <span>View Page</span>
+            </a>
+          </div>
+        </div>
+
         {/* 3 Overview Boxes Side by Side (Clean, consistent, subtle borders) */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {/* 1. Total Links Box */}
@@ -282,6 +362,7 @@ export default function AdminDashboardPage() {
             onDelete={(r) => setDeletingRedirect(r)}
             onCreateOpen={() => setIsCreateOpen(true)}
             onCreateSublink={(r) => setSublinkParent(r)}
+            onToggleProfileVisibility={handleToggleProfileVisibility}
             isExpiredView={false}
           />
         ) : activeTab === "expired" ? (
@@ -292,6 +373,7 @@ export default function AdminDashboardPage() {
             onDelete={(r) => setDeletingRedirect(r)}
             onCreateOpen={() => setIsCreateOpen(true)}
             onCreateSublink={(r) => setSublinkParent(r)}
+            onToggleProfileVisibility={handleToggleProfileVisibility}
             isExpiredView={true}
           />
         ) : (

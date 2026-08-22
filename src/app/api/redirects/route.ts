@@ -198,6 +198,7 @@ export async function POST(request: NextRequest) {
       duration,
       expiresAt,
       parentId,
+      showOnProfile,
     } = body;
 
     const finalUsername = bodyUsername || session.username || "siddu";
@@ -242,6 +243,7 @@ export async function POST(request: NextRequest) {
     }
 
     const expirationDate = expiresAt ? new Date(expiresAt) : calculateExpiration(duration);
+    const profileVisibility = showOnProfile !== undefined ? Boolean(showOnProfile) : true;
 
     try {
       const existing = await db
@@ -275,6 +277,7 @@ export async function POST(request: NextRequest) {
           expiredClickCount: 0,
           expiresAt: expirationDate,
           parentId: parentId ? Number(parentId) : null,
+          showOnProfile: profileVisibility,
         })
         .returning();
 
@@ -301,6 +304,7 @@ export async function POST(request: NextRequest) {
         expiredClickCount: 0,
         expiresAt: expirationDate,
         parentId: parentId ? Number(parentId) : null,
+        showOnProfile: profileVisibility,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
