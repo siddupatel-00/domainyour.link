@@ -1,5 +1,5 @@
 import { CeoCommandView } from "@/components/CeoCommandView";
 
-export default function CeoPage() {
+export default function CeoAnalyticsPage() {
   return <CeoCommandView initialTab="analytics" />;
 }

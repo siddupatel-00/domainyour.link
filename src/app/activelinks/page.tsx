@@ -1,5 +1,5 @@
 import { DashboardView } from "@/components/DashboardView";
 
-export default function AdminDashboardPage() {
+export default function ActiveLinksPage() {
   return <DashboardView initialTab="links" />;
 }
