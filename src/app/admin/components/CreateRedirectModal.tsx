@@ -40,14 +40,14 @@ export function CreateRedirectModal({
   if (!isOpen) return null;
 
   const cleanWebname = sanitizeSlug(webname);
-  const previewPath = `${baseUrl}/${currentUser}/${cleanWebname || "link-name"}`;
+  const previewPath = `${baseUrl}/${currentUser}/${cleanWebname || "name"}`;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
     if (!cleanWebname) {
-      setError("Please enter a link name (e.g. linkedin)");
+      setError("Please enter a name (e.g. linkedin)");
       return;
     }
     if (!destinationUrl.trim()) {
@@ -194,7 +194,7 @@ export function CreateRedirectModal({
 
           <div>
             <label className="block text-xs font-semibold text-neutral-800 mb-1.5">
-              Link Name
+              Name
             </label>
             <input
               type="text"
