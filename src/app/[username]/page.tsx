@@ -1,38 +1,17 @@
-import { Metadata } from "next";
-import { notFound } from "next/navigation";
-import { db } from "@/lib/db";
-import { redirects } from "@/lib/db/schema";
-import { and, eq, desc } from "drizzle-orm";
-import { getLocalFallbackLinks } from "@/app/api/redirects/route";
-import { UserProfileView } from "./components/UserProfileView";
+"use client";
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+import { use, useEffect, useState } from "react";
+import { UserProfileView } from "./components/UserProfileView";
 
 interface UserProfilePageProps {
   params: Promise<{ username: string }>;
 }
 
-export async function generateMetadata({
-  params,
-}: UserProfilePageProps): Promise<Metadata> {
-  const { username } = await params;
-  const cleanUsername = username?.trim().toLowerCase() || "User";
-  return {
-    title: `@${cleanUsername} — PermanentLink`,
-    description: `All permanent and shared links for @${cleanUsername}`,
-  };
-}
+export default function UserProfilePage({ params }: UserProfilePageProps) {
+  const { username } = use(params);
+  const cleanUsername = username?.trim().toLowerCase() || "siddu";
 
-export default async function UserProfilePage({ params }: UserProfilePageProps) {
-  const { username } = await params;
-
-  if (!username) {
-    notFound();
-  }
-
-  const cleanUsername = username.trim().toLowerCase();
-  let userLinks: Array<{
+  const [links, setLinks] = useState<Array<{
     id: number;
     username: string;
     webname: string;
@@ -40,47 +19,49 @@ export default async function UserProfilePage({ params }: UserProfilePageProps) 
     expiresAt: Date | string | null;
     showOnProfile: boolean;
     clickCount: number;
-  }> = [];
+  }>>([]);
+  const [loading, setLoading] = useState(true);
 
-  try {
-    const records = await db
-      .select({
-        id: redirects.id,
-        username: redirects.username,
-        webname: redirects.webname,
-        destinationUrl: redirects.destinationUrl,
-        expiresAt: redirects.expiresAt,
-        showOnProfile: redirects.showOnProfile,
-        clickCount: redirects.clickCount,
-      })
-      .from(redirects)
-      .where(
-        and(
-          eq(redirects.username, cleanUsername),
-          eq(redirects.showOnProfile, true)
-        )
-      )
-      .orderBy(desc(redirects.createdAt));
+  useEffect(() => {
+    async function loadUserLinks() {
+      try {
+        setLoading(true);
+        const res = await fetch(`/api/profile/${cleanUsername}?t=${Date.now()}`, {
+          cache: "no-store",
+          headers: { "Cache-Control": "no-cache" },
+        });
 
-    userLinks = records;
-  } catch {
-    // Fallback store
-    const fallbackList = getLocalFallbackLinks();
-    userLinks = fallbackList.filter(
-      (l) => l.username === cleanUsername && l.showOnProfile !== false
+        if (res.ok) {
+          const data = await res.json();
+          setLinks(data.links || []);
+        } else {
+          setLinks([]);
+        }
+      } catch {
+        setLinks([]);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadUserLinks();
+  }, [cleanUsername]);
+
+  if (loading && links.length === 0) {
+    return (
+      <main className="min-h-screen bg-white text-neutral-900 font-sans flex items-center justify-center p-6">
+        <div className="text-center space-y-3">
+          <div className="w-10 h-10 border-2 border-neutral-200 border-t-black rounded-full animate-spin mx-auto" />
+          <p className="text-xs text-neutral-400 font-medium">Loading @{cleanUsername}&apos;s profile...</p>
+        </div>
+      </main>
     );
   }
-
-  // Filter out any expired links
-  const activeLinks = userLinks.filter((l) => {
-    if (!l.expiresAt) return true;
-    return new Date(l.expiresAt).getTime() > Date.now();
-  });
 
   return (
     <UserProfileView
       username={cleanUsername}
-      links={activeLinks}
+      links={links}
     />
   );
 }

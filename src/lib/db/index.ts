@@ -10,7 +10,13 @@ const connectionString = process.env.DATABASE_URL || "";
 function createDbClient() {
   if (!connectionString) {
     // Return a dummy client that fails gracefully during build time if DB is not yet set
-    const fallbackPool = new Pool({ connectionString: "postgresql://dummy:dummy@localhost:5432/dummy" });
+    const fallbackPool = new Pool({
+      connectionString: "postgresql://dummy:dummy@localhost:5432/dummy",
+      connectionTimeoutMillis: 500,
+    });
+    fallbackPool.on("error", () => {
+      // Gracefully ignore local dummy pool connection errors
+    });
     return drizzlePg(fallbackPool, { schema });
   }
 
@@ -29,7 +35,10 @@ function createDbClient() {
       connectionString,
       max: 10,
       idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 5000,
+      connectionTimeoutMillis: 1000,
+    });
+    pool.on("error", (err) => {
+      console.warn("Postgres connection pool notice (using fallback if unavailable):", err.message);
     });
     return drizzlePg(pool, { schema });
   }
