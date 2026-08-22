@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AlertTriangle, X } from "lucide-react";
 import { Redirect } from "@/lib/db/schema";
 
@@ -21,6 +21,17 @@ export function DeleteRedirectModal({
 }: DeleteRedirectModalProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Close on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isOpen) {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen || !redirect) return null;
 
@@ -47,21 +58,29 @@ export function DeleteRedirectModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-150">
-      <div className="relative w-full max-w-md rounded-3xl bg-white border border-neutral-200 p-7 shadow-2xl">
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-150 cursor-pointer"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="relative w-full max-w-md rounded-3xl bg-white border border-neutral-200 p-7 shadow-2xl cursor-default"
+      >
         <div className="flex items-center justify-between pb-4 border-b border-neutral-100">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-neutral-100 border border-neutral-200 text-neutral-900 flex items-center justify-center font-bold">
               <AlertTriangle className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-neutral-900">Delete Redirect</h2>
+              <h2 className="text-base font-bold text-neutral-900">Delete Link</h2>
               <p className="text-xs text-neutral-500">Confirm link deletion</p>
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
             className="p-1 rounded-lg text-neutral-400 hover:text-black hover:bg-neutral-100 transition"
+            title="Close"
           >
             <X className="w-5 h-5" />
           </button>
@@ -75,7 +94,7 @@ export function DeleteRedirectModal({
 
         <div className="mt-5 space-y-3.5">
           <p className="text-xs text-neutral-600 leading-relaxed">
-            Are you sure you want to delete this permanent link? Visitors will receive a 404 error.
+            Are you sure you want to delete this link? Anyone visiting it will see a link not found page.
           </p>
           <div className="p-3.5 rounded-xl bg-neutral-50 border border-neutral-200 text-xs font-mono">
             <div className="text-neutral-900 font-bold">{publicLink}</div>

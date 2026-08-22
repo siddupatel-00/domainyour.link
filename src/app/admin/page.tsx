@@ -16,7 +16,6 @@ import {
   Activity,
   AlertCircle,
   Check,
-  Globe,
 } from "lucide-react";
 
 export default function AdminDashboardPage() {
@@ -47,23 +46,23 @@ export default function AdminDashboardPage() {
       const authRes = await fetch("/api/auth");
       const authData = await authRes.json();
       if (!authData.authenticated) {
-        router.push("/admin/login");
+        router.push("/");
         return;
       }
 
       const res = await fetch("/api/redirects");
       if (res.status === 401) {
-        router.push("/admin/login");
+        router.push("/");
         return;
       }
       if (!res.ok) {
-        throw new Error("Failed to load redirects from database");
+        throw new Error("Failed to load your links");
       }
 
       const data = await res.json();
       setRedirects(data.redirects || []);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to load redirects");
+      setError(err instanceof Error ? err.message : "Failed to load links");
     } finally {
       setLoading(false);
     }
@@ -103,7 +102,7 @@ export default function AdminDashboardPage() {
                 PermanentLink
               </span>
             </a>
-            <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded border border-neutral-200 text-neutral-500 bg-neutral-50">
+            <span className="text-[10px] uppercase font-semibold px-2 py-0.5 rounded border border-neutral-200 text-neutral-500 bg-neutral-50">
               Dashboard
             </span>
           </div>
@@ -129,11 +128,11 @@ export default function AdminDashboardPage() {
 
       {/* Main Content Area */}
       <div className="max-w-6xl mx-auto px-6 sm:px-12 mt-8">
-        {/* Metric Cards */}
+        {/* Metric Cards - Simple Human Language */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
           <div className="p-5 rounded-2xl border border-neutral-200 bg-neutral-50/50 flex items-center justify-between shadow-sm">
             <div>
-              <p className="text-[11px] font-mono text-neutral-500 uppercase tracking-wider">Active Links</p>
+              <p className="text-xs text-neutral-500 font-medium">Active Links</p>
               <h4 className="text-2xl font-bold text-neutral-900 mt-1">{redirects.length}</h4>
             </div>
             <div className="w-10 h-10 rounded-xl border border-neutral-200 bg-white flex items-center justify-center text-neutral-800 shadow-sm">
@@ -143,8 +142,8 @@ export default function AdminDashboardPage() {
 
           <div className="p-5 rounded-2xl border border-neutral-200 bg-neutral-50/50 flex items-center justify-between shadow-sm">
             <div>
-              <p className="text-[11px] font-mono text-neutral-500 uppercase tracking-wider">Redirect Status</p>
-              <h4 className="text-2xl font-bold text-neutral-900 mt-1 font-mono">307 (Instant)</h4>
+              <p className="text-xs text-neutral-500 font-medium">Link Speed</p>
+              <h4 className="text-2xl font-bold text-neutral-900 mt-1">Instant</h4>
             </div>
             <div className="w-10 h-10 rounded-xl border border-neutral-200 bg-white flex items-center justify-center text-neutral-800 shadow-sm">
               <Zap className="w-5 h-5" />
@@ -153,9 +152,9 @@ export default function AdminDashboardPage() {
 
           <div className="p-5 rounded-2xl border border-neutral-200 bg-neutral-50/50 flex items-center justify-between shadow-sm">
             <div>
-              <p className="text-[11px] font-mono text-neutral-500 uppercase tracking-wider">Total Traffic</p>
-              <h4 className="text-2xl font-bold text-neutral-900 mt-1 font-mono">
-                {redirects.reduce((acc, curr) => acc + (curr.clickCount || 0), 0)} Clicks
+              <p className="text-xs text-neutral-500 font-medium">Total Clicks</p>
+              <h4 className="text-2xl font-bold text-neutral-900 mt-1">
+                {redirects.reduce((acc, curr) => acc + (curr.clickCount || 0), 0)}
               </h4>
             </div>
             <div className="w-10 h-10 rounded-xl border border-neutral-200 bg-white flex items-center justify-center text-neutral-800 shadow-sm">
@@ -168,16 +167,16 @@ export default function AdminDashboardPage() {
         <div className="flex items-center justify-between mb-4">
           <div>
             <h1 className="text-lg font-bold text-neutral-900 tracking-tight">
-              Redirect Management
+              Your Permanent Links
             </h1>
             <p className="text-xs text-neutral-500">
-              Manage permanent link namespaces and destination targets
+              Create links and update where they go anytime
             </p>
           </div>
           <button
             onClick={fetchRedirects}
             disabled={loading}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-mono text-neutral-600 hover:text-black border border-neutral-200 hover:border-neutral-400 bg-white transition shadow-sm"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs text-neutral-600 hover:text-black border border-neutral-200 hover:border-neutral-400 bg-white transition shadow-sm"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
             <span>Refresh</span>
@@ -194,9 +193,9 @@ export default function AdminDashboardPage() {
 
         {/* Table / Content */}
         {loading && redirects.length === 0 ? (
-          <div className="p-16 text-center rounded-2xl border border-neutral-200 bg-neutral-50/50 text-neutral-500 text-xs font-mono">
+          <div className="p-16 text-center rounded-2xl border border-neutral-200 bg-neutral-50/50 text-neutral-500 text-xs">
             <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-neutral-800" />
-            Loading permanent links...
+            Loading your links...
           </div>
         ) : (
           <RedirectTable
@@ -216,7 +215,7 @@ export default function AdminDashboardPage() {
         baseUrl={baseUrl}
         onCreated={() => {
           fetchRedirects();
-          showToast("Permanent link created");
+          showToast("New link created!");
         }}
       />
 
@@ -227,7 +226,7 @@ export default function AdminDashboardPage() {
         baseUrl={baseUrl}
         onUpdated={() => {
           fetchRedirects();
-          showToast("Destination updated");
+          showToast("Destination updated!");
         }}
       />
 
@@ -238,7 +237,7 @@ export default function AdminDashboardPage() {
         baseUrl={baseUrl}
         onDeleted={() => {
           fetchRedirects();
-          showToast("Redirect deleted");
+          showToast("Link deleted");
         }}
       />
     </main>
