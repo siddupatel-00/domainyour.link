@@ -88,7 +88,7 @@ export function RedirectTable({
   const getExpirationBadge = (r: Redirect) => {
     if (!r.expiresAt) {
       return (
-        <span className="text-[10px] text-neutral-400 font-sans font-normal">
+        <span className="text-[10px] text-neutral-400 dark:text-neutral-500 font-sans font-normal">
           Permanent
         </span>
       );
@@ -97,7 +97,7 @@ export function RedirectTable({
     const diff = new Date(r.expiresAt).getTime() - Date.now();
     if (diff <= 0) {
       return (
-        <span className="text-[10px] px-2 py-0.5 rounded-md bg-neutral-200 text-neutral-800 font-semibold font-sans">
+        <span className="text-[10px] px-2 py-0.5 rounded-md bg-neutral-200 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 font-semibold font-sans">
           Expired
         </span>
       );
@@ -108,7 +108,7 @@ export function RedirectTable({
 
     if (days > 0) {
       return (
-        <span className="text-[10px] px-2 py-0.5 rounded-md bg-neutral-100 text-neutral-700 font-medium font-sans">
+        <span className="text-[10px] px-2 py-0.5 rounded-md bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 font-medium font-sans">
           ⏳ {days}d left
         </span>
       );
@@ -116,7 +116,7 @@ export function RedirectTable({
 
     if (hours > 0) {
       return (
-        <span className="text-[10px] px-2 py-0.5 rounded-md bg-neutral-100 text-neutral-700 font-medium font-sans">
+        <span className="text-[10px] px-2 py-0.5 rounded-md bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 font-medium font-sans">
           ⏳ {hours}h left
         </span>
       );
@@ -124,7 +124,7 @@ export function RedirectTable({
 
     const mins = Math.max(1, Math.floor(diff / (1000 * 60)));
     return (
-      <span className="text-[10px] px-2 py-0.5 rounded-md bg-neutral-100 text-neutral-700 font-medium font-sans">
+      <span className="text-[10px] px-2 py-0.5 rounded-md bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 font-medium font-sans">
         ⏳ {mins}m left
       </span>
     );
@@ -133,14 +133,14 @@ export function RedirectTable({
   // Empty state
   if (redirects.length === 0) {
     return (
-      <div className="text-center py-24 rounded-3xl border border-neutral-100 bg-neutral-50/50">
-        <div className="w-12 h-12 mx-auto mb-3 rounded-2xl bg-white border border-neutral-200 flex items-center justify-center text-black shadow-sm">
+      <div className="text-center py-24 rounded-3xl border border-neutral-100 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/50">
+        <div className="w-12 h-12 mx-auto mb-3 rounded-2xl bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center text-black dark:text-white shadow-sm">
           <Link2 className="w-6 h-6 stroke-[2]" />
         </div>
-        <h3 className="text-base font-bold text-neutral-900">
+        <h3 className="text-base font-bold text-neutral-900 dark:text-white">
           {isExpiredView ? "No expired links" : "No links yet"}
         </h3>
-        <p className="text-xs text-neutral-500 max-w-xs mx-auto mt-1 mb-5">
+        <p className="text-xs text-neutral-500 dark:text-neutral-400 max-w-xs mx-auto mt-1 mb-5">
           {isExpiredView
             ? "When a link expires, it will appear here with click counts and expiration date."
             : "Create your first permanent link and share it anywhere."}
@@ -148,7 +148,7 @@ export function RedirectTable({
         {!isExpiredView && (
           <button
             onClick={onCreateOpen}
-            className="px-5 py-2.5 text-xs font-semibold text-white bg-black hover:bg-neutral-800 rounded-xl transition shadow-sm"
+            className="px-5 py-2.5 text-xs font-semibold text-white dark:text-black bg-black dark:bg-white hover:bg-neutral-800 dark:hover:bg-neutral-200 rounded-xl transition shadow-sm cursor-pointer"
           >
             Create First Link
           </button>
@@ -168,16 +168,16 @@ export function RedirectTable({
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Search links..."
-            className="w-full pl-10 pr-4 py-2 text-xs bg-white border border-neutral-200 rounded-xl text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-black transition"
+            className="w-full pl-10 pr-4 py-2 text-xs bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:border-black dark:focus:border-white transition"
           />
         </div>
       )}
 
       {/* Table */}
-      <div className="rounded-2xl border border-neutral-200 bg-white shadow-sm overflow-visible">
+      <div className="rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm overflow-visible">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="border-b border-neutral-100 bg-neutral-50/70 text-[11px] uppercase tracking-wider text-neutral-400 font-semibold">
+            <tr className="border-b border-neutral-100 dark:border-neutral-800 bg-neutral-50/70 dark:bg-neutral-900/80 text-[11px] uppercase tracking-wider text-neutral-400 dark:text-neutral-500 font-semibold">
               <th className="py-3.5 px-5">Your Link</th>
               {isExpiredView ? (
                 <>
@@ -195,7 +195,7 @@ export function RedirectTable({
               <th className="py-3.5 px-5 text-right w-16"></th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-neutral-100 text-xs">
+          <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800 text-xs">
             {filteredRedirects.map((r) => {
               const path = `/${r.username}/${r.webname}`;
               const isCopied = copiedId === r.id;
@@ -206,24 +206,24 @@ export function RedirectTable({
               return (
                 <tr
                   key={r.id}
-                  className="hover:bg-neutral-50/60 transition duration-150 relative"
+                  className="hover:bg-neutral-50/60 dark:hover:bg-neutral-800/40 transition duration-150 relative"
                 >
                   {/* Link */}
                   <td className="py-4 px-5 font-mono font-medium">
                     <div className="flex items-center gap-2">
                       {isSublink && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-600 font-sans font-medium flex items-center gap-1">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 font-sans font-medium flex items-center gap-1">
                           <GitFork className="w-2.5 h-2.5" /> sub-link
                         </span>
                       )}
-                      <span className="text-neutral-900 font-bold">{path}</span>
+                      <span className="text-neutral-900 dark:text-white font-bold">{path}</span>
                       <button
                         onClick={() => handleCopy(r.id, path)}
                         title="Copy link"
-                        className="p-1 rounded-lg text-neutral-400 hover:text-black hover:bg-neutral-100 transition"
+                        className="p-1 rounded-lg text-neutral-400 hover:text-black dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition cursor-pointer"
                       >
                         {isCopied ? (
-                          <Check className="w-3.5 h-3.5 text-black" />
+                          <Check className="w-3.5 h-3.5 text-black dark:text-white" />
                         ) : (
                           <Copy className="w-3.5 h-3.5" />
                         )}
@@ -235,18 +235,18 @@ export function RedirectTable({
                           title={isShownOnProfile ? "Visible on your public profile page" : "Hidden from your public profile page"}
                           className={`text-[10px] px-1.5 py-0.5 rounded-full font-sans font-medium flex items-center gap-1 ${
                             isShownOnProfile
-                              ? "bg-neutral-100 text-neutral-700"
-                              : "bg-neutral-50 text-neutral-400"
+                              ? "bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300"
+                              : "bg-neutral-50 dark:bg-neutral-900 text-neutral-400 dark:text-neutral-600"
                           }`}
                         >
                           {isShownOnProfile ? (
                             <>
-                              <Eye className="w-2.5 h-2.5 text-neutral-600" />
+                              <Eye className="w-2.5 h-2.5 text-neutral-600 dark:text-neutral-400" />
                               <span>in bio</span>
                             </>
                           ) : (
                             <>
-                              <EyeOff className="w-2.5 h-2.5 text-neutral-400" />
+                              <EyeOff className="w-2.5 h-2.5 text-neutral-400 dark:text-neutral-600" />
                               <span>hidden</span>
                             </>
                           )}
@@ -260,7 +260,7 @@ export function RedirectTable({
                     <>
                       {/* When Expired */}
                       <td className="py-4 px-5">
-                        <div className="flex items-center gap-1.5 text-neutral-800 text-xs font-medium">
+                        <div className="flex items-center gap-1.5 text-neutral-800 dark:text-neutral-200 text-xs font-medium">
                           <Clock className="w-3.5 h-3.5 text-neutral-400 flex-shrink-0" />
                           <span>{formatExpiredDate(r.expiresAt)}</span>
                         </div>
@@ -268,7 +268,7 @@ export function RedirectTable({
 
                       {/* Destination */}
                       <td className="py-4 px-5 max-w-xs truncate">
-                        <div className="flex items-center gap-1.5 text-neutral-500">
+                        <div className="flex items-center gap-1.5 text-neutral-500 dark:text-neutral-400">
                           <ArrowRight className="w-3 h-3 text-neutral-400 flex-shrink-0" />
                           <span className="truncate font-mono text-[11px]">{r.destinationUrl}</span>
                         </div>
@@ -276,8 +276,8 @@ export function RedirectTable({
 
                       {/* Clicks After Expiry */}
                       <td className="py-4 px-5 text-center font-mono">
-                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-neutral-100 border border-neutral-200 text-neutral-900 text-xs font-bold shadow-sm">
-                          <MousePointerClick className="w-3.5 h-3.5 text-black" />
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-white text-xs font-bold shadow-sm">
+                          <MousePointerClick className="w-3.5 h-3.5 text-black dark:text-white" />
                           <span>{r.expiredClickCount || 0} clicked after expiry</span>
                         </div>
                       </td>
@@ -291,13 +291,13 @@ export function RedirectTable({
 
                       {/* Destination */}
                       <td className="py-4 px-5 max-w-xs md:max-w-md">
-                        <div className="flex items-center gap-1.5 text-neutral-600">
+                        <div className="flex items-center gap-1.5 text-neutral-600 dark:text-neutral-400">
                           <ArrowRight className="w-3 h-3 text-neutral-400 flex-shrink-0" />
                           <a
                             href={r.destinationUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="truncate text-neutral-600 hover:text-black transition text-xs font-mono"
+                            className="truncate text-neutral-600 dark:text-neutral-300 hover:text-black dark:hover:text-white transition text-xs font-mono"
                             title={r.destinationUrl}
                           >
                             {r.destinationUrl}
@@ -306,7 +306,7 @@ export function RedirectTable({
                       </td>
 
                       {/* Clicks */}
-                      <td className="py-4 px-5 text-center font-mono font-semibold text-neutral-900">
+                      <td className="py-4 px-5 text-center font-mono font-semibold text-neutral-900 dark:text-white">
                         {r.clickCount || 0}
                       </td>
                     </>
@@ -321,7 +321,7 @@ export function RedirectTable({
                           e.stopPropagation();
                           setOpenMenuId(isMenuOpen ? null : r.id);
                         }}
-                        className="p-1.5 rounded-lg text-neutral-400 hover:text-black hover:bg-neutral-100 transition"
+                        className="p-1.5 rounded-lg text-neutral-400 hover:text-black dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition cursor-pointer"
                         title="More options"
                       >
                         <MoreVertical className="w-4 h-4" />
@@ -329,7 +329,7 @@ export function RedirectTable({
 
                       {/* 3-Dots Dropdown Menu */}
                       {isMenuOpen && (
-                        <div className="absolute right-4 top-12 z-50 w-52 rounded-2xl bg-white border border-neutral-200 p-1.5 shadow-xl animate-in fade-in zoom-in-95 duration-150 text-left">
+                        <div className="absolute right-4 top-12 z-50 w-52 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-1.5 shadow-xl animate-in fade-in zoom-in-95 duration-150 text-left">
                           {/* Add Sublink option */}
                           {onCreateSublink && !isExpiredView && (
                             <>
@@ -339,12 +339,12 @@ export function RedirectTable({
                                   setOpenMenuId(null);
                                   onCreateSublink(r);
                                 }}
-                                className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-black hover:bg-neutral-50 rounded-xl transition text-left"
+                                className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-black dark:text-white hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl transition text-left cursor-pointer"
                               >
-                                <GitFork className="w-3.5 h-3.5 text-black" />
+                                <GitFork className="w-3.5 h-3.5 text-black dark:text-white" />
                                 <span>Add Sub-link</span>
                               </button>
-                              <div className="h-px bg-neutral-100 my-1" />
+                              <div className="h-px bg-neutral-100 dark:bg-neutral-800 my-1" />
                             </>
                           )}
 
@@ -356,7 +356,7 @@ export function RedirectTable({
                                 setOpenMenuId(null);
                                 onToggleProfileVisibility(r, !isShownOnProfile);
                               }}
-                              className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 hover:text-black hover:bg-neutral-50 rounded-xl transition text-left"
+                              className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:text-black dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl transition text-left cursor-pointer"
                             >
                               {isShownOnProfile ? (
                                 <>
@@ -380,7 +380,7 @@ export function RedirectTable({
                                 setOpenMenuId(null);
                                 onExpireLink(r);
                               }}
-                              className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 hover:text-black hover:bg-neutral-50 rounded-xl transition text-left"
+                              className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:text-black dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl transition text-left cursor-pointer"
                             >
                               <TimerOff className="w-3.5 h-3.5 text-neutral-500" />
                               <span>Expire link now</span>
@@ -394,7 +394,7 @@ export function RedirectTable({
                                 setOpenMenuId(null);
                                 onEdit(r);
                               }}
-                              className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 hover:text-black hover:bg-neutral-50 rounded-xl transition text-left"
+                              className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:text-black dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl transition text-left cursor-pointer"
                             >
                               <RotateCcw className="w-3.5 h-3.5 text-neutral-500" />
                               <span>Reactivate link</span>
@@ -406,7 +406,7 @@ export function RedirectTable({
                                 setOpenMenuId(null);
                                 onEdit(r);
                               }}
-                              className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 hover:text-black hover:bg-neutral-50 rounded-xl transition text-left"
+                              className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:text-black dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl transition text-left cursor-pointer"
                             >
                               <Edit2 className="w-3.5 h-3.5 text-neutral-500" />
                               <span>Edit destination</span>
@@ -416,7 +416,7 @@ export function RedirectTable({
                           <button
                             type="button"
                             onClick={() => handleCopy(r.id, path)}
-                            className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 hover:text-black hover:bg-neutral-50 rounded-xl transition text-left"
+                            className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:text-black dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl transition text-left cursor-pointer"
                           >
                             <Copy className="w-3.5 h-3.5 text-neutral-500" />
                             <span>Copy link</span>
@@ -427,13 +427,13 @@ export function RedirectTable({
                             target="_blank"
                             rel="noopener noreferrer"
                             onClick={() => setOpenMenuId(null)}
-                            className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 hover:text-black hover:bg-neutral-50 rounded-xl transition text-left"
+                            className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:text-black dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl transition text-left"
                           >
                             <ExternalLink className="w-3.5 h-3.5 text-neutral-500" />
                             <span>Open link</span>
                           </a>
 
-                          <div className="h-px bg-neutral-100 my-1" />
+                          <div className="h-px bg-neutral-100 dark:bg-neutral-800 my-1" />
 
                           <button
                             type="button"
@@ -441,7 +441,7 @@ export function RedirectTable({
                               setOpenMenuId(null);
                               onDelete(r);
                             }}
-                            className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 hover:text-black hover:bg-neutral-50 rounded-xl transition text-left"
+                            className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:text-black dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl transition text-left cursor-pointer"
                           >
                             <Trash2 className="w-3.5 h-3.5 text-neutral-500" />
                             <span>Delete link</span>

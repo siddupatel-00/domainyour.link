@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, GitFork, AlertCircle, CornerDownRight, Clock, ShieldCheck, Calendar } from "lucide-react";
-import { sanitizeSlug } from "@/lib/utils";
 import { Redirect } from "@/lib/db/schema";
+import { X, GitFork, AlertCircle, ArrowRight, Clock, ShieldCheck, Calendar } from "lucide-react";
+import { sanitizeSlug, isValidUrl } from "@/lib/utils";
 
 interface CreateSublinkModalProps {
   parentRedirect: Redirect | null;
@@ -11,7 +11,7 @@ interface CreateSublinkModalProps {
   onClose: () => void;
   onCreated: () => void;
   baseUrl: string;
-  currentUser?: string;
+  currentUser: string;
 }
 
 export function CreateSublinkModal({
@@ -20,9 +20,9 @@ export function CreateSublinkModal({
   onClose,
   onCreated,
   baseUrl,
-  currentUser = "siddu",
+  currentUser,
 }: CreateSublinkModalProps) {
-  const [webname, setWebname] = useState("");
+  const [subWebname, setSubWebname] = useState("");
   const [destinationUrl, setDestinationUrl] = useState("");
   const [linkType, setLinkType] = useState<"permanent" | "temporary">("permanent");
   const [duration, setDuration] = useState<string>("24h");
@@ -32,69 +32,65 @@ export function CreateSublinkModal({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (parentRedirect) {
-      setDestinationUrl(parentRedirect.destinationUrl);
-      setWebname("");
+    if (isOpen) {
+      setSubWebname("");
+      setDestinationUrl("");
       setLinkType("permanent");
       setDuration("24h");
       setError(null);
     }
-  }, [parentRedirect]);
+  }, [isOpen]);
 
-  // Close on Escape key press
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && isOpen) {
-        onClose();
-      }
+      if (e.key === "Escape" && isOpen) onClose();
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, onClose]);
 
-  // Set default custom date to tomorrow
   useEffect(() => {
     if (!customDate) {
       const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
-      const isoDate = tomorrow.toISOString().slice(0, 10);
-      setCustomDate(isoDate);
+      setCustomDate(tomorrow.toISOString().slice(0, 10));
     }
   }, [customDate]);
 
   if (!isOpen || !parentRedirect) return null;
 
-  const cleanWebname = sanitizeSlug(webname);
-  const previewPath = `${baseUrl}/${currentUser}/${cleanWebname || "name"}`;
-
-  // Get formatted preview text for expiration
-  const getExpirationPreview = () => {
-    if (linkType === "permanent") return "♾️ Permanent";
-    if (duration === "custom") {
-      if (!customDate) return "⏳ Custom date";
-      const combined = new Date(`${customDate}T${customTime || "00:00"}`);
-      if (isNaN(combined.getTime())) return "⏳ Custom date";
-      return `⏳ Expires ${combined.toLocaleDateString([], { month: "short", day: "numeric" })} at ${combined.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
-    }
-    return `⏳ Expires in ${duration}`;
-  };
+  const cleanSubWebname = sanitizeSlug(subWebname);
+  const fullWebname = `${parentRedirect.webname}/${cleanSubWebname}`;
+  const previewPath = `${baseUrl}/${currentUser}/${fullWebname || `${parentRedirect.webname}/sub`}`;
+  const minDate = new Date().toISOString().slice(0, 10);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    if (!cleanWebname) {
-      setError("Please enter a name for your sub-link");
+    if (!cleanSubWebname) {
+      setError("Please enter a sub-link name (e.g. docs, post1, promo)");
       return;
     }
+
     if (!destinationUrl.trim()) {
-      setError("Destination website URL is required");
+      setError("Please enter a destination URL");
+      return;
+    }
+
+    let finalUrl = destinationUrl.trim();
+    if (!finalUrl.startsWith("http://") && !finalUrl.startsWith("https://")) {
+      finalUrl = `https://${finalUrl}`;
+    }
+
+    if (!isValidUrl(finalUrl)) {
+      setError("Please enter a valid destination URL (e.g. https://...)");
       return;
     }
 
     let customTimestamp: Date | null = null;
     if (linkType === "temporary" && duration === "custom") {
       if (!customDate || !customTime) {
-        setError("Please enter both the expiration date and time");
+        setError("Please enter both expiration date and time");
         return;
       }
       customTimestamp = new Date(`${customDate}T${customTime}`);
@@ -107,14 +103,16 @@ export function CreateSublinkModal({
     setLoading(true);
     try {
       const payload: {
+        username: string;
         webname: string;
         destinationUrl: string;
+        parentId: number;
         duration?: string;
         expiresAt?: string;
-        parentId: number;
       } = {
-        webname: cleanWebname,
-        destinationUrl: destinationUrl.trim(),
+        username: currentUser,
+        webname: fullWebname,
+        destinationUrl: finalUrl,
         parentId: parentRedirect.id,
       };
 
@@ -148,35 +146,31 @@ export function CreateSublinkModal({
     }
   };
 
-  const minDate = new Date().toISOString().slice(0, 10);
-
   return (
     <div
       onClick={onClose}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-150 cursor-pointer"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 dark:bg-black/70 backdrop-blur-sm animate-in fade-in duration-150 cursor-pointer overflow-y-auto"
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-lg rounded-3xl bg-white border border-neutral-200 p-7 sm:p-8 shadow-2xl cursor-default font-sans"
+        className="relative w-full max-w-lg rounded-3xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-7 sm:p-8 shadow-2xl cursor-default font-sans my-8"
       >
-        <div className="flex items-center justify-between pb-4 border-b border-neutral-100">
+        <div className="flex items-center justify-between pb-4 border-b border-neutral-100 dark:border-neutral-800">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-black text-white flex items-center justify-center font-bold">
-              <GitFork className="w-4 h-4 stroke-[2.2]" />
+            <div className="w-9 h-9 rounded-xl bg-black dark:bg-white text-white dark:text-black flex items-center justify-center font-bold">
+              <GitFork className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-neutral-900">
-                Add Sub-link for /{parentRedirect.webname}
-              </h2>
-              <p className="text-xs text-neutral-500">
-                Create a permanent or temporary sub-link pointing to the same destination
+              <h2 className="text-base font-bold text-neutral-900 dark:text-white">Add Sub-link</h2>
+              <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                Under /{currentUser}/{parentRedirect.webname}
               </p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-1 rounded-lg text-neutral-400 hover:text-black hover:bg-neutral-100 transition"
+            className="p-1 rounded-lg text-neutral-400 hover:text-black dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition cursor-pointer"
             title="Close"
           >
             <X className="w-5 h-5" />
@@ -184,73 +178,89 @@ export function CreateSublinkModal({
         </div>
 
         {error && (
-          <div className="mt-4 p-3.5 rounded-xl border border-neutral-200 bg-neutral-50 text-neutral-800 text-xs flex items-center gap-2.5">
-            <AlertCircle className="w-4 h-4 flex-shrink-0 text-neutral-700" />
+          <div className="mt-4 p-3.5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/60 text-neutral-800 dark:text-neutral-200 text-xs flex items-center gap-2.5">
+            <AlertCircle className="w-4 h-4 flex-shrink-0 text-neutral-700 dark:text-neutral-300" />
             <span>{error}</span>
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="mt-5 space-y-4">
-          {/* Sub-link Name */}
           <div>
-            <label className="block text-xs font-semibold text-neutral-800 mb-1.5">
-              Name
+            <label className="block text-xs font-semibold text-neutral-800 dark:text-neutral-200 mb-1.5">
+              Sub-link Path Name
+            </label>
+            <div className="flex items-center rounded-xl border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-950 px-3.5 py-2.5 focus-within:border-black dark:focus-within:border-white focus-within:ring-1 focus-within:ring-black dark:focus-within:ring-white transition">
+              <span className="text-xs text-neutral-400 font-mono select-none">
+                /{currentUser}/{parentRedirect.webname}/
+              </span>
+              <input
+                type="text"
+                value={subWebname}
+                onChange={(e) => setSubWebname(e.target.value)}
+                placeholder="docs, post1, promo"
+                autoFocus
+                required
+                className="w-full text-xs bg-transparent text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-600 focus:outline-none ml-1 font-mono font-medium"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-neutral-800 dark:text-neutral-200 mb-1.5">
+              Where Should It Go? (Destination URL)
             </label>
             <input
               type="text"
-              value={webname}
-              onChange={(e) => setWebname(e.target.value)}
-              placeholder="e.g. reddit, x, insta, share24hr"
-              autoFocus
+              value={destinationUrl}
+              onChange={(e) => setDestinationUrl(e.target.value)}
+              placeholder="https://..."
               required
-              className="w-full px-3.5 py-2.5 text-xs bg-white border border-neutral-300 rounded-xl text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-black focus:ring-1 focus:ring-black"
+              className="w-full px-3.5 py-2.5 text-xs bg-white dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 rounded-xl text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-600 focus:outline-none focus:border-black dark:focus:border-white focus:ring-1 focus:ring-black dark:focus:ring-white transition font-mono font-medium"
             />
           </div>
 
-          {/* Link Type Selector: Permanent vs Temporary */}
           <div>
-            <label className="block text-xs font-semibold text-neutral-800 mb-1.5">
-              Expiration
+            <label className="block text-xs font-semibold text-neutral-800 dark:text-neutral-200 mb-1.5">
+              Expiration Mode
             </label>
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={() => setLinkType("permanent")}
-                className={`p-3 rounded-xl border text-left transition flex items-center gap-2.5 ${
+                className={`p-3 rounded-xl border text-left transition flex items-center gap-2.5 cursor-pointer ${
                   linkType === "permanent"
-                    ? "border-black bg-neutral-50/80 ring-1 ring-black"
-                    : "border-neutral-200 hover:border-neutral-300 bg-white"
+                    ? "border-black dark:border-white bg-neutral-50/80 dark:bg-neutral-800 ring-1 ring-black dark:ring-white"
+                    : "border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-700 bg-white dark:bg-neutral-950"
                 }`}
               >
-                <ShieldCheck className="w-4 h-4 text-black flex-shrink-0" />
+                <ShieldCheck className="w-4 h-4 text-black dark:text-white flex-shrink-0" />
                 <div>
-                  <div className="text-xs font-bold text-neutral-900">Permanent</div>
-                  <div className="text-[10px] text-neutral-500">Never expires</div>
+                  <div className="text-xs font-bold text-neutral-900 dark:text-white">Permanent</div>
+                  <div className="text-[10px] text-neutral-500 dark:text-neutral-400">Never expires</div>
                 </div>
               </button>
 
               <button
                 type="button"
                 onClick={() => setLinkType("temporary")}
-                className={`p-3 rounded-xl border text-left transition flex items-center gap-2.5 ${
+                className={`p-3 rounded-xl border text-left transition flex items-center gap-2.5 cursor-pointer ${
                   linkType === "temporary"
-                    ? "border-black bg-neutral-50/80 ring-1 ring-black"
-                    : "border-neutral-200 hover:border-neutral-300 bg-white"
+                    ? "border-black dark:border-white bg-neutral-50/80 dark:bg-neutral-800 ring-1 ring-black dark:ring-white"
+                    : "border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-700 bg-white dark:bg-neutral-950"
                 }`}
               >
-                <Clock className="w-4 h-4 text-black flex-shrink-0" />
+                <Clock className="w-4 h-4 text-black dark:text-white flex-shrink-0" />
                 <div>
-                  <div className="text-xs font-bold text-neutral-900">Temporary</div>
-                  <div className="text-[10px] text-neutral-500">Expires after time</div>
+                  <div className="text-xs font-bold text-neutral-900 dark:text-white">Temporary</div>
+                  <div className="text-[10px] text-neutral-500 dark:text-neutral-400">Expires after time</div>
                 </div>
               </button>
             </div>
           </div>
 
-          {/* Temporary Duration Selector with Custom Button */}
           {linkType === "temporary" && (
-            <div className="p-3.5 rounded-2xl bg-neutral-50 border border-neutral-200 space-y-3">
-              <label className="block text-xs font-semibold text-neutral-800">
+            <div className="p-3.5 rounded-2xl bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200 dark:border-neutral-700 space-y-3">
+              <label className="block text-xs font-semibold text-neutral-800 dark:text-neutral-200">
                 Expires after:
               </label>
               <div className="grid grid-cols-5 gap-1.5">
@@ -265,10 +275,10 @@ export function CreateSublinkModal({
                     key={d.val}
                     type="button"
                     onClick={() => setDuration(d.val)}
-                    className={`py-2 px-1 text-center rounded-xl text-xs font-semibold border transition ${
+                    className={`py-2 px-1 text-center rounded-xl text-xs font-semibold border transition cursor-pointer ${
                       duration === d.val
-                        ? "bg-black text-white border-black shadow-sm"
-                        : "bg-white text-neutral-700 border-neutral-200 hover:border-neutral-400"
+                        ? "bg-black dark:bg-white text-white dark:text-black border-black dark:border-white shadow-sm"
+                        : "bg-white dark:bg-neutral-900 text-neutral-700 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700 hover:border-neutral-400"
                     }`}
                   >
                     {d.label}
@@ -276,17 +286,15 @@ export function CreateSublinkModal({
                 ))}
               </div>
 
-              {/* Step 1: Date, Step 2: Time Side-by-Side */}
               {duration === "custom" && (
-                <div className="pt-2.5 border-t border-neutral-200/80 space-y-2">
-                  <span className="block text-[11px] font-semibold text-neutral-600">
+                <div className="pt-2.5 border-t border-neutral-200/80 dark:border-neutral-700 space-y-2">
+                  <span className="block text-[11px] font-semibold text-neutral-600 dark:text-neutral-300">
                     Set Expiration Date & Time:
                   </span>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                    {/* 1. Date */}
                     <div>
-                      <label className="block text-[10px] font-semibold text-neutral-500 uppercase tracking-wider mb-1 flex items-center gap-1">
-                        <Calendar className="w-3 h-3 text-neutral-700" />
+                      <label className="block text-[10px] font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider mb-1 flex items-center gap-1">
+                        <Calendar className="w-3 h-3 text-neutral-700 dark:text-neutral-300" />
                         1. Select Date
                       </label>
                       <input
@@ -295,14 +303,13 @@ export function CreateSublinkModal({
                         value={customDate}
                         onChange={(e) => setCustomDate(e.target.value)}
                         required={duration === "custom"}
-                        className="w-full px-3 py-2 text-xs font-medium bg-white border border-neutral-300 rounded-xl text-neutral-900 focus:outline-none focus:border-black focus:ring-1 focus:ring-black shadow-sm"
+                        className="w-full px-3 py-2 text-xs font-medium bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-700 rounded-xl text-neutral-900 dark:text-white focus:outline-none focus:border-black dark:focus:border-white shadow-sm"
                       />
                     </div>
 
-                    {/* 2. Time */}
                     <div>
-                      <label className="block text-[10px] font-semibold text-neutral-500 uppercase tracking-wider mb-1 flex items-center gap-1">
-                        <Clock className="w-3 h-3 text-neutral-700" />
+                      <label className="block text-[10px] font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider mb-1 flex items-center gap-1">
+                        <Clock className="w-3 h-3 text-neutral-700 dark:text-neutral-300" />
                         2. Select Time
                       </label>
                       <input
@@ -310,7 +317,7 @@ export function CreateSublinkModal({
                         value={customTime}
                         onChange={(e) => setCustomTime(e.target.value)}
                         required={duration === "custom"}
-                        className="w-full px-3 py-2 text-xs font-medium bg-white border border-neutral-300 rounded-xl text-neutral-900 focus:outline-none focus:border-black focus:ring-1 focus:ring-black shadow-sm"
+                        className="w-full px-3 py-2 text-xs font-medium bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-700 rounded-xl text-neutral-900 dark:text-white focus:outline-none focus:border-black dark:focus:border-white shadow-sm"
                       />
                     </div>
                   </div>
@@ -319,54 +326,28 @@ export function CreateSublinkModal({
             </div>
           )}
 
-          {/* Destination URL */}
-          <div>
-            <label className="block text-xs font-semibold text-neutral-800 mb-1.5">
-              Destination URL
-            </label>
-            <input
-              type="text"
-              value={destinationUrl}
-              onChange={(e) => setDestinationUrl(e.target.value)}
-              placeholder="https://linkedin.com/in/yourprofile"
-              required
-              className="w-full px-3.5 py-2.5 text-xs bg-white border border-neutral-300 rounded-xl text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-black focus:ring-1 focus:ring-black font-mono"
-            />
+          <div className="p-3.5 rounded-xl bg-neutral-50 dark:bg-neutral-800/50 border border-neutral-200 dark:border-neutral-800 text-xs">
+            <span className="text-[10px] text-neutral-500 dark:text-neutral-400 uppercase tracking-wider font-semibold block mb-1">
+              Your Shareable Sub-link
+            </span>
+            <div className="font-mono font-bold text-neutral-900 dark:text-white truncate">{previewPath}</div>
           </div>
 
-          {/* Live Preview */}
-          <div className="p-4 rounded-xl bg-neutral-50 border border-neutral-200 text-xs">
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-[10px] text-neutral-500 uppercase tracking-wider font-semibold">
-                Live Sub-link Preview
-              </span>
-              <span className="text-[10px] font-mono text-neutral-600 font-medium">
-                {getExpirationPreview()}
-              </span>
-            </div>
-            <div className="text-neutral-900 font-semibold font-mono truncate">{previewPath}</div>
-            <div className="flex items-center gap-1.5 text-neutral-600 mt-1 truncate">
-              <CornerDownRight className="w-3.5 h-3.5 text-neutral-400 flex-shrink-0" />
-              <span className="truncate">{destinationUrl.trim() || "(destination website)"}</span>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-end gap-2 pt-4 border-t border-neutral-100">
+          <div className="flex items-center justify-end gap-2 pt-4 border-t border-neutral-100 dark:border-neutral-800">
             <button
               type="button"
               onClick={onClose}
               disabled={loading}
-              className="px-4 py-2 text-xs font-medium text-neutral-600 hover:text-black border border-neutral-200 rounded-xl hover:bg-neutral-50 transition"
+              className="px-4 py-2 text-xs font-medium text-neutral-600 dark:text-neutral-400 hover:text-black dark:hover:text-white border border-neutral-200 dark:border-neutral-800 rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800 transition cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="px-5 py-2 text-xs font-semibold text-white bg-black hover:bg-neutral-800 rounded-xl transition disabled:opacity-50 shadow-sm flex items-center gap-1.5"
+              className="px-5 py-2 text-xs font-semibold text-white dark:text-black bg-black dark:bg-white hover:bg-neutral-800 dark:hover:bg-neutral-200 rounded-xl transition disabled:opacity-50 shadow-sm cursor-pointer"
             >
-              <GitFork className="w-3.5 h-3.5" />
-              <span>{loading ? "Creating..." : "Create Sub-link"}</span>
+              {loading ? "Creating..." : "Create Sub-link"}
             </button>
           </div>
         </form>

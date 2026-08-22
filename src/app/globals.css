@@ -7,12 +7,18 @@
   --foreground: #0a0a0a;
 }
 
+.dark {
+  --background: #0a0a0a;
+  --foreground: #ffffff;
+}
+
 body {
-  color: #0a0a0a;
-  background: #ffffff;
+  color: var(--foreground);
+  background: var(--background);
   min-height: 100vh;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   letter-spacing: -0.015em;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 /* Crisp clean scrollbar */
@@ -21,17 +27,27 @@ body {
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #ffffff;
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
   background: #e5e7eb;
   border-radius: 3px;
 }
+.dark ::-webkit-scrollbar-thumb {
+  background: #262626;
+}
 ::-webkit-scrollbar-thumb:hover {
   background: #d1d5db;
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #404040;
 }
 
 ::selection {
   background: #000000;
   color: #ffffff;
+}
+.dark ::selection {
+  background: #ffffff;
+  color: #000000;
 }

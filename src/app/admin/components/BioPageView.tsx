@@ -95,7 +95,7 @@ export function BioPageView({
   const getExpirationBadge = (expiresAt?: Date | string | null) => {
     if (!expiresAt) {
       return (
-        <span className="text-[10px] text-neutral-400 font-sans font-normal">
+        <span className="text-[10px] text-neutral-400 dark:text-neutral-500 font-sans font-normal">
           Permanent
         </span>
       );
@@ -104,7 +104,7 @@ export function BioPageView({
     const diff = new Date(expiresAt).getTime() - Date.now();
     if (diff <= 0) {
       return (
-        <span className="text-[10px] px-2 py-0.5 rounded-md bg-neutral-200 text-neutral-800 font-semibold font-sans">
+        <span className="text-[10px] px-2 py-0.5 rounded-md bg-neutral-200 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 font-semibold font-sans">
           Expired
         </span>
       );
@@ -115,7 +115,7 @@ export function BioPageView({
 
     if (days > 0) {
       return (
-        <span className="text-[10px] px-2 py-0.5 rounded-md bg-neutral-100 text-neutral-700 font-medium font-sans">
+        <span className="text-[10px] px-2 py-0.5 rounded-md bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 font-medium font-sans">
           ⏳ {days}d left
         </span>
       );
@@ -123,7 +123,7 @@ export function BioPageView({
 
     if (hours > 0) {
       return (
-        <span className="text-[10px] px-2 py-0.5 rounded-md bg-neutral-100 text-neutral-700 font-medium font-sans">
+        <span className="text-[10px] px-2 py-0.5 rounded-md bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 font-medium font-sans">
           ⏳ {hours}h left
         </span>
       );
@@ -131,7 +131,7 @@ export function BioPageView({
 
     const mins = Math.max(1, Math.floor(diff / (1000 * 60)));
     return (
-      <span className="text-[10px] px-2 py-0.5 rounded-md bg-neutral-100 text-neutral-700 font-medium font-sans">
+      <span className="text-[10px] px-2 py-0.5 rounded-md bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 font-medium font-sans">
         ⏳ {mins}m left
       </span>
     );
@@ -144,14 +144,14 @@ export function BioPageView({
   return (
     <div className="space-y-6 font-sans animate-in fade-in duration-200">
       {/* Top Banner with Create Bio Button */}
-      <div className="p-6 rounded-3xl border border-neutral-200 bg-neutral-50 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+      <div className="p-6 rounded-3xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900/60 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
         <div className="flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-2xl bg-black text-white flex items-center justify-center font-bold text-lg shadow-md flex-shrink-0">
+          <div className="w-12 h-12 rounded-2xl bg-black dark:bg-white text-white dark:text-black flex items-center justify-center font-bold text-lg shadow-md flex-shrink-0">
             <Sparkles className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="text-base font-bold text-neutral-900">Bio Pages & Sub-Bios</h3>
-            <p className="text-xs text-neutral-500 mt-0.5">
+            <h3 className="text-base font-bold text-neutral-900 dark:text-white">Bio Pages & Sub-Bios</h3>
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
               Create multiple permanent or temporary bio pages with customized link selections
             </p>
           </div>
@@ -159,7 +159,7 @@ export function BioPageView({
 
         <button
           onClick={() => setIsCreateOpen(true)}
-          className="flex items-center justify-center gap-1.5 px-4 py-2.5 text-xs font-semibold text-white bg-black hover:bg-neutral-800 rounded-xl transition shadow-sm"
+          className="flex items-center justify-center gap-1.5 px-4 py-2.5 text-xs font-semibold text-white dark:text-black bg-black dark:bg-white hover:bg-neutral-800 dark:hover:bg-neutral-200 rounded-xl transition shadow-sm cursor-pointer"
         >
           <Plus className="w-4 h-4" />
           <span>Create New Bio</span>
@@ -167,46 +167,46 @@ export function BioPageView({
       </div>
 
       {/* Bios Table */}
-      <div className="rounded-3xl border border-neutral-200 bg-white shadow-sm overflow-visible">
+      <div className="rounded-3xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm overflow-visible">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="border-b border-neutral-100 bg-neutral-50/70 text-[11px] uppercase tracking-wider text-neutral-400 font-semibold">
+            <tr className="border-b border-neutral-100 dark:border-neutral-800 bg-neutral-50/70 dark:bg-neutral-900/80 text-[11px] uppercase tracking-wider text-neutral-400 dark:text-neutral-500 font-semibold">
               <th className="py-3.5 px-5">Bio Page</th>
               <th className="py-3.5 px-5">Type / Expiry</th>
               <th className="py-3.5 px-5">Included Links</th>
               <th className="py-3.5 px-5 text-right w-16"></th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-neutral-100 text-xs">
+          <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800 text-xs">
             {/* Default Main Bio Row */}
-            <tr className="hover:bg-neutral-50/60 transition duration-150 relative">
+            <tr className="hover:bg-neutral-50/60 dark:hover:bg-neutral-800/40 transition duration-150 relative">
               <td className="py-4 px-5">
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-black text-white font-sans font-semibold">
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-black dark:bg-white text-white dark:text-black font-sans font-semibold">
                     Main Bio
                   </span>
-                  <span className="font-mono font-bold text-neutral-900">/{currentUser}</span>
+                  <span className="font-mono font-bold text-neutral-900 dark:text-white">/{currentUser}</span>
                   <button
                     onClick={() => handleCopy("main", `/${currentUser}`)}
                     title="Copy link"
-                    className="p-1 rounded-lg text-neutral-400 hover:text-black hover:bg-neutral-100 transition"
+                    className="p-1 rounded-lg text-neutral-400 hover:text-black dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition cursor-pointer"
                   >
                     {copiedId === "main" ? (
-                      <Check className="w-3.5 h-3.5 text-black" />
+                      <Check className="w-3.5 h-3.5 text-black dark:text-white" />
                     ) : (
                       <Copy className="w-3.5 h-3.5" />
                     )}
                   </button>
                 </div>
-                <p className="text-[11px] text-neutral-500 mt-0.5">Your main profile page</p>
+                <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5">Your main profile page</p>
               </td>
 
               <td className="py-4 px-5">
-                <span className="text-[10px] text-neutral-400 font-sans font-normal">Permanent</span>
+                <span className="text-[10px] text-neutral-400 dark:text-neutral-500 font-sans font-normal">Permanent</span>
               </td>
 
               <td className="py-4 px-5">
-                <span className="font-mono text-neutral-700 font-medium">
+                <span className="font-mono text-neutral-700 dark:text-neutral-300 font-medium">
                   {mainBioVisibleLinksCount} links selected
                 </span>
               </td>
@@ -220,21 +220,21 @@ export function BioPageView({
                       e.stopPropagation();
                       setOpenMenuId(openMenuId === "main" ? null : "main");
                     }}
-                    className="p-1.5 rounded-lg text-neutral-400 hover:text-black hover:bg-neutral-100 transition"
+                    className="p-1.5 rounded-lg text-neutral-400 hover:text-black dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition cursor-pointer"
                     title="More options"
                   >
                     <MoreVertical className="w-4 h-4" />
                   </button>
 
                   {openMenuId === "main" && (
-                    <div className="absolute right-4 top-12 z-50 w-48 rounded-2xl bg-white border border-neutral-200 p-1.5 shadow-xl animate-in fade-in zoom-in-95 duration-150 text-left">
+                    <div className="absolute right-4 top-12 z-50 w-48 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-1.5 shadow-xl animate-in fade-in zoom-in-95 duration-150 text-left">
                       <button
                         type="button"
                         onClick={() => {
                           setOpenMenuId(null);
                           setIsEditMainOpen(true);
                         }}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 hover:text-black hover:bg-neutral-50 rounded-xl transition text-left"
+                        className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:text-black dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl transition text-left cursor-pointer"
                       >
                         <Edit2 className="w-3.5 h-3.5 text-neutral-500" />
                         <span>Edit links to show</span>
@@ -243,7 +243,7 @@ export function BioPageView({
                       <button
                         type="button"
                         onClick={() => handleCopy("main", `/${currentUser}`)}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 hover:text-black hover:bg-neutral-50 rounded-xl transition text-left"
+                        className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:text-black dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl transition text-left cursor-pointer"
                       >
                         <Copy className="w-3.5 h-3.5 text-neutral-500" />
                         <span>Copy bio link</span>
@@ -254,7 +254,7 @@ export function BioPageView({
                         target="_blank"
                         rel="noopener noreferrer"
                         onClick={() => setOpenMenuId(null)}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 hover:text-black hover:bg-neutral-50 rounded-xl transition text-left"
+                        className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:text-black dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl transition text-left"
                       >
                         <ExternalLink className="w-3.5 h-3.5 text-neutral-500" />
                         <span>Open page</span>
@@ -280,28 +280,28 @@ export function BioPageView({
               return (
                 <tr
                   key={b.id}
-                  className="hover:bg-neutral-50/60 transition duration-150 relative"
+                  className="hover:bg-neutral-50/60 dark:hover:bg-neutral-800/40 transition duration-150 relative"
                 >
                   <td className="py-4 px-5">
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-neutral-200 text-neutral-800 font-sans font-medium">
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-neutral-200 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-300 font-sans font-medium">
                         Sub-Bio
                       </span>
-                      <span className="font-mono font-bold text-neutral-900">{path}</span>
+                      <span className="font-mono font-bold text-neutral-900 dark:text-white">{path}</span>
                       <button
                         onClick={() => handleCopy(b.id, path)}
                         title="Copy link"
-                        className="p-1 rounded-lg text-neutral-400 hover:text-black hover:bg-neutral-100 transition"
+                        className="p-1 rounded-lg text-neutral-400 hover:text-black dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition cursor-pointer"
                       >
                         {isCopied ? (
-                          <Check className="w-3.5 h-3.5 text-black" />
+                          <Check className="w-3.5 h-3.5 text-black dark:text-white" />
                         ) : (
                           <Copy className="w-3.5 h-3.5" />
                         )}
                       </button>
                     </div>
                     {b.title && (
-                      <p className="text-[11px] text-neutral-500 mt-0.5">{b.title}</p>
+                      <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5">{b.title}</p>
                     )}
                   </td>
 
@@ -310,7 +310,7 @@ export function BioPageView({
                   </td>
 
                   <td className="py-4 px-5">
-                    <span className="font-mono text-neutral-700 font-medium">
+                    <span className="font-mono text-neutral-700 dark:text-neutral-300 font-medium">
                       {count} links selected
                     </span>
                   </td>
@@ -323,7 +323,7 @@ export function BioPageView({
                           e.stopPropagation();
                           setOpenMenuId(isMenuOpen ? null : b.id);
                         }}
-                        className="p-1.5 rounded-lg text-neutral-400 hover:text-black hover:bg-neutral-100 transition"
+                        className="p-1.5 rounded-lg text-neutral-400 hover:text-black dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition cursor-pointer"
                         title="More options"
                       >
                         <MoreVertical className="w-4 h-4" />
@@ -331,14 +331,14 @@ export function BioPageView({
 
                       {/* 3-Dots Dropdown Menu */}
                       {isMenuOpen && (
-                        <div className="absolute right-4 top-12 z-50 w-48 rounded-2xl bg-white border border-neutral-200 p-1.5 shadow-xl animate-in fade-in zoom-in-95 duration-150 text-left">
+                        <div className="absolute right-4 top-12 z-50 w-48 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-1.5 shadow-xl animate-in fade-in zoom-in-95 duration-150 text-left">
                           <button
                             type="button"
                             onClick={() => {
                               setOpenMenuId(null);
                               setEditingBio(b);
                             }}
-                            className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 hover:text-black hover:bg-neutral-50 rounded-xl transition text-left"
+                            className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:text-black dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl transition text-left cursor-pointer"
                           >
                             <Edit2 className="w-3.5 h-3.5 text-neutral-500" />
                             <span>Edit links & duration</span>
@@ -347,7 +347,7 @@ export function BioPageView({
                           <button
                             type="button"
                             onClick={() => handleCopy(b.id, path)}
-                            className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 hover:text-black hover:bg-neutral-50 rounded-xl transition text-left"
+                            className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:text-black dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl transition text-left cursor-pointer"
                           >
                             <Copy className="w-3.5 h-3.5 text-neutral-500" />
                             <span>Copy bio link</span>
@@ -358,13 +358,13 @@ export function BioPageView({
                             target="_blank"
                             rel="noopener noreferrer"
                             onClick={() => setOpenMenuId(null)}
-                            className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 hover:text-black hover:bg-neutral-50 rounded-xl transition text-left"
+                            className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:text-black dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl transition text-left"
                           >
                             <ExternalLink className="w-3.5 h-3.5 text-neutral-500" />
                             <span>Open page</span>
                           </a>
 
-                          <div className="h-px bg-neutral-100 my-1" />
+                          <div className="h-px bg-neutral-100 dark:bg-neutral-800 my-1" />
 
                           <button
                             type="button"
@@ -372,7 +372,7 @@ export function BioPageView({
                               setOpenMenuId(null);
                               handleDeleteBio(b.id);
                             }}
-                            className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 hover:text-black hover:bg-neutral-50 rounded-xl transition text-left"
+                            className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:text-black dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl transition text-left cursor-pointer"
                           >
                             <Trash2 className="w-3.5 h-3.5 text-neutral-500" />
                             <span>Delete bio</span>

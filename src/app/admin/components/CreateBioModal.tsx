@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Sparkles, AlertCircle, Clock, ShieldCheck, Calendar, Check, Link2 } from "lucide-react";
-import { sanitizeSlug } from "@/lib/utils";
 import { Redirect } from "@/lib/db/schema";
+import { X, Sparkles, AlertCircle, Clock, ShieldCheck, Check, Calendar } from "lucide-react";
+import { sanitizeSlug } from "@/lib/utils";
 
 interface CreateBioModalProps {
   isOpen: boolean;
@@ -26,39 +26,33 @@ export function CreateBioModal({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [selectedLinkIds, setSelectedLinkIds] = useState<number[]>([]);
-  const [linkType, setLinkType] = useState<"permanent" | "temporary">("permanent");
+  const [bioType, setBioType] = useState<"permanent" | "temporary">("permanent");
   const [duration, setDuration] = useState<string>("24h");
   const [customDate, setCustomDate] = useState<string>("");
   const [customTime, setCustomTime] = useState<string>("18:00");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Default select all active links
   useEffect(() => {
     if (isOpen) {
       setBioname("");
       setTitle("");
       setDescription("");
-      const activeIds = links.filter((l) => !l.expiresAt || new Date(l.expiresAt).getTime() > Date.now()).map((l) => l.id);
-      setSelectedLinkIds(activeIds);
-      setLinkType("permanent");
+      setSelectedLinkIds(links.map((l) => l.id));
+      setBioType("permanent");
       setDuration("24h");
       setError(null);
     }
   }, [isOpen, links]);
 
-  // Close on Escape key press
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && isOpen) {
-        onClose();
-      }
+      if (e.key === "Escape" && isOpen) onClose();
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, onClose]);
 
-  // Set default custom date to tomorrow
   useEffect(() => {
     if (!customDate) {
       const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
@@ -69,14 +63,20 @@ export function CreateBioModal({
   if (!isOpen) return null;
 
   const cleanBioname = sanitizeSlug(bioname);
-  const previewPath = `${baseUrl}/${currentUser}/b/${cleanBioname || "name"}`;
+  const previewPath = `${baseUrl}/${currentUser}/b/${cleanBioname || "sub-bio"}`;
   const minDate = new Date().toISOString().slice(0, 10);
 
-  const toggleLinkId = (id: number) => {
-    if (selectedLinkIds.includes(id)) {
-      setSelectedLinkIds(selectedLinkIds.filter((x) => x !== id));
+  const toggleLinkSelection = (id: number) => {
+    setSelectedLinkIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAll = () => {
+    if (selectedLinkIds.length === links.length) {
+      setSelectedLinkIds([]);
     } else {
-      setSelectedLinkIds([...selectedLinkIds, id]);
+      setSelectedLinkIds(links.map((l) => l.id));
     }
   };
 
@@ -85,12 +85,12 @@ export function CreateBioModal({
     setError(null);
 
     if (!cleanBioname) {
-      setError("Please enter a bio name (e.g. work, socials, hackathon)");
+      setError("Please give this bio a name (e.g. insta, stream, promo)");
       return;
     }
 
     let customTimestamp: Date | null = null;
-    if (linkType === "temporary" && duration === "custom") {
+    if (bioType === "temporary" && duration === "custom") {
       if (!customDate || !customTime) {
         setError("Please enter both the expiration date and time");
         return;
@@ -113,12 +113,12 @@ export function CreateBioModal({
         expiresAt?: string;
       } = {
         bioname: cleanBioname,
-        title: title.trim() || cleanBioname,
+        title: title.trim() || undefined,
         description: description.trim() || undefined,
         linkIds: selectedLinkIds,
       };
 
-      if (linkType === "temporary") {
+      if (bioType === "temporary") {
         if (duration === "custom" && customTimestamp) {
           payload.expiresAt = customTimestamp.toISOString();
         } else {
@@ -136,7 +136,7 @@ export function CreateBioModal({
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || "Failed to create bio page");
+        throw new Error(data.error || "Failed to create bio");
       }
 
       onCreated();
@@ -148,31 +148,29 @@ export function CreateBioModal({
     }
   };
 
-  const activeLinks = links.filter((l) => !l.expiresAt || new Date(l.expiresAt).getTime() > Date.now());
-
   return (
     <div
       onClick={onClose}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-150 cursor-pointer overflow-y-auto"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 dark:bg-black/70 backdrop-blur-sm animate-in fade-in duration-150 cursor-pointer overflow-y-auto"
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-lg rounded-3xl bg-white border border-neutral-200 p-7 sm:p-8 shadow-2xl cursor-default font-sans my-8 max-h-[90vh] overflow-y-auto"
+        className="relative w-full max-w-lg rounded-3xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-7 sm:p-8 shadow-2xl cursor-default font-sans my-8"
       >
-        <div className="flex items-center justify-between pb-4 border-b border-neutral-100">
+        <div className="flex items-center justify-between pb-4 border-b border-neutral-100 dark:border-neutral-800">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-black text-white flex items-center justify-center font-bold">
-              <Sparkles className="w-4 h-4" />
+            <div className="w-9 h-9 rounded-xl bg-black dark:bg-white text-white dark:text-black flex items-center justify-center font-bold">
+              <Sparkles className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-neutral-900">Create Bio Page</h2>
-              <p className="text-xs text-neutral-500">Add a permanent or temporary sub-bio with selected links</p>
+              <h2 className="text-base font-bold text-neutral-900 dark:text-white">Create New Bio</h2>
+              <p className="text-xs text-neutral-500 dark:text-neutral-400">Add a permanent or temporary bio page with specific links</p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-1 rounded-lg text-neutral-400 hover:text-black hover:bg-neutral-100 transition"
+            className="p-1 rounded-lg text-neutral-400 hover:text-black dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition cursor-pointer"
             title="Close"
           >
             <X className="w-5 h-5" />
@@ -180,101 +178,134 @@ export function CreateBioModal({
         </div>
 
         {error && (
-          <div className="mt-4 p-3.5 rounded-xl border border-neutral-200 bg-neutral-50 text-neutral-800 text-xs flex items-center gap-2.5">
-            <AlertCircle className="w-4 h-4 flex-shrink-0 text-neutral-700" />
+          <div className="mt-4 p-3.5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/60 text-neutral-800 dark:text-neutral-200 text-xs flex items-center gap-2.5">
+            <AlertCircle className="w-4 h-4 flex-shrink-0 text-neutral-700 dark:text-neutral-300" />
             <span>{error}</span>
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="mt-5 space-y-4">
-          {/* Bio Name */}
           <div>
-            <label className="block text-xs font-semibold text-neutral-800 mb-1.5">
-              Bio Name
+            <label className="block text-xs font-semibold text-neutral-800 dark:text-neutral-200 mb-1.5">
+              Bio Name (URL Slug)
             </label>
-            <input
-              type="text"
-              value={bioname}
-              onChange={(e) => setBioname(e.target.value)}
-              placeholder="e.g. work, socials, hackathon, recruiter"
-              autoFocus
-              required
-              className="w-full px-3.5 py-2.5 text-xs bg-white border border-neutral-300 rounded-xl text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-black focus:ring-1 focus:ring-black"
-            />
+            <div className="flex items-center rounded-xl border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-950 px-3.5 py-2.5 focus-within:border-black dark:focus-within:border-white focus-within:ring-1 focus-within:ring-black dark:focus-within:ring-white transition">
+              <span className="text-xs text-neutral-400 font-mono select-none">
+                /{currentUser}/b/
+              </span>
+              <input
+                type="text"
+                value={bioname}
+                onChange={(e) => setBioname(e.target.value)}
+                placeholder="insta, stream, launch"
+                autoFocus
+                required
+                className="w-full text-xs bg-transparent text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-600 focus:outline-none ml-1 font-mono font-medium"
+              />
+            </div>
           </div>
 
-          {/* Title */}
           <div>
-            <label className="block text-xs font-semibold text-neutral-800 mb-1.5">
-              Title / Heading (Optional)
-            </label>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. My Portfolio & Tech Projects"
-              className="w-full px-3.5 py-2.5 text-xs bg-white border border-neutral-300 rounded-xl text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-black focus:ring-1 focus:ring-black"
-            />
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-semibold text-neutral-800 dark:text-neutral-200">
+                Select Links to Show in this Bio
+              </label>
+              {links.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleSelectAll}
+                  className="text-[11px] font-semibold text-neutral-600 dark:text-neutral-400 hover:text-black dark:hover:text-white transition cursor-pointer"
+                >
+                  {selectedLinkIds.length === links.length ? "Deselect all" : "Select all"}
+                </button>
+              )}
+            </div>
+
+            {links.length === 0 ? (
+              <div className="p-4 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950 text-center text-xs text-neutral-500 dark:text-neutral-400">
+                No links created yet. Create a link first in the Active Links tab!
+              </div>
+            ) : (
+              <div className="max-h-48 overflow-y-auto space-y-1.5 p-2 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-950">
+                {links.map((link) => {
+                  const isSelected = selectedLinkIds.includes(link.id);
+                  return (
+                    <div
+                      key={link.id}
+                      onClick={() => toggleLinkSelection(link.id)}
+                      className={`flex items-center justify-between p-2.5 rounded-xl border cursor-pointer transition ${
+                        isSelected
+                          ? "bg-white dark:bg-neutral-900 border-neutral-300 dark:border-neutral-700 shadow-2xs"
+                          : "bg-transparent border-transparent opacity-60 hover:opacity-100"
+                      }`}
+                    >
+                      <div className="min-w-0 pr-2">
+                        <span className="font-mono font-bold text-xs text-neutral-900 dark:text-white block truncate">
+                          /{currentUser}/{link.webname}
+                        </span>
+                        <span className="text-[10px] text-neutral-500 dark:text-neutral-400 truncate block font-mono">
+                          {link.destinationUrl}
+                        </span>
+                      </div>
+
+                      <div
+                        className={`w-5 h-5 rounded-lg flex items-center justify-center border transition flex-shrink-0 ${
+                          isSelected
+                            ? "bg-black dark:bg-white text-white dark:text-black border-black dark:border-white"
+                            : "border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900"
+                        }`}
+                      >
+                        {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
-          {/* Description */}
           <div>
-            <label className="block text-xs font-semibold text-neutral-800 mb-1.5">
-              Description (Optional)
-            </label>
-            <input
-              type="text"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="e.g. Frontend developer, open source creator"
-              className="w-full px-3.5 py-2.5 text-xs bg-white border border-neutral-300 rounded-xl text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-black focus:ring-1 focus:ring-black"
-            />
-          </div>
-
-          {/* Link Type Selector: Permanent vs Temporary */}
-          <div>
-            <label className="block text-xs font-semibold text-neutral-800 mb-1.5">
-              Bio Expiration
+            <label className="block text-xs font-semibold text-neutral-800 dark:text-neutral-200 mb-1.5">
+              Bio Expiration Mode
             </label>
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
-                onClick={() => setLinkType("permanent")}
-                className={`p-3 rounded-xl border text-left transition flex items-center gap-2.5 ${
-                  linkType === "permanent"
-                    ? "border-black bg-neutral-50/80 ring-1 ring-black"
-                    : "border-neutral-200 hover:border-neutral-300 bg-white"
+                onClick={() => setBioType("permanent")}
+                className={`p-3 rounded-xl border text-left transition flex items-center gap-2.5 cursor-pointer ${
+                  bioType === "permanent"
+                    ? "border-black dark:border-white bg-neutral-50/80 dark:bg-neutral-800 ring-1 ring-black dark:ring-white"
+                    : "border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-700 bg-white dark:bg-neutral-950"
                 }`}
               >
-                <ShieldCheck className="w-4 h-4 text-black flex-shrink-0" />
+                <ShieldCheck className="w-4 h-4 text-black dark:text-white flex-shrink-0" />
                 <div>
-                  <div className="text-xs font-bold text-neutral-900">Permanent Bio</div>
-                  <div className="text-[10px] text-neutral-500">Always active</div>
+                  <div className="text-xs font-bold text-neutral-900 dark:text-white">Permanent</div>
+                  <div className="text-[10px] text-neutral-500 dark:text-neutral-400">Keep active forever</div>
                 </div>
               </button>
 
               <button
                 type="button"
-                onClick={() => setLinkType("temporary")}
-                className={`p-3 rounded-xl border text-left transition flex items-center gap-2.5 ${
-                  linkType === "temporary"
-                    ? "border-black bg-neutral-50/80 ring-1 ring-black"
-                    : "border-neutral-200 hover:border-neutral-300 bg-white"
+                onClick={() => setBioType("temporary")}
+                className={`p-3 rounded-xl border text-left transition flex items-center gap-2.5 cursor-pointer ${
+                  bioType === "temporary"
+                    ? "border-black dark:border-white bg-neutral-50/80 dark:bg-neutral-800 ring-1 ring-black dark:ring-white"
+                    : "border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-700 bg-white dark:bg-neutral-950"
                 }`}
               >
-                <Clock className="w-4 h-4 text-black flex-shrink-0" />
+                <Clock className="w-4 h-4 text-black dark:text-white flex-shrink-0" />
                 <div>
-                  <div className="text-xs font-bold text-neutral-900">Temporary Bio</div>
-                  <div className="text-[10px] text-neutral-500">Expires after time</div>
+                  <div className="text-xs font-bold text-neutral-900 dark:text-white">Temporary</div>
+                  <div className="text-[10px] text-neutral-500 dark:text-neutral-400">Expires after time</div>
                 </div>
               </button>
             </div>
           </div>
 
-          {/* Temporary Duration Selector with Custom Button */}
-          {linkType === "temporary" && (
-            <div className="p-3.5 rounded-2xl bg-neutral-50 border border-neutral-200 space-y-3">
-              <label className="block text-xs font-semibold text-neutral-800">
+          {bioType === "temporary" && (
+            <div className="p-3.5 rounded-2xl bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200 dark:border-neutral-700 space-y-3">
+              <label className="block text-xs font-semibold text-neutral-800 dark:text-neutral-200">
                 Expires after:
               </label>
               <div className="grid grid-cols-5 gap-1.5">
@@ -289,10 +320,10 @@ export function CreateBioModal({
                     key={d.val}
                     type="button"
                     onClick={() => setDuration(d.val)}
-                    className={`py-2 px-1 text-center rounded-xl text-xs font-semibold border transition ${
+                    className={`py-2 px-1 text-center rounded-xl text-xs font-semibold border transition cursor-pointer ${
                       duration === d.val
-                        ? "bg-black text-white border-black shadow-sm"
-                        : "bg-white text-neutral-700 border-neutral-200 hover:border-neutral-400"
+                        ? "bg-black dark:bg-white text-white dark:text-black border-black dark:border-white shadow-sm"
+                        : "bg-white dark:bg-neutral-900 text-neutral-700 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700 hover:border-neutral-400"
                     }`}
                   >
                     {d.label}
@@ -300,16 +331,15 @@ export function CreateBioModal({
                 ))}
               </div>
 
-              {/* Step 1: Date, Step 2: Time */}
               {duration === "custom" && (
-                <div className="pt-2.5 border-t border-neutral-200/80 space-y-2">
-                  <span className="block text-[11px] font-semibold text-neutral-600">
+                <div className="pt-2.5 border-t border-neutral-200/80 dark:border-neutral-700 space-y-2">
+                  <span className="block text-[11px] font-semibold text-neutral-600 dark:text-neutral-300">
                     Set Expiration Date & Time:
                   </span>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     <div>
-                      <label className="block text-[10px] font-semibold text-neutral-500 uppercase tracking-wider mb-1 flex items-center gap-1">
-                        <Calendar className="w-3 h-3 text-neutral-700" />
+                      <label className="block text-[10px] font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider mb-1 flex items-center gap-1">
+                        <Calendar className="w-3 h-3 text-neutral-700 dark:text-neutral-300" />
                         1. Select Date
                       </label>
                       <input
@@ -318,13 +348,13 @@ export function CreateBioModal({
                         value={customDate}
                         onChange={(e) => setCustomDate(e.target.value)}
                         required={duration === "custom"}
-                        className="w-full px-3 py-2 text-xs font-medium bg-white border border-neutral-300 rounded-xl text-neutral-900 focus:outline-none focus:border-black focus:ring-1 focus:ring-black shadow-sm"
+                        className="w-full px-3 py-2 text-xs font-medium bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-700 rounded-xl text-neutral-900 dark:text-white focus:outline-none focus:border-black dark:focus:border-white shadow-sm"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-[10px] font-semibold text-neutral-500 uppercase tracking-wider mb-1 flex items-center gap-1">
-                        <Clock className="w-3 h-3 text-neutral-700" />
+                      <label className="block text-[10px] font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider mb-1 flex items-center gap-1">
+                        <Clock className="w-3 h-3 text-neutral-700 dark:text-neutral-300" />
                         2. Select Time
                       </label>
                       <input
@@ -332,7 +362,7 @@ export function CreateBioModal({
                         value={customTime}
                         onChange={(e) => setCustomTime(e.target.value)}
                         required={duration === "custom"}
-                        className="w-full px-3 py-2 text-xs font-medium bg-white border border-neutral-300 rounded-xl text-neutral-900 focus:outline-none focus:border-black focus:ring-1 focus:ring-black shadow-sm"
+                        className="w-full px-3 py-2 text-xs font-medium bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-700 rounded-xl text-neutral-900 dark:text-white focus:outline-none focus:border-black dark:focus:border-white shadow-sm"
                       />
                     </div>
                   </div>
@@ -341,73 +371,28 @@ export function CreateBioModal({
             </div>
           )}
 
-          {/* Select Links to Include */}
-          <div>
-            <label className="block text-xs font-semibold text-neutral-800 mb-1.5 flex items-center justify-between">
-              <span>Include Links in this Bio ({selectedLinkIds.length} selected)</span>
-            </label>
-            {activeLinks.length === 0 ? (
-              <p className="text-xs text-neutral-400 p-3 rounded-xl bg-neutral-50 border border-neutral-200">
-                No active links found. Create links in your dashboard first.
-              </p>
-            ) : (
-              <div className="space-y-1.5 max-h-40 overflow-y-auto p-2 rounded-2xl bg-neutral-50 border border-neutral-200">
-                {activeLinks.map((link) => {
-                  const isSelected = selectedLinkIds.includes(link.id);
-                  return (
-                    <div
-                      key={link.id}
-                      onClick={() => toggleLinkId(link.id)}
-                      className={`p-2.5 rounded-xl border text-xs flex items-center justify-between gap-2 cursor-pointer transition select-none ${
-                        isSelected
-                          ? "bg-white border-black text-black font-semibold shadow-2xs"
-                          : "bg-white/60 border-neutral-200 text-neutral-500"
-                      }`}
-                    >
-                      <div className="min-w-0 flex items-center gap-2">
-                        <div
-                          className={`w-4 h-4 rounded-md border flex items-center justify-center ${
-                            isSelected ? "bg-black border-black text-white" : "border-neutral-300 bg-white"
-                          }`}
-                        >
-                          {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
-                        </div>
-                        <span className="font-mono truncate">/{link.webname}</span>
-                      </div>
-                      <span className="text-[10px] text-neutral-400 font-mono truncate max-w-[140px]">
-                        {link.destinationUrl}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* Preview */}
-          <div className="p-3.5 rounded-xl bg-neutral-50 border border-neutral-200 text-xs">
-            <span className="text-[10px] text-neutral-500 uppercase tracking-wider font-semibold block mb-1">
-              Public Bio Link URL
+          <div className="p-3.5 rounded-xl bg-neutral-50 dark:bg-neutral-800/50 border border-neutral-200 dark:border-neutral-800 text-xs">
+            <span className="text-[10px] text-neutral-500 dark:text-neutral-400 uppercase tracking-wider font-semibold block mb-1">
+              Your Shareable Bio Link
             </span>
-            <div className="font-mono font-bold text-neutral-900 truncate">{previewPath}</div>
+            <div className="font-mono font-bold text-neutral-900 dark:text-white truncate">{previewPath}</div>
           </div>
 
-          <div className="flex items-center justify-end gap-2 pt-4 border-t border-neutral-100">
+          <div className="flex items-center justify-end gap-2 pt-4 border-t border-neutral-100 dark:border-neutral-800">
             <button
               type="button"
               onClick={onClose}
               disabled={loading}
-              className="px-4 py-2 text-xs font-medium text-neutral-600 hover:text-black border border-neutral-200 rounded-xl hover:bg-neutral-50 transition"
+              className="px-4 py-2 text-xs font-medium text-neutral-600 dark:text-neutral-400 hover:text-black dark:hover:text-white border border-neutral-200 dark:border-neutral-800 rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800 transition cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="px-5 py-2 text-xs font-semibold text-white bg-black hover:bg-neutral-800 rounded-xl transition disabled:opacity-50 shadow-sm flex items-center gap-1.5"
+              className="px-5 py-2 text-xs font-semibold text-white dark:text-black bg-black dark:bg-white hover:bg-neutral-800 dark:hover:bg-neutral-200 rounded-xl transition disabled:opacity-50 shadow-sm cursor-pointer"
             >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>{loading ? "Creating..." : "Create Bio Page"}</span>
+              {loading ? "Creating..." : "Create Bio"}
             </button>
           </div>
         </form>

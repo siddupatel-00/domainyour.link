@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Edit3, AlertCircle, Clock, ShieldCheck, Calendar } from "lucide-react";
 import { Redirect } from "@/lib/db/schema";
+import { X, Edit2, AlertCircle, ArrowRight, Clock, ShieldCheck, Calendar } from "lucide-react";
+import { isValidUrl } from "@/lib/utils";
 
 interface EditRedirectModalProps {
   redirect: Redirect | null;
@@ -28,57 +29,63 @@ export function EditRedirectModal({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (redirect) {
+    if (redirect && isOpen) {
       setDestinationUrl(redirect.destinationUrl);
-      if (redirect.expiresAt) {
+      const isExp = redirect.expiresAt && new Date(redirect.expiresAt).getTime() <= Date.now();
+      if (redirect.expiresAt && !isExp) {
         setLinkType("temporary");
-        setDuration("custom");
-        const date = new Date(redirect.expiresAt);
-        const isoDate = date.toISOString().slice(0, 10);
-        const hours = String(date.getHours()).padStart(2, "0");
-        const mins = String(date.getMinutes()).padStart(2, "0");
-        setCustomDate(isoDate);
-        setCustomTime(`${hours}:${mins}`);
+        setDuration("24h");
       } else {
         setLinkType("permanent");
-        setDuration("24h");
-        const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
-        setCustomDate(tomorrow.toISOString().slice(0, 10));
       }
       setError(null);
     }
-  }, [redirect]);
+  }, [redirect, isOpen]);
 
-  // Close on Escape key
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && isOpen) {
-        onClose();
-      }
+      if (e.key === "Escape" && isOpen) onClose();
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, onClose]);
 
+  useEffect(() => {
+    if (!customDate) {
+      const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
+      setCustomDate(tomorrow.toISOString().slice(0, 10));
+    }
+  }, [customDate]);
+
   if (!isOpen || !redirect) return null;
 
-  const publicLink = `${baseUrl}/${redirect.username}/${redirect.webname}`;
-  const isExpired = redirect.expiresAt && new Date(redirect.expiresAt).getTime() <= Date.now();
   const minDate = new Date().toISOString().slice(0, 10);
+  const path = `/${redirect.username}/${redirect.webname}`;
+  const fullUrl = `${baseUrl}${path}`;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
     if (!destinationUrl.trim()) {
-      setError("Destination website URL cannot be empty");
+      setError("Please enter a destination URL");
+      return;
+    }
+
+    let finalUrl = destinationUrl.trim();
+    if (!finalUrl.startsWith("http://") && !finalUrl.startsWith("https://")) {
+      finalUrl = `https://${finalUrl}`;
+    }
+
+    if (!isValidUrl(finalUrl)) {
+      setError("Please enter a valid destination URL (e.g. https://...)");
       return;
     }
 
     let customTimestamp: Date | null = null;
     if (linkType === "temporary" && duration === "custom") {
       if (!customDate || !customTime) {
-        setError("Please enter both the expiration date and time");
+        setError("Please enter both expiration date and time");
         return;
       }
       customTimestamp = new Date(`${customDate}T${customTime}`);
@@ -90,12 +97,8 @@ export function EditRedirectModal({
 
     setLoading(true);
     try {
-      const payload: {
-        destinationUrl: string;
-        duration?: string;
-        expiresAt?: string | null;
-      } = {
-        destinationUrl: destinationUrl.trim(),
+      const payload: { destinationUrl: string; duration?: string; expiresAt?: string | null } = {
+        destinationUrl: finalUrl,
       };
 
       if (linkType === "temporary") {
@@ -131,28 +134,26 @@ export function EditRedirectModal({
   return (
     <div
       onClick={onClose}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-150 cursor-pointer"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 dark:bg-black/70 backdrop-blur-sm animate-in fade-in duration-150 cursor-pointer overflow-y-auto"
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-lg rounded-3xl bg-white border border-neutral-200 p-7 sm:p-8 shadow-2xl cursor-default font-sans"
+        className="relative w-full max-w-lg rounded-3xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-7 sm:p-8 shadow-2xl cursor-default font-sans my-8"
       >
-        <div className="flex items-center justify-between pb-4 border-b border-neutral-100">
+        <div className="flex items-center justify-between pb-4 border-b border-neutral-100 dark:border-neutral-800">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-black text-white flex items-center justify-center font-bold">
-              <Edit3 className="w-4 h-4 stroke-[2.2]" />
+            <div className="w-9 h-9 rounded-xl bg-black dark:bg-white text-white dark:text-black flex items-center justify-center font-bold">
+              <Edit2 className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-neutral-900">
-                {isExpired ? "Reactivate / Edit Link" : "Edit Link"}
-              </h2>
-              <p className="text-xs text-neutral-500">Update destination or link expiration</p>
+              <h2 className="text-base font-bold text-neutral-900 dark:text-white">Edit Destination</h2>
+              <p className="text-xs text-neutral-500 dark:text-neutral-400">Update where your permanent link points</p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-1 rounded-lg text-neutral-400 hover:text-black hover:bg-neutral-100 transition"
+            className="p-1 rounded-lg text-neutral-400 hover:text-black dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition cursor-pointer"
             title="Close"
           >
             <X className="w-5 h-5" />
@@ -160,78 +161,78 @@ export function EditRedirectModal({
         </div>
 
         {error && (
-          <div className="mt-4 p-3.5 rounded-xl border border-neutral-200 bg-neutral-50 text-neutral-800 text-xs flex items-center gap-2.5">
-            <AlertCircle className="w-4 h-4 flex-shrink-0 text-neutral-700" />
+          <div className="mt-4 p-3.5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/60 text-neutral-800 dark:text-neutral-200 text-xs flex items-center gap-2.5">
+            <AlertCircle className="w-4 h-4 flex-shrink-0 text-neutral-700 dark:text-neutral-300" />
             <span>{error}</span>
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="mt-5 space-y-4">
-          <div className="p-4 rounded-xl bg-neutral-50 border border-neutral-200 text-xs font-mono">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-[10px] text-neutral-500 uppercase tracking-wider font-semibold">
-                Your Link
-              </span>
-              {isExpired ? (
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-neutral-200 text-neutral-800 font-semibold font-sans">
-                  ⏳ Expired
-                </span>
-              ) : (
-                <span className="text-[10px] text-neutral-500 font-sans">
-                  {redirect.expiresAt ? "Temporary" : "Permanent"}
-                </span>
-              )}
-            </div>
-            <span className="text-neutral-900 font-bold">{publicLink}</span>
+          <div className="p-3.5 rounded-2xl bg-neutral-50 dark:bg-neutral-800/50 border border-neutral-200 dark:border-neutral-800 text-xs space-y-1">
+            <span className="text-[10px] text-neutral-500 dark:text-neutral-400 uppercase tracking-wider font-semibold block">
+              Permanent Link (stays unchanged)
+            </span>
+            <div className="font-mono font-bold text-neutral-900 dark:text-white truncate">{fullUrl}</div>
           </div>
 
-          {/* Link Type Toggle */}
           <div>
-            <label className="block text-xs font-semibold text-neutral-800 mb-1.5">
-              Expiration Setting
+            <label className="block text-xs font-semibold text-neutral-800 dark:text-neutral-200 mb-1.5">
+              New Destination URL
+            </label>
+            <input
+              type="text"
+              value={destinationUrl}
+              onChange={(e) => setDestinationUrl(e.target.value)}
+              placeholder="https://linkedin.com/in/yourname"
+              required
+              autoFocus
+              className="w-full px-3.5 py-2.5 text-xs bg-white dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 rounded-xl text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-600 focus:outline-none focus:border-black dark:focus:border-white focus:ring-1 focus:ring-black dark:focus:ring-white transition font-mono font-medium"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-neutral-800 dark:text-neutral-200 mb-1.5">
+              Expiration Mode
             </label>
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={() => setLinkType("permanent")}
-                className={`p-3 rounded-xl border text-left transition flex items-center gap-2.5 ${
+                className={`p-3 rounded-xl border text-left transition flex items-center gap-2.5 cursor-pointer ${
                   linkType === "permanent"
-                    ? "border-black bg-neutral-50/80 ring-1 ring-black"
-                    : "border-neutral-200 hover:border-neutral-300 bg-white"
+                    ? "border-black dark:border-white bg-neutral-50/80 dark:bg-neutral-800 ring-1 ring-black dark:ring-white"
+                    : "border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-700 bg-white dark:bg-neutral-950"
                 }`}
               >
-                <ShieldCheck className="w-4 h-4 text-black flex-shrink-0" />
+                <ShieldCheck className="w-4 h-4 text-black dark:text-white flex-shrink-0" />
                 <div>
-                  <div className="text-xs font-bold text-neutral-900">Make Permanent</div>
-                  <div className="text-[10px] text-neutral-500">Never expires</div>
+                  <div className="text-xs font-bold text-neutral-900 dark:text-white">Permanent</div>
+                  <div className="text-[10px] text-neutral-500 dark:text-neutral-400">Keep active forever</div>
                 </div>
               </button>
 
               <button
                 type="button"
                 onClick={() => setLinkType("temporary")}
-                className={`p-3 rounded-xl border text-left transition flex items-center gap-2.5 ${
+                className={`p-3 rounded-xl border text-left transition flex items-center gap-2.5 cursor-pointer ${
                   linkType === "temporary"
-                    ? "border-black bg-neutral-50/80 ring-1 ring-black"
-                    : "border-neutral-200 hover:border-neutral-300 bg-white"
+                    ? "border-black dark:border-white bg-neutral-50/80 dark:bg-neutral-800 ring-1 ring-black dark:ring-white"
+                    : "border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-700 bg-white dark:bg-neutral-950"
                 }`}
               >
-                <Clock className="w-4 h-4 text-black flex-shrink-0" />
+                <Clock className="w-4 h-4 text-black dark:text-white flex-shrink-0" />
                 <div>
-                  <div className="text-xs font-bold text-neutral-900">
-                    {isExpired ? "Reactivate (Temporary)" : "Temporary"}
-                  </div>
-                  <div className="text-[10px] text-neutral-500">Set new duration</div>
+                  <div className="text-xs font-bold text-neutral-900 dark:text-white">Temporary</div>
+                  <div className="text-[10px] text-neutral-500 dark:text-neutral-400">Set new duration</div>
                 </div>
               </button>
             </div>
           </div>
 
-          {/* Duration Selector with Custom Button */}
           {linkType === "temporary" && (
-            <div className="p-3.5 rounded-2xl bg-neutral-50 border border-neutral-200 space-y-3">
-              <label className="block text-xs font-semibold text-neutral-800">
-                Extend / Set Duration:
+            <div className="p-3.5 rounded-2xl bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200 dark:border-neutral-700 space-y-3">
+              <label className="block text-xs font-semibold text-neutral-800 dark:text-neutral-200">
+                Expires after:
               </label>
               <div className="grid grid-cols-5 gap-1.5">
                 {[
@@ -245,10 +246,10 @@ export function EditRedirectModal({
                     key={d.val}
                     type="button"
                     onClick={() => setDuration(d.val)}
-                    className={`py-2 px-1 text-center rounded-xl text-xs font-semibold border transition ${
+                    className={`py-2 px-1 text-center rounded-xl text-xs font-semibold border transition cursor-pointer ${
                       duration === d.val
-                        ? "bg-black text-white border-black shadow-sm"
-                        : "bg-white text-neutral-700 border-neutral-200 hover:border-neutral-400"
+                        ? "bg-black dark:bg-white text-white dark:text-black border-black dark:border-white shadow-sm"
+                        : "bg-white dark:bg-neutral-900 text-neutral-700 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700 hover:border-neutral-400"
                     }`}
                   >
                     {d.label}
@@ -256,17 +257,15 @@ export function EditRedirectModal({
                 ))}
               </div>
 
-              {/* Step 1: Date, Step 2: Time Side-by-Side */}
               {duration === "custom" && (
-                <div className="pt-2.5 border-t border-neutral-200/80 space-y-2">
-                  <span className="block text-[11px] font-semibold text-neutral-600">
+                <div className="pt-2.5 border-t border-neutral-200/80 dark:border-neutral-700 space-y-2">
+                  <span className="block text-[11px] font-semibold text-neutral-600 dark:text-neutral-300">
                     Set Expiration Date & Time:
                   </span>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                    {/* 1. Date */}
                     <div>
-                      <label className="block text-[10px] font-semibold text-neutral-500 uppercase tracking-wider mb-1 flex items-center gap-1">
-                        <Calendar className="w-3 h-3 text-neutral-700" />
+                      <label className="block text-[10px] font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider mb-1 flex items-center gap-1">
+                        <Calendar className="w-3 h-3 text-neutral-700 dark:text-neutral-300" />
                         1. Select Date
                       </label>
                       <input
@@ -275,14 +274,13 @@ export function EditRedirectModal({
                         value={customDate}
                         onChange={(e) => setCustomDate(e.target.value)}
                         required={duration === "custom"}
-                        className="w-full px-3 py-2 text-xs font-medium bg-white border border-neutral-300 rounded-xl text-neutral-900 focus:outline-none focus:border-black focus:ring-1 focus:ring-black shadow-sm"
+                        className="w-full px-3 py-2 text-xs font-medium bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-700 rounded-xl text-neutral-900 dark:text-white focus:outline-none focus:border-black dark:focus:border-white shadow-sm"
                       />
                     </div>
 
-                    {/* 2. Time */}
                     <div>
-                      <label className="block text-[10px] font-semibold text-neutral-500 uppercase tracking-wider mb-1 flex items-center gap-1">
-                        <Clock className="w-3 h-3 text-neutral-700" />
+                      <label className="block text-[10px] font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider mb-1 flex items-center gap-1">
+                        <Clock className="w-3 h-3 text-neutral-700 dark:text-neutral-300" />
                         2. Select Time
                       </label>
                       <input
@@ -290,7 +288,7 @@ export function EditRedirectModal({
                         value={customTime}
                         onChange={(e) => setCustomTime(e.target.value)}
                         required={duration === "custom"}
-                        className="w-full px-3 py-2 text-xs font-medium bg-white border border-neutral-300 rounded-xl text-neutral-900 focus:outline-none focus:border-black focus:ring-1 focus:ring-black shadow-sm"
+                        className="w-full px-3 py-2 text-xs font-medium bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-700 rounded-xl text-neutral-900 dark:text-white focus:outline-none focus:border-black dark:focus:border-white shadow-sm"
                       />
                     </div>
                   </div>
@@ -299,35 +297,21 @@ export function EditRedirectModal({
             </div>
           )}
 
-          <div>
-            <label className="block text-xs font-semibold text-neutral-800 mb-1.5">
-              Where should this link go?
-            </label>
-            <input
-              type="text"
-              value={destinationUrl}
-              onChange={(e) => setDestinationUrl(e.target.value)}
-              placeholder="https://newdestination.com"
-              required
-              className="w-full px-3.5 py-2.5 text-xs bg-white border border-neutral-300 rounded-xl text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-black focus:ring-1 focus:ring-black"
-            />
-          </div>
-
-          <div className="flex items-center justify-end gap-2 pt-4 border-t border-neutral-100">
+          <div className="flex items-center justify-end gap-2 pt-4 border-t border-neutral-100 dark:border-neutral-800">
             <button
               type="button"
               onClick={onClose}
               disabled={loading}
-              className="px-4 py-2 text-xs font-medium text-neutral-600 hover:text-black border border-neutral-200 rounded-xl hover:bg-neutral-50 transition"
+              className="px-4 py-2 text-xs font-medium text-neutral-600 dark:text-neutral-400 hover:text-black dark:hover:text-white border border-neutral-200 dark:border-neutral-800 rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800 transition cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="px-5 py-2 text-xs font-semibold text-white bg-black hover:bg-neutral-800 rounded-xl transition disabled:opacity-50 shadow-sm"
+              className="px-5 py-2 text-xs font-semibold text-white dark:text-black bg-black dark:bg-white hover:bg-neutral-800 dark:hover:bg-neutral-200 rounded-xl transition disabled:opacity-50 shadow-sm cursor-pointer"
             >
-              {loading ? "Updating..." : isExpired ? "Reactivate Link" : "Save Changes"}
+              {loading ? "Saving..." : "Save Destination"}
             </button>
           </div>
         </form>
