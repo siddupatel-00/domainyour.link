@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Link2, AlertCircle, CornerDownRight, Clock, ShieldCheck } from "lucide-react";
+import { X, Link2, AlertCircle, CornerDownRight, Clock, ShieldCheck, Calendar } from "lucide-react";
 import { sanitizeSlug } from "@/lib/utils";
 
 interface CreateRedirectModalProps {
@@ -23,6 +23,7 @@ export function CreateRedirectModal({
   const [destinationUrl, setDestinationUrl] = useState("");
   const [linkType, setLinkType] = useState<"permanent" | "temporary">("permanent");
   const [duration, setDuration] = useState<string>("24h");
+  const [customDateTime, setCustomDateTime] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,10 +38,30 @@ export function CreateRedirectModal({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, onClose]);
 
+  // Set default custom date-time to tomorrow at current time
+  useEffect(() => {
+    if (!customDateTime) {
+      const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
+      const iso = tomorrow.toISOString().slice(0, 16);
+      setCustomDateTime(iso);
+    }
+  }, [customDateTime]);
+
   if (!isOpen) return null;
 
   const cleanWebname = sanitizeSlug(webname);
   const previewPath = `${baseUrl}/${currentUser}/${cleanWebname || "name"}`;
+
+  // Get formatted preview text for expiration
+  const getExpirationPreview = () => {
+    if (linkType === "permanent") return "♾️ Permanent";
+    if (duration === "custom") {
+      if (!customDateTime) return "⏳ Custom date";
+      const date = new Date(customDateTime);
+      return `⏳ Expires ${date.toLocaleDateString([], { month: "short", day: "numeric" })} at ${date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+    }
+    return `⏳ Expires in ${duration}`;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,16 +76,43 @@ export function CreateRedirectModal({
       return;
     }
 
+    if (linkType === "temporary" && duration === "custom") {
+      if (!customDateTime) {
+        setError("Please select an expiration date and time");
+        return;
+      }
+      if (new Date(customDateTime).getTime() <= Date.now()) {
+        setError("Expiration date and time must be in the future");
+        return;
+      }
+    }
+
     setLoading(true);
     try {
+      const payload: {
+        webname: string;
+        destinationUrl: string;
+        duration?: string;
+        expiresAt?: string;
+      } = {
+        webname: cleanWebname,
+        destinationUrl: destinationUrl.trim(),
+      };
+
+      if (linkType === "temporary") {
+        if (duration === "custom") {
+          payload.expiresAt = new Date(customDateTime).toISOString();
+        } else {
+          payload.duration = duration;
+        }
+      } else {
+        payload.duration = "permanent";
+      }
+
       const res = await fetch("/api/redirects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          webname: cleanWebname,
-          destinationUrl: destinationUrl.trim(),
-          duration: linkType === "temporary" ? duration : "permanent",
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
@@ -84,6 +132,8 @@ export function CreateRedirectModal({
       setLoading(false);
     }
   };
+
+  const minDateTime = new Date().toISOString().slice(0, 16);
 
   return (
     <div
@@ -162,18 +212,19 @@ export function CreateRedirectModal({
             </div>
           </div>
 
-          {/* Temporary Duration Selector */}
+          {/* Temporary Duration Selector with Custom Button */}
           {linkType === "temporary" && (
-            <div className="p-3.5 rounded-2xl bg-neutral-50 border border-neutral-200 space-y-2">
+            <div className="p-3.5 rounded-2xl bg-neutral-50 border border-neutral-200 space-y-3">
               <label className="block text-xs font-semibold text-neutral-800">
                 Expires after:
               </label>
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-5 gap-1.5">
                 {[
                   { label: "1 Hour", val: "1h" },
                   { label: "24 Hours", val: "24h" },
                   { label: "7 Days", val: "7d" },
                   { label: "30 Days", val: "30d" },
+                  { label: "Custom", val: "custom" },
                 ].map((d) => (
                   <button
                     key={d.val}
@@ -181,7 +232,7 @@ export function CreateRedirectModal({
                     onClick={() => setDuration(d.val)}
                     className={`py-2 px-1 text-center rounded-xl text-xs font-semibold border transition ${
                       duration === d.val
-                        ? "bg-black text-white border-black"
+                        ? "bg-black text-white border-black shadow-sm"
                         : "bg-white text-neutral-700 border-neutral-200 hover:border-neutral-400"
                     }`}
                   >
@@ -189,6 +240,26 @@ export function CreateRedirectModal({
                   </button>
                 ))}
               </div>
+
+              {/* Custom Date & Time Picker */}
+              {duration === "custom" && (
+                <div className="pt-2 border-t border-neutral-200/80 space-y-1.5">
+                  <div className="flex items-center justify-between text-xs text-neutral-700">
+                    <span className="font-semibold flex items-center gap-1.5">
+                      <Calendar className="w-3.5 h-3.5 text-neutral-500" />
+                      Set Exact Date & Time:
+                    </span>
+                  </div>
+                  <input
+                    type="datetime-local"
+                    min={minDateTime}
+                    value={customDateTime}
+                    onChange={(e) => setCustomDateTime(e.target.value)}
+                    required={duration === "custom"}
+                    className="w-full px-3.5 py-2 text-xs font-medium bg-white border border-neutral-300 rounded-xl text-neutral-900 focus:outline-none focus:border-black focus:ring-1 focus:ring-black shadow-sm"
+                  />
+                </div>
+              )}
             </div>
           )}
 
@@ -227,8 +298,8 @@ export function CreateRedirectModal({
               <span className="text-[10px] text-neutral-500 uppercase tracking-wider font-semibold">
                 Live Preview
               </span>
-              <span className="text-[10px] font-mono text-neutral-500">
-                {linkType === "temporary" ? `⏳ Expires in ${duration}` : "♾️ Permanent"}
+              <span className="text-[10px] font-mono text-neutral-600 font-medium">
+                {getExpirationPreview()}
               </span>
             </div>
             <div className="text-neutral-900 font-semibold font-mono truncate">{previewPath}</div>

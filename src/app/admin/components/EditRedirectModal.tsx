@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Edit3, AlertCircle, Clock, ShieldCheck } from "lucide-react";
+import { X, Edit3, AlertCircle, Clock, ShieldCheck, Calendar } from "lucide-react";
 import { Redirect } from "@/lib/db/schema";
 
 interface EditRedirectModalProps {
@@ -22,6 +22,7 @@ export function EditRedirectModal({
   const [destinationUrl, setDestinationUrl] = useState("");
   const [linkType, setLinkType] = useState<"permanent" | "temporary">("permanent");
   const [duration, setDuration] = useState<string>("24h");
+  const [customDateTime, setCustomDateTime] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -30,8 +31,14 @@ export function EditRedirectModal({
       setDestinationUrl(redirect.destinationUrl);
       if (redirect.expiresAt) {
         setLinkType("temporary");
+        setDuration("custom");
+        const date = new Date(redirect.expiresAt);
+        // Format to YYYY-MM-DDTHH:mm
+        const iso = new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+        setCustomDateTime(iso);
       } else {
         setLinkType("permanent");
+        setDuration("24h");
       }
       setError(null);
     }
@@ -52,6 +59,7 @@ export function EditRedirectModal({
 
   const publicLink = `${baseUrl}/${redirect.username}/${redirect.webname}`;
   const isExpired = redirect.expiresAt && new Date(redirect.expiresAt).getTime() <= Date.now();
+  const minDateTime = new Date().toISOString().slice(0, 16);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,15 +70,41 @@ export function EditRedirectModal({
       return;
     }
 
+    if (linkType === "temporary" && duration === "custom") {
+      if (!customDateTime) {
+        setError("Please select an expiration date and time");
+        return;
+      }
+      if (new Date(customDateTime).getTime() <= Date.now()) {
+        setError("Expiration date and time must be in the future");
+        return;
+      }
+    }
+
     setLoading(true);
     try {
+      const payload: {
+        destinationUrl: string;
+        duration?: string;
+        expiresAt?: string | null;
+      } = {
+        destinationUrl: destinationUrl.trim(),
+      };
+
+      if (linkType === "temporary") {
+        if (duration === "custom") {
+          payload.expiresAt = new Date(customDateTime).toISOString();
+        } else {
+          payload.duration = duration;
+        }
+      } else {
+        payload.expiresAt = null;
+      }
+
       const res = await fetch(`/api/redirects/${redirect.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          destinationUrl: destinationUrl.trim(),
-          duration: linkType === "temporary" ? duration : "permanent",
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
@@ -186,18 +220,19 @@ export function EditRedirectModal({
             </div>
           </div>
 
-          {/* Duration Selector */}
+          {/* Duration Selector with Custom Button */}
           {linkType === "temporary" && (
-            <div className="p-3.5 rounded-2xl bg-neutral-50 border border-neutral-200 space-y-2">
+            <div className="p-3.5 rounded-2xl bg-neutral-50 border border-neutral-200 space-y-3">
               <label className="block text-xs font-semibold text-neutral-800">
                 Extend / Set Duration:
               </label>
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-5 gap-1.5">
                 {[
                   { label: "1 Hour", val: "1h" },
                   { label: "24 Hours", val: "24h" },
                   { label: "7 Days", val: "7d" },
                   { label: "30 Days", val: "30d" },
+                  { label: "Custom", val: "custom" },
                 ].map((d) => (
                   <button
                     key={d.val}
@@ -205,7 +240,7 @@ export function EditRedirectModal({
                     onClick={() => setDuration(d.val)}
                     className={`py-2 px-1 text-center rounded-xl text-xs font-semibold border transition ${
                       duration === d.val
-                        ? "bg-black text-white border-black"
+                        ? "bg-black text-white border-black shadow-sm"
                         : "bg-white text-neutral-700 border-neutral-200 hover:border-neutral-400"
                     }`}
                   >
@@ -213,6 +248,26 @@ export function EditRedirectModal({
                   </button>
                 ))}
               </div>
+
+              {/* Custom Date & Time Picker */}
+              {duration === "custom" && (
+                <div className="pt-2 border-t border-neutral-200/80 space-y-1.5">
+                  <div className="flex items-center justify-between text-xs text-neutral-700">
+                    <span className="font-semibold flex items-center gap-1.5">
+                      <Calendar className="w-3.5 h-3.5 text-neutral-500" />
+                      Set Exact Date & Time:
+                    </span>
+                  </div>
+                  <input
+                    type="datetime-local"
+                    min={minDateTime}
+                    value={customDateTime}
+                    onChange={(e) => setCustomDateTime(e.target.value)}
+                    required={duration === "custom"}
+                    className="w-full px-3.5 py-2 text-xs font-medium bg-white border border-neutral-300 rounded-xl text-neutral-900 focus:outline-none focus:border-black focus:ring-1 focus:ring-black shadow-sm"
+                  />
+                </div>
+              )}
             </div>
           )}
 
