@@ -356,7 +356,7 @@ export default function AdminDashboardPage() {
             redirects={redirects}
             baseUrl={baseUrl}
             currentUser={currentUser}
-            onToggleVisibility={handleToggleProfileVisibility}
+            onRefreshData={fetchRedirects}
           />
         )}
       </div>

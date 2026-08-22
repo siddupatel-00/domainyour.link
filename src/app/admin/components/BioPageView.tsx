@@ -12,29 +12,30 @@ import {
   Sparkles,
   Link2,
   MoreVertical,
-  Clock,
-  RotateCcw,
 } from "lucide-react";
 import { CreateBioModal } from "./CreateBioModal";
 import { EditBioModal } from "./EditBioModal";
+import { EditMainBioModal } from "./EditMainBioModal";
 
 interface BioPageViewProps {
   redirects: Redirect[];
   baseUrl: string;
   currentUser: string;
-  onToggleVisibility?: (redirect: Redirect, nextVal: boolean) => void;
+  onRefreshData?: () => void;
 }
 
 export function BioPageView({
   redirects,
   baseUrl,
   currentUser,
+  onRefreshData,
 }: BioPageViewProps) {
   const [bios, setBios] = useState<Bio[]>([]);
   const [loading, setLoading] = useState(true);
   const [copiedId, setCopiedId] = useState<number | string | null>(null);
   const [openMenuId, setOpenMenuId] = useState<number | string | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isEditMainOpen, setIsEditMainOpen] = useState(false);
   const [editingBio, setEditingBio] = useState<Bio | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
@@ -136,8 +137,8 @@ export function BioPageView({
     );
   };
 
-  const activeRedirectsCount = redirects.filter(
-    (r) => !r.expiresAt || new Date(r.expiresAt).getTime() > Date.now()
+  const mainBioVisibleLinksCount = redirects.filter(
+    (r) => r.showOnProfile !== false && (!r.expiresAt || new Date(r.expiresAt).getTime() > Date.now())
   ).length;
 
   return (
@@ -206,20 +207,61 @@ export function BioPageView({
 
               <td className="py-4 px-5">
                 <span className="font-mono text-neutral-700 font-medium">
-                  {activeRedirectsCount} links
+                  {mainBioVisibleLinksCount} links selected
                 </span>
               </td>
 
-              <td className="py-4 px-5 text-right">
-                <a
-                  href={`/${currentUser}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="p-1.5 inline-block rounded-lg text-neutral-400 hover:text-black hover:bg-neutral-100 transition"
-                  title="Open Bio Page"
-                >
-                  <ExternalLink className="w-4 h-4" />
-                </a>
+              {/* 3-Dots Settings Menu for Main Bio */}
+              <td className="py-4 px-5 text-right relative">
+                <div className="inline-block text-left" ref={openMenuId === "main" ? menuRef : null}>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setOpenMenuId(openMenuId === "main" ? null : "main");
+                    }}
+                    className="p-1.5 rounded-lg text-neutral-400 hover:text-black hover:bg-neutral-100 transition"
+                    title="More options"
+                  >
+                    <MoreVertical className="w-4 h-4" />
+                  </button>
+
+                  {openMenuId === "main" && (
+                    <div className="absolute right-4 top-12 z-50 w-48 rounded-2xl bg-white border border-neutral-200 p-1.5 shadow-xl animate-in fade-in zoom-in-95 duration-150 text-left">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOpenMenuId(null);
+                          setIsEditMainOpen(true);
+                        }}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 hover:text-black hover:bg-neutral-50 rounded-xl transition text-left"
+                      >
+                        <Edit2 className="w-3.5 h-3.5 text-neutral-500" />
+                        <span>Edit links to show</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleCopy("main", `/${currentUser}`)}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 hover:text-black hover:bg-neutral-50 rounded-xl transition text-left"
+                      >
+                        <Copy className="w-3.5 h-3.5 text-neutral-500" />
+                        <span>Copy bio link</span>
+                      </button>
+
+                      <a
+                        href={`/${currentUser}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={() => setOpenMenuId(null)}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 hover:text-black hover:bg-neutral-50 rounded-xl transition text-left"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5 text-neutral-500" />
+                        <span>Open page</span>
+                      </a>
+                    </div>
+                  )}
+                </div>
               </td>
             </tr>
 
@@ -350,7 +392,21 @@ export function BioPageView({
       <CreateBioModal
         isOpen={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
-        onCreated={() => fetchBios()}
+        onCreated={() => {
+          fetchBios();
+          if (onRefreshData) onRefreshData();
+        }}
+        baseUrl={baseUrl}
+        currentUser={currentUser}
+        links={redirects}
+      />
+
+      <EditMainBioModal
+        isOpen={isEditMainOpen}
+        onClose={() => setIsEditMainOpen(false)}
+        onUpdated={() => {
+          if (onRefreshData) onRefreshData();
+        }}
         baseUrl={baseUrl}
         currentUser={currentUser}
         links={redirects}
@@ -360,7 +416,10 @@ export function BioPageView({
         bio={editingBio}
         isOpen={!!editingBio}
         onClose={() => setEditingBio(null)}
-        onUpdated={() => fetchBios()}
+        onUpdated={() => {
+          fetchBios();
+          if (onRefreshData) onRefreshData();
+        }}
         baseUrl={baseUrl}
         currentUser={currentUser}
         links={redirects}
