@@ -1,5 +1,6 @@
 import { sanitizeSlug, isValidUrl } from "../src/lib/utils";
 import { createSessionToken, verifySessionToken, checkAdminPassword } from "../src/lib/auth";
+import { generateOtp, storeOtp, verifyOtp } from "../src/lib/email";
 
 async function runTests() {
   console.log("🧪 Running PermanentLink Unit & Integration Tests...\n");
@@ -39,14 +40,30 @@ async function runTests() {
   assert(checkAdminPassword("test-secret-password-123"), "Validates correct admin password");
   assert(!checkAdminPassword("wrong-password"), "Rejects incorrect password");
 
-  const token = await createSessionToken();
+  const token = await createSessionToken("siddu", "siddu@gmail.com");
   assert(typeof token === "string" && token.length > 20, "Creates signed JWT session token");
 
   const session = await verifySessionToken(token);
-  assert(session !== null && session.role === "admin", "Verifies valid JWT session token");
+  assert(session !== null && session.role === "admin" && session.username === "siddu", "Verifies valid JWT session token with username");
 
   const invalidSession = await verifySessionToken("tampered.token.here");
   assert(invalidSession === null, "Rejects tampered JWT token");
+
+  // 4. OTP Verification Tests
+  console.log("\n4. Email OTP Code Generation & Verification Tests");
+  const testOtp = generateOtp();
+  assert(typeof testOtp === "string" && testOtp.length === 6 && /^\d{6}$/.test(testOtp), "Generates valid 6-digit numeric OTP");
+
+  storeOtp("test@gmail.com", testOtp, "siddu");
+  const validVerification = verifyOtp("test@gmail.com", testOtp);
+  assert(validVerification.valid === true && validVerification.username === "siddu", "Successfully validates correct OTP code");
+
+  const replayVerification = verifyOtp("test@gmail.com", testOtp);
+  assert(replayVerification.valid === false, "Prevents OTP replay attacks (one-time use)");
+
+  storeOtp("wrong@gmail.com", "999999");
+  const wrongVerification = verifyOtp("wrong@gmail.com", "000000");
+  assert(wrongVerification.valid === false, "Rejects incorrect OTP code");
 
   console.log(`\n========================================`);
   console.log(`Summary: ${passed} passed, ${failed} failed`);
