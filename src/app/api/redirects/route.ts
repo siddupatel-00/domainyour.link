@@ -1,18 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { redirects, Redirect } from "@/lib/db/schema";
+import { redirects, Redirect, clickEvents } from "@/lib/db/schema";
 import { isAuthenticated, getSessionUser } from "@/lib/auth";
 import { sanitizeSlug, isValidUrl } from "@/lib/utils";
-import { desc, and, eq } from "drizzle-orm";
+import { desc, and, eq, gte, lte } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
 
 // In-memory fallback store for local development when Postgres is not yet connected
 const localFallbackLinks: Redirect[] = [];
+const localFallbackClickEvents: { redirectId: number; createdAt: Date }[] = [];
 let nextId = 1;
 
 export function getLocalFallbackLinks() {
   return localFallbackLinks;
+}
+
+export function getLocalFallbackClickEvents() {
+  return localFallbackClickEvents;
+}
+
+export function logLocalFallbackClick(redirectId: number) {
+  localFallbackClickEvents.push({
+    redirectId,
+    createdAt: new Date(),
+  });
 }
 
 // Helper to calculate expiration date from preset duration
@@ -35,12 +47,17 @@ export function calculateExpiration(duration?: string | null): Date | null {
   }
 }
 
-// GET /api/redirects - List all redirects
-export async function GET() {
+// GET /api/redirects - List all redirects with optional timeframe query
+export async function GET(request: NextRequest) {
   const authed = await isAuthenticated();
   if (!authed) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const { searchParams } = new URL(request.url);
+  const timeframe = searchParams.get("timeframe");
+  const customStart = searchParams.get("startDate");
+  const customEnd = searchParams.get("endDate");
 
   try {
     const list = await db
@@ -48,9 +65,112 @@ export async function GET() {
       .from(redirects)
       .orderBy(desc(redirects.createdAt));
 
+    // If timeframe filtering is requested, calculate clicks in that range
+    if (timeframe) {
+      const now = new Date();
+      let startDate: Date;
+      let endDate: Date = now;
+
+      switch (timeframe) {
+        case "24h":
+          startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+          break;
+        case "7d":
+          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          break;
+        case "14d":
+          startDate = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+          break;
+        case "this_month":
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+          break;
+        case "last_month":
+          startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+          endDate = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+          break;
+        case "custom":
+          startDate = customStart ? new Date(customStart) : new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          if (customEnd) endDate = new Date(new Date(customEnd).setHours(23, 59, 59, 999));
+          break;
+        default:
+          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      }
+
+      // Query click events in range
+      const events = await db
+        .select()
+        .from(clickEvents)
+        .where(
+          and(
+            gte(clickEvents.createdAt, startDate),
+            lte(clickEvents.createdAt, endDate)
+          )
+        );
+
+      const countsMap: Record<number, number> = {};
+      events.forEach((ev) => {
+        countsMap[ev.redirectId] = (countsMap[ev.redirectId] || 0) + 1;
+      });
+
+      const enrichedList = list.map((r) => ({
+        ...r,
+        clickCount: countsMap[r.id] ?? r.clickCount,
+      }));
+
+      return NextResponse.json({ redirects: enrichedList });
+    }
+
     return NextResponse.json({ redirects: list });
   } catch (error) {
     console.warn("Using local fallback store:", error);
+    
+    // In local fallback, if click events exist filter them, else return list
+    if (timeframe && localFallbackClickEvents.length > 0) {
+      const now = new Date();
+      let startDate: Date;
+      let endDate: Date = now;
+
+      switch (timeframe) {
+        case "24h":
+          startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+          break;
+        case "7d":
+          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          break;
+        case "14d":
+          startDate = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+          break;
+        case "this_month":
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+          break;
+        case "last_month":
+          startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+          endDate = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+          break;
+        case "custom":
+          startDate = customStart ? new Date(customStart) : new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          if (customEnd) endDate = new Date(new Date(customEnd).setHours(23, 59, 59, 999));
+          break;
+        default:
+          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      }
+
+      const filteredEvents = localFallbackClickEvents.filter(
+        (e) => e.createdAt >= startDate && e.createdAt <= endDate
+      );
+      const countsMap: Record<number, number> = {};
+      filteredEvents.forEach((ev) => {
+        countsMap[ev.redirectId] = (countsMap[ev.redirectId] || 0) + 1;
+      });
+
+      const enrichedList = localFallbackLinks.map((r) => ({
+        ...r,
+        clickCount: countsMap[r.id] ?? r.clickCount,
+      }));
+
+      return NextResponse.json({ redirects: enrichedList });
+    }
+
     return NextResponse.json({ redirects: localFallbackLinks });
   }
 }

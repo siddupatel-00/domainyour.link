@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse, after } from "next/server";
 import { db } from "@/lib/db";
-import { redirects } from "@/lib/db/schema";
+import { redirects, clickEvents } from "@/lib/db/schema";
 import { and, eq, sql } from "drizzle-orm";
-import { getLocalFallbackLinks } from "@/app/api/redirects/route";
+import { getLocalFallbackLinks, logLocalFallbackClick } from "@/app/api/redirects/route";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -153,15 +153,18 @@ export async function GET(
     );
   }
 
-  // Active redirect: increment active click count
+  // Active redirect: increment active click count and log click event with timestamp
   if (recordId) {
     try {
       after(async () => {
         try {
-          await db
-            .update(redirects)
-            .set({ clickCount: sql`${redirects.clickCount} + 1` })
-            .where(eq(redirects.id, recordId));
+          await Promise.all([
+            db
+              .update(redirects)
+              .set({ clickCount: sql`${redirects.clickCount} + 1` })
+              .where(eq(redirects.id, recordId)),
+            db.insert(clickEvents).values({ redirectId: recordId }),
+          ]);
         } catch {}
       });
     } catch {
@@ -174,6 +177,7 @@ export async function GET(
 
   if (fallbackMatch) {
     fallbackMatch.clickCount = (fallbackMatch.clickCount || 0) + 1;
+    logLocalFallbackClick(fallbackMatch.id);
   }
 
   // Instant HTTP 307 redirect

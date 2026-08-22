@@ -6,6 +6,7 @@ import {
   integer,
   timestamp,
   uniqueIndex,
+  index,
 } from "drizzle-orm/pg-core";
 import { InferSelectModel, InferInsertModel } from "drizzle-orm";
 
@@ -29,5 +30,19 @@ export const redirects = pgTable(
   ]
 );
 
+export const clickEvents = pgTable(
+  "click_events",
+  {
+    id: serial("id").primaryKey(),
+    redirectId: integer("redirect_id").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("click_redirect_id_idx").on(table.redirectId),
+    index("click_created_at_idx").on(table.createdAt),
+  ]
+);
+
 export type Redirect = InferSelectModel<typeof redirects>;
 export type NewRedirect = InferInsertModel<typeof redirects>;
+export type ClickEvent = InferSelectModel<typeof clickEvents>;
