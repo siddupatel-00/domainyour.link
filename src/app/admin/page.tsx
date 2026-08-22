@@ -14,6 +14,8 @@ import {
   LogOut,
   Check,
   BarChart2,
+  CheckCircle2,
+  TrendingUp,
 } from "lucide-react";
 
 export default function AdminDashboardPage() {
@@ -30,6 +32,8 @@ export default function AdminDashboardPage() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const router = useRouter();
+
+  const totalClicks = redirects.reduce((acc, curr) => acc + (curr.clickCount || 0), 0);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -94,49 +98,15 @@ export default function AdminDashboardPage() {
         </div>
       )}
 
-      {/* Clean, Minimalist Header with Tab Navigation */}
+      {/* Header */}
       <header className="border-b border-neutral-100 px-6 sm:px-12 py-4 sticky top-0 bg-white/90 backdrop-blur-md z-40">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-6">
-            <a href="/" className="flex items-center gap-2">
-              <Link2 className="w-5 h-5 text-black stroke-[2.2]" />
-              <span className="font-bold text-base tracking-tight text-neutral-900">
-                PermanentLink
-              </span>
-            </a>
-
-            {/* Tab Switcher: Links | Analytics */}
-            <nav className="flex items-center p-1 bg-neutral-100 rounded-xl">
-              <button
-                type="button"
-                onClick={() => setActiveTab("links")}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition ${
-                  activeTab === "links"
-                    ? "bg-white text-black shadow-sm"
-                    : "text-neutral-500 hover:text-black"
-                }`}
-              >
-                <Link2 className="w-3.5 h-3.5" />
-                <span>Links</span>
-                <span className="ml-0.5 text-[10px] px-1.5 py-0.2 rounded-full bg-neutral-200 text-neutral-700">
-                  {redirects.length}
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveTab("analytics")}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition ${
-                  activeTab === "analytics"
-                    ? "bg-white text-black shadow-sm"
-                    : "text-neutral-500 hover:text-black"
-                }`}
-              >
-                <BarChart2 className="w-3.5 h-3.5" />
-                <span>Analytics</span>
-              </button>
-            </nav>
-          </div>
+          <a href="/" className="flex items-center gap-2">
+            <Link2 className="w-5 h-5 text-black stroke-[2.2]" />
+            <span className="font-bold text-base tracking-tight text-neutral-900">
+              PermanentLink
+            </span>
+          </a>
 
           <div className="flex items-center gap-3">
             <button
@@ -158,7 +128,105 @@ export default function AdminDashboardPage() {
       </header>
 
       {/* Main Content Area */}
-      <div className="max-w-5xl mx-auto px-6 sm:px-12 py-8 sm:py-12">
+      <div className="max-w-5xl mx-auto px-6 sm:px-12 py-8 sm:py-10 space-y-8">
+        {/* 3 Clean Boxes Side by Side: Total Links | Working Links | Analytics */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {/* 1. Total Links Box */}
+          <button
+            type="button"
+            onClick={() => setActiveTab("links")}
+            className={`text-left p-5 rounded-2xl border transition shadow-sm flex items-center justify-between ${
+              activeTab === "links"
+                ? "border-black bg-neutral-50/70 ring-1 ring-black"
+                : "border-neutral-200 bg-white hover:border-neutral-300"
+            }`}
+          >
+            <div>
+              <p className="text-xs text-neutral-500 font-medium">Total Links</p>
+              <h4 className="text-2xl font-bold text-neutral-900 mt-1 font-mono">
+                {redirects.length}
+              </h4>
+              <p className="text-[11px] text-neutral-400 mt-0.5">All created links</p>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-neutral-100 border border-neutral-200 flex items-center justify-center text-black">
+              <Link2 className="w-5 h-5 stroke-[2]" />
+            </div>
+          </button>
+
+          {/* 2. Working Links Box */}
+          <button
+            type="button"
+            onClick={() => setActiveTab("links")}
+            className="text-left p-5 rounded-2xl border border-neutral-200 bg-white hover:border-neutral-300 transition shadow-sm flex items-center justify-between"
+          >
+            <div>
+              <p className="text-xs text-neutral-500 font-medium">Working Links</p>
+              <h4 className="text-2xl font-bold text-neutral-900 mt-1 font-mono">
+                {redirects.length}
+              </h4>
+              <p className="text-[11px] text-neutral-400 mt-0.5">100% active & fast</p>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-neutral-100 border border-neutral-200 flex items-center justify-center text-black">
+              <CheckCircle2 className="w-5 h-5 stroke-[2]" />
+            </div>
+          </button>
+
+          {/* 3. Analytics Box */}
+          <button
+            type="button"
+            onClick={() => setActiveTab("analytics")}
+            className={`text-left p-5 rounded-2xl border transition shadow-sm flex items-center justify-between ${
+              activeTab === "analytics"
+                ? "border-black bg-neutral-50/70 ring-1 ring-black"
+                : "border-neutral-200 bg-white hover:border-neutral-300"
+            }`}
+          >
+            <div>
+              <p className="text-xs text-neutral-500 font-medium">Analytics</p>
+              <h4 className="text-2xl font-bold text-neutral-900 mt-1 font-mono">
+                {totalClicks} <span className="text-xs font-normal text-neutral-500">Clicks</span>
+              </h4>
+              <p className="text-[11px] text-neutral-400 mt-0.5">Total visitor traffic</p>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-neutral-100 border border-neutral-200 flex items-center justify-center text-black">
+              <TrendingUp className="w-5 h-5 stroke-[2]" />
+            </div>
+          </button>
+        </div>
+
+        {/* Tab Selection Switcher (Links | Analytics Breakdown) */}
+        <div className="flex items-center justify-between border-b border-neutral-100 pb-4">
+          <div className="flex items-center gap-2 bg-neutral-100 p-1 rounded-xl">
+            <button
+              type="button"
+              onClick={() => setActiveTab("links")}
+              className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition ${
+                activeTab === "links"
+                  ? "bg-white text-black shadow-sm"
+                  : "text-neutral-500 hover:text-black"
+              }`}
+            >
+              Links List ({redirects.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("analytics")}
+              className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition ${
+                activeTab === "analytics"
+                  ? "bg-white text-black shadow-sm"
+                  : "text-neutral-500 hover:text-black"
+              }`}
+            >
+              Analytics Breakdown
+            </button>
+          </div>
+
+          <div className="text-xs text-neutral-400 font-mono">
+            {activeTab === "links" ? `${redirects.length} links` : `${totalClicks} total clicks`}
+          </div>
+        </div>
+
+        {/* View Section */}
         {loading && redirects.length === 0 ? (
           <div className="py-20 text-center text-neutral-400 text-xs font-medium">
             Loading...
