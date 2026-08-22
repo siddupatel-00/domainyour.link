@@ -15,6 +15,7 @@ import {
   Zap,
   ShieldCheck,
   AlertTriangle,
+  KeyRound,
 } from "lucide-react";
 import { sanitizeSlug } from "@/lib/utils";
 
@@ -26,7 +27,7 @@ export default function HomePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isUsernameFocused, setIsUsernameFocused] = useState(false);
-  const [modalType, setModalType] = useState<"features" | "howItWorks" | "about" | null>(null);
+  const [modalType, setModalType] = useState<"features" | "howItWorks" | "about" | "forgotPassword" | null>(null);
   const router = useRouter();
 
   const cleanUsername = sanitizeSlug(username);
@@ -41,7 +42,7 @@ export default function HomePage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          username: cleanUsername,
+          username: isSignUp ? cleanUsername : undefined,
           email: email.trim(),
           password,
         }),
@@ -61,10 +62,13 @@ export default function HomePage() {
     }
   };
 
-  const scrollToAuth = (signupMode: boolean) => {
+  const toggleAuthMode = (signupMode: boolean) => {
+    setError(null);
     setIsSignUp(signupMode);
-    const input = document.getElementById("username-input");
-    input?.focus();
+    setTimeout(() => {
+      const input = document.getElementById(signupMode ? "username-input" : "email-input");
+      input?.focus();
+    }, 50);
   };
 
   return (
@@ -98,7 +102,7 @@ export default function HomePage() {
             About
           </button>
           <button
-            onClick={() => scrollToAuth(!isSignUp)}
+            onClick={() => toggleAuthMode(!isSignUp)}
             className="px-4 py-1.5 border border-neutral-300 rounded-lg text-xs font-semibold text-black hover:border-black transition"
           >
             {isSignUp ? "Sign in" : "Sign up"}
@@ -161,7 +165,7 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Right Column: Sign Up (Default) / Sign In Card */}
+        {/* Right Column: Sign Up (Default - 3 boxes) / Sign In (2 boxes) Card */}
         <div className="lg:col-span-5 flex justify-center lg:justify-end w-full">
           <div className="w-full max-w-md rounded-3xl border border-neutral-200 bg-white p-7 sm:p-9 shadow-sm">
             <h2 className="text-2xl sm:text-3xl font-bold text-center text-neutral-900 tracking-tight">
@@ -181,45 +185,47 @@ export default function HomePage() {
             )}
 
             <form onSubmit={handleSubmit} className="space-y-3.5">
-              {/* 1. Username Field */}
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="block text-xs font-semibold text-neutral-800">
-                    Username
-                  </label>
-                  <span className="text-[10px] font-mono text-neutral-500 flex items-center gap-1">
-                    <Lock className="w-2.5 h-2.5" /> Permanent
-                  </span>
-                </div>
-                <div className="relative">
-                  <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-                  <input
-                    id="username-input"
-                    type="text"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    onFocus={() => setIsUsernameFocused(true)}
-                    onBlur={() => setIsUsernameFocused(false)}
-                    placeholder="Enter your username (e.g. siddu)"
-                    required
-                    className={`w-full pl-10 pr-4 py-2.5 text-sm bg-white border rounded-xl text-neutral-900 placeholder-neutral-400 focus:outline-none transition ${
-                      isUsernameFocused || username
-                        ? "border-black ring-1 ring-black"
-                        : "border-neutral-300"
-                    }`}
-                  />
-                </div>
+              {/* 1. Username Field (ONLY in Sign Up mode) */}
+              {isSignUp && (
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-neutral-800">
+                      Username
+                    </label>
+                    <span className="text-[10px] font-mono text-neutral-500 flex items-center gap-1">
+                      <Lock className="w-2.5 h-2.5" /> Permanent
+                    </span>
+                  </div>
+                  <div className="relative">
+                    <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+                    <input
+                      id="username-input"
+                      type="text"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      onFocus={() => setIsUsernameFocused(true)}
+                      onBlur={() => setIsUsernameFocused(false)}
+                      placeholder="Enter your username (e.g. siddu)"
+                      required={isSignUp}
+                      className={`w-full pl-10 pr-4 py-2.5 text-sm bg-white border rounded-xl text-neutral-900 placeholder-neutral-400 focus:outline-none transition ${
+                        isUsernameFocused || username
+                          ? "border-black ring-1 ring-black"
+                          : "border-neutral-300"
+                      }`}
+                    />
+                  </div>
 
-                {/* Live Permanent Username Notice */}
-                <div className="mt-1.5 p-2 rounded-lg bg-neutral-50 border border-neutral-200 flex items-start gap-1.5 text-[11px] text-neutral-600 leading-snug">
-                  <AlertTriangle className="w-3.5 h-3.5 text-neutral-800 flex-shrink-0 mt-0.5" />
-                  <span>
-                    <strong className="text-neutral-900 font-semibold">Note:</strong> Username cannot be changed once set. It is permanent.
-                  </span>
+                  {/* Live Permanent Username Notice */}
+                  <div className="mt-1.5 p-2 rounded-lg bg-neutral-50 border border-neutral-200 flex items-start gap-1.5 text-[11px] text-neutral-600 leading-snug">
+                    <AlertTriangle className="w-3.5 h-3.5 text-neutral-800 flex-shrink-0 mt-0.5" />
+                    <span>
+                      <strong className="text-neutral-900 font-semibold">Note:</strong> Username cannot be changed once set. It is permanent.
+                    </span>
+                  </div>
                 </div>
-              </div>
+              )}
 
-              {/* 2. Gmail / Email Field */}
+              {/* 2. Gmail / Email Field (Both Sign Up & Sign In) */}
               <div>
                 <label className="block text-xs font-semibold text-neutral-800 mb-1">
                   Gmail / Email
@@ -227,6 +233,7 @@ export default function HomePage() {
                 <div className="relative">
                   <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
                   <input
+                    id="email-input"
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -237,14 +244,26 @@ export default function HomePage() {
                 </div>
               </div>
 
-              {/* 3. Password Field */}
+              {/* 3. Password Field (Both Sign Up & Sign In) */}
               <div>
-                <label className="block text-xs font-semibold text-neutral-800 mb-1">
-                  Password
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-semibold text-neutral-800">
+                    Password
+                  </label>
+                  {!isSignUp && (
+                    <button
+                      type="button"
+                      onClick={() => setModalType("forgotPassword")}
+                      className="text-xs text-neutral-500 hover:text-black font-medium transition"
+                    >
+                      Forgot password?
+                    </button>
+                  )}
+                </div>
                 <div className="relative">
                   <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
                   <input
+                    id="password-input"
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -280,10 +299,7 @@ export default function HomePage() {
             <div className="text-center">
               <button
                 type="button"
-                onClick={() => {
-                  setError(null);
-                  setIsSignUp(!isSignUp);
-                }}
+                onClick={() => toggleAuthMode(!isSignUp)}
                 className="text-xs text-neutral-600 hover:text-black font-medium transition"
               >
                 {isSignUp ? (
@@ -307,12 +323,18 @@ export default function HomePage() {
         <div className="mt-2 sm:mt-0">Simple links. Permanent forever.</div>
       </footer>
 
-      {/* Information Modal (Features, How it works, About) */}
+      {/* Information Modals */}
       {modalType && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-150">
           <div className="relative w-full max-w-lg rounded-3xl bg-white border border-neutral-200 p-7 sm:p-8 shadow-2xl">
             <div className="flex items-center justify-between pb-4 border-b border-neutral-100">
-              <h3 className="text-lg font-bold text-neutral-900">
+              <h3 className="text-lg font-bold text-neutral-900 flex items-center gap-2">
+                {modalType === "forgotPassword" && (
+                  <>
+                    <KeyRound className="w-5 h-5 text-neutral-900" />
+                    <span>Reset Password</span>
+                  </>
+                )}
                 {modalType === "features" && "PermanentLink Features"}
                 {modalType === "howItWorks" && "How PermanentLink Works"}
                 {modalType === "about" && "About PermanentLink"}
@@ -326,6 +348,27 @@ export default function HomePage() {
             </div>
 
             <div className="mt-5 space-y-4 text-sm text-neutral-600 leading-relaxed">
+              {modalType === "forgotPassword" && (
+                <div className="space-y-3">
+                  <p>
+                    Because PermanentLink is your self-hosted service, you can reset or update your admin password directly in your environment configuration:
+                  </p>
+                  <div className="p-3.5 rounded-xl bg-neutral-50 border border-neutral-200 font-mono text-xs text-neutral-900 space-y-2">
+                    <div>
+                      <strong className="block text-[11px] text-neutral-500 uppercase tracking-wider">Local Development:</strong>
+                      Update <code className="bg-white border px-1.5 py-0.5 rounded text-black">ADMIN_PASSWORD</code> in your <code className="bg-white border px-1.5 py-0.5 rounded text-black">.env.local</code> file.
+                    </div>
+                    <div>
+                      <strong className="block text-[11px] text-neutral-500 uppercase tracking-wider">Vercel Deployment:</strong>
+                      Go to <strong>Project Settings → Environment Variables</strong> and update <code className="bg-white border px-1.5 py-0.5 rounded text-black">ADMIN_PASSWORD</code>.
+                    </div>
+                  </div>
+                  <p className="text-xs text-neutral-500">
+                    Changes take effect immediately upon saving.
+                  </p>
+                </div>
+              )}
+
               {modalType === "howItWorks" && (
                 <>
                   <div className="flex items-start gap-3">

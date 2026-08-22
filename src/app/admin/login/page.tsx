@@ -2,12 +2,14 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Lock, ArrowRight, ShieldCheck, AlertCircle, Link2 } from "lucide-react";
+import { Lock, ArrowRight, AlertCircle, Link2, KeyRound, X, Mail } from "lucide-react";
 
 export default function AdminLoginPage() {
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showForgotModal, setShowForgotModal] = useState(false);
   const router = useRouter();
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -19,7 +21,7 @@ export default function AdminLoginPage() {
       const res = await fetch("/api/auth", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ email: email.trim(), password }),
       });
 
       const data = await res.json();
@@ -62,8 +64,34 @@ export default function AdminLoginPage() {
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
               <label className="block text-xs font-semibold text-neutral-800 mb-1.5">
-                Password
+                Gmail / Email
               </label>
+              <div className="relative">
+                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Enter your email (e.g. you@gmail.com)"
+                  required
+                  className="w-full pl-10 pr-4 py-2.5 text-sm bg-white border border-neutral-300 rounded-xl text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-black focus:ring-1 focus:ring-black transition"
+                />
+              </div>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-semibold text-neutral-800">
+                  Password
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowForgotModal(true)}
+                  className="text-xs text-neutral-500 hover:text-black font-medium transition"
+                >
+                  Forgot password?
+                </button>
+              </div>
               <div className="relative">
                 <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
                 <input
@@ -104,6 +132,51 @@ export default function AdminLoginPage() {
           </div>
         </div>
       </div>
+
+      {/* Forgot Password Modal */}
+      {showForgotModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="relative w-full max-w-lg rounded-3xl bg-white border border-neutral-200 p-7 sm:p-8 shadow-2xl">
+            <div className="flex items-center justify-between pb-4 border-b border-neutral-100">
+              <h3 className="text-lg font-bold text-neutral-900 flex items-center gap-2">
+                <KeyRound className="w-5 h-5 text-neutral-900" />
+                <span>Reset Password</span>
+              </h3>
+              <button
+                onClick={() => setShowForgotModal(false)}
+                className="p-1 rounded-lg text-neutral-400 hover:text-black hover:bg-neutral-100 transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="mt-5 space-y-4 text-sm text-neutral-600 leading-relaxed">
+              <p>
+                To reset or update your admin password, update your environment configuration:
+              </p>
+              <div className="p-3.5 rounded-xl bg-neutral-50 border border-neutral-200 font-mono text-xs text-neutral-900 space-y-2">
+                <div>
+                  <strong className="block text-[11px] text-neutral-500 uppercase tracking-wider">Local Development:</strong>
+                  Update <code className="bg-white border px-1.5 py-0.5 rounded text-black">ADMIN_PASSWORD</code> in your <code className="bg-white border px-1.5 py-0.5 rounded text-black">.env.local</code> file.
+                </div>
+                <div>
+                  <strong className="block text-[11px] text-neutral-500 uppercase tracking-wider">Vercel Deployment:</strong>
+                  Go to <strong>Project Settings → Environment Variables</strong> and update <code className="bg-white border px-1.5 py-0.5 rounded text-black">ADMIN_PASSWORD</code>.
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 pt-4 border-t border-neutral-100 flex justify-end">
+              <button
+                onClick={() => setShowForgotModal(false)}
+                className="px-4 py-2 bg-black hover:bg-neutral-800 text-white rounded-xl text-xs font-semibold transition"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
