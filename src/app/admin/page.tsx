@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Redirect } from "@/lib/db/schema";
 import { RedirectTable } from "./components/RedirectTable";
 import { AnalyticsView } from "./components/AnalyticsView";
+import { BioPageView } from "./components/BioPageView";
 import { CreateRedirectModal } from "./components/CreateRedirectModal";
 import { CreateSublinkModal } from "./components/CreateSublinkModal";
 import { EditRedirectModal } from "./components/EditRedirectModal";
@@ -18,18 +19,16 @@ import {
   TrendingUp,
   Clock,
   RotateCw,
-  Copy,
   ExternalLink,
   Sparkles,
 } from "lucide-react";
 
 export default function AdminDashboardPage() {
-  const [activeTab, setActiveTab] = useState<"links" | "expired" | "analytics">("links");
+  const [activeTab, setActiveTab] = useState<"links" | "expired" | "analytics" | "bio">("links");
   const [redirects, setRedirects] = useState<Redirect[]>([]);
   const [loading, setLoading] = useState(true);
   const [baseUrl, setBaseUrl] = useState("");
   const [currentUser, setCurrentUser] = useState("siddu");
-  const [profileCopied, setProfileCopied] = useState(false);
 
   // Modals state
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -108,14 +107,6 @@ export default function AdminDashboardPage() {
     }
   };
 
-  const handleCopyProfile = () => {
-    const profileUrl = `${baseUrl}/${currentUser}`;
-    navigator.clipboard.writeText(profileUrl);
-    setProfileCopied(true);
-    showToast("Profile link copied!");
-    setTimeout(() => setProfileCopied(false), 2000);
-  };
-
   const handleToggleProfileVisibility = async (redirect: Redirect, nextVal: boolean) => {
     try {
       const res = await fetch(`/api/redirects/${redirect.id}`, {
@@ -125,15 +116,13 @@ export default function AdminDashboardPage() {
       });
 
       if (res.ok) {
-        showToast(nextVal ? "Visible on profile page" : "Hidden from profile page");
+        showToast(nextVal ? "Added to your Bio Page!" : "Removed from your Bio Page");
         fetchRedirects();
       }
     } catch (err) {
       console.error("Toggle visibility error:", err);
     }
   };
-
-  const profileUrl = `${baseUrl}/${currentUser}`;
 
   return (
     <main className="min-h-screen bg-white text-neutral-900 font-sans selection:bg-black selection:text-white">
@@ -156,6 +145,18 @@ export default function AdminDashboardPage() {
           </a>
 
           <div className="flex items-center gap-2.5">
+            {/* View Bio Page Shortcut Button */}
+            <a
+              href={`/${currentUser}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hidden sm:flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-neutral-200 hover:border-black text-xs font-semibold text-neutral-800 bg-white transition shadow-2xs"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-black" />
+              <span>/{currentUser} (Bio Page)</span>
+              <ExternalLink className="w-3 h-3 text-neutral-400" />
+            </a>
+
             <button
               onClick={() => fetchRedirects()}
               title="Refresh real-time data"
@@ -184,56 +185,7 @@ export default function AdminDashboardPage() {
 
       {/* Main Content Area */}
       <div className="max-w-5xl mx-auto px-6 sm:px-12 py-8 sm:py-10 space-y-8">
-        {/* Your Public Profile Page Link Bar */}
-        <div className="p-4 sm:p-5 rounded-2xl border border-neutral-200 bg-neutral-50/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-black text-white flex items-center justify-center font-bold">
-              <Sparkles className="w-4 h-4" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-neutral-900">Your Public Profile Link:</span>
-                <span className="font-mono text-xs text-neutral-600 font-semibold bg-white px-2 py-0.5 rounded border border-neutral-200">
-                  /{currentUser}
-                </span>
-              </div>
-              <p className="text-[11px] text-neutral-500 mt-0.5">
-                Shows all links you allow on one clean page for your bio
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleCopyProfile}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:text-black bg-white border border-neutral-200 hover:border-neutral-300 rounded-xl transition shadow-sm"
-            >
-              {profileCopied ? (
-                <>
-                  <Check className="w-3.5 h-3.5 text-black" />
-                  <span>Copied!</span>
-                </>
-              ) : (
-                <>
-                  <Copy className="w-3.5 h-3.5 text-neutral-500" />
-                  <span>Copy Bio Link</span>
-                </>
-              )}
-            </button>
-
-            <a
-              href={`/${currentUser}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-black hover:bg-neutral-800 rounded-xl transition shadow-sm"
-            >
-              <ExternalLink className="w-3.5 h-3.5" />
-              <span>View Page</span>
-            </a>
-          </div>
-        </div>
-
-        {/* 3 Overview Boxes Side by Side (Clean, consistent, subtle borders) */}
+        {/* 3 Overview Boxes Side by Side */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {/* 1. Total Links Box */}
           <div
@@ -289,9 +241,9 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
-        {/* Tab Selection Switcher (Active Links | Expired Links | Analytics Breakdown) */}
-        <div className="flex items-center justify-between border-b border-neutral-100 pb-4">
-          <div className="flex items-center gap-2 bg-neutral-100 p-1 rounded-xl">
+        {/* Tab Selection Switcher (Active Links | Expired Links | Analytics | Bio Page) */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-neutral-100 pb-4 gap-3">
+          <div className="flex flex-wrap items-center gap-2 bg-neutral-100 p-1 rounded-xl">
             {/* Active Links Tab */}
             <button
               type="button"
@@ -340,12 +292,27 @@ export default function AdminDashboardPage() {
               <TrendingUp className="w-3.5 h-3.5" />
               <span>Analytics</span>
             </button>
+
+            {/* Bio Page Tab */}
+            <button
+              type="button"
+              onClick={() => setActiveTab("bio")}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition ${
+                activeTab === "bio"
+                  ? "bg-black text-white shadow-sm"
+                  : "text-neutral-500 hover:text-black"
+              }`}
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+              <span>Bio Page (/{currentUser})</span>
+            </button>
           </div>
 
           <div className="text-xs text-neutral-400 font-mono">
             {activeTab === "links" && `${activeLinks.length} active`}
             {activeTab === "expired" && `${expiredLinks.length} expired`}
             {activeTab === "analytics" && `${totalClicks} total clicks`}
+            {activeTab === "bio" && `localhost:3000/${currentUser}`}
           </div>
         </div>
 
@@ -376,13 +343,20 @@ export default function AdminDashboardPage() {
             onToggleProfileVisibility={handleToggleProfileVisibility}
             isExpiredView={true}
           />
-        ) : (
+        ) : activeTab === "analytics" ? (
           <AnalyticsView
             redirects={redirects}
             baseUrl={baseUrl}
             onEdit={(r) => setEditingRedirect(r)}
             onDelete={(r) => setDeletingRedirect(r)}
             onCreateSublink={(r) => setSublinkParent(r)}
+          />
+        ) : (
+          <BioPageView
+            redirects={redirects}
+            baseUrl={baseUrl}
+            currentUser={currentUser}
+            onToggleVisibility={handleToggleProfileVisibility}
           />
         )}
       </div>
