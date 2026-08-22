@@ -32,6 +32,24 @@ export const redirects = pgTable(
   ]
 );
 
+export const bios = pgTable(
+  "bios",
+  {
+    id: serial("id").primaryKey(),
+    username: varchar("username", { length: 64 }).notNull(),
+    bioname: varchar("bioname", { length: 128 }).notNull(), // e.g. "main", "work", "gaming", "hackathon"
+    title: varchar("title", { length: 255 }), // Display title e.g. "Work & Portfolio"
+    description: text("description"), // Short description
+    linkIds: text("link_ids").notNull().default("[]"), // JSON stringified array of redirect IDs e.g. "[1, 4]"
+    expiresAt: timestamp("expires_at"), // Null = permanent; Timestamp = temporary expiring sub-bio
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("username_bioname_idx").on(table.username, table.bioname),
+  ]
+);
+
 export const clickEvents = pgTable(
   "click_events",
   {
@@ -47,4 +65,6 @@ export const clickEvents = pgTable(
 
 export type Redirect = InferSelectModel<typeof redirects>;
 export type NewRedirect = InferInsertModel<typeof redirects>;
+export type Bio = InferSelectModel<typeof bios>;
+export type NewBio = InferInsertModel<typeof bios>;
 export type ClickEvent = InferSelectModel<typeof clickEvents>;
