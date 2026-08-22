@@ -14,7 +14,8 @@ import {
   MoreVertical,
   RotateCcw,
   GitFork,
-  Eye,
+  Clock,
+  MousePointerClick,
 } from "lucide-react";
 
 interface RedirectTableProps {
@@ -67,6 +68,14 @@ export function RedirectTable({
     setCopiedId(id);
     setOpenMenuId(null);
     setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const formatExpiredDate = (dateVal?: Date | string | null) => {
+    if (!dateVal) return "—";
+    const date = new Date(dateVal);
+    const dateStr = date.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" });
+    const timeStr = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    return `${dateStr} at ${timeStr}`;
   };
 
   const getExpirationBadge = (r: Redirect) => {
@@ -126,7 +135,7 @@ export function RedirectTable({
         </h3>
         <p className="text-xs text-neutral-500 max-w-xs mx-auto mt-1 mb-5">
           {isExpiredView
-            ? "When a temporary link's timer finishes, it will appear here."
+            ? "When a temporary link's timer completes, it will appear here with click counts and expiration date."
             : "Create your first permanent link and share it anywhere."}
         </p>
         {!isExpiredView && (
@@ -163,11 +172,19 @@ export function RedirectTable({
           <thead>
             <tr className="border-b border-neutral-100 bg-neutral-50/70 text-[11px] uppercase tracking-wider text-neutral-400 font-semibold">
               <th className="py-3.5 px-5">Your Link</th>
-              <th className="py-3.5 px-5">Type / Expiry</th>
-              <th className="py-3.5 px-5">Goes To</th>
-              <th className="py-3.5 px-5 text-center">
-                {isExpiredView ? "Clicks (Active / Expired)" : "Clicks"}
-              </th>
+              {isExpiredView ? (
+                <>
+                  <th className="py-3.5 px-5">When Expired</th>
+                  <th className="py-3.5 px-5">Destination</th>
+                  <th className="py-3.5 px-5 text-center">Clicks After Expiry</th>
+                </>
+              ) : (
+                <>
+                  <th className="py-3.5 px-5">Type / Expiry</th>
+                  <th className="py-3.5 px-5">Goes To</th>
+                  <th className="py-3.5 px-5 text-center">Clicks</th>
+                </>
+              )}
               <th className="py-3.5 px-5 text-right w-16"></th>
             </tr>
           </thead>
@@ -206,46 +223,62 @@ export function RedirectTable({
                     </div>
                   </td>
 
-                  {/* Expiration Status */}
-                  <td className="py-4 px-5">
-                    {getExpirationBadge(r)}
-                  </td>
-
-                  {/* Destination */}
-                  <td className="py-4 px-5 max-w-xs md:max-w-md">
-                    <div className="flex items-center gap-1.5 text-neutral-600">
-                      <ArrowRight className="w-3 h-3 text-neutral-400 flex-shrink-0" />
-                      <a
-                        href={r.destinationUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="truncate text-neutral-600 hover:text-black transition text-xs font-mono"
-                        title={r.destinationUrl}
-                      >
-                        {r.destinationUrl}
-                      </a>
-                    </div>
-                  </td>
-
-                  {/* Clicks (Active & Expired breakdown) */}
-                  <td className="py-4 px-5 text-center font-mono">
-                    {isExpiredView ? (
-                      <div className="space-y-1">
-                        <div className="text-neutral-900 font-bold text-xs">
-                          {r.clickCount || 0}{" "}
-                          <span className="text-[10px] text-neutral-500 font-sans font-normal">active</span>
+                  {/* Expired View Columns vs Active View Columns */}
+                  {isExpiredView ? (
+                    <>
+                      {/* When Expired */}
+                      <td className="py-4 px-5">
+                        <div className="flex items-center gap-1.5 text-neutral-800 text-xs font-medium">
+                          <Clock className="w-3.5 h-3.5 text-neutral-400 flex-shrink-0" />
+                          <span>{formatExpiredDate(r.expiresAt)}</span>
                         </div>
-                        <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-neutral-100 text-neutral-800 text-[10px] font-semibold">
-                          <Eye className="w-2.5 h-2.5" />
-                          <span>{r.expiredClickCount || 0} after expiry</span>
+                      </td>
+
+                      {/* Destination */}
+                      <td className="py-4 px-5 max-w-xs truncate">
+                        <div className="flex items-center gap-1.5 text-neutral-500">
+                          <ArrowRight className="w-3 h-3 text-neutral-400 flex-shrink-0" />
+                          <span className="truncate font-mono text-[11px]">{r.destinationUrl}</span>
                         </div>
-                      </div>
-                    ) : (
-                      <span className="font-semibold text-neutral-900">
+                      </td>
+
+                      {/* Clicks After Expiry */}
+                      <td className="py-4 px-5 text-center font-mono">
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-neutral-100 border border-neutral-200 text-neutral-900 text-xs font-bold shadow-sm">
+                          <MousePointerClick className="w-3.5 h-3.5 text-black" />
+                          <span>{r.expiredClickCount || 0} clicked after expiry</span>
+                        </div>
+                      </td>
+                    </>
+                  ) : (
+                    <>
+                      {/* Expiration Status Badge */}
+                      <td className="py-4 px-5">
+                        {getExpirationBadge(r)}
+                      </td>
+
+                      {/* Destination */}
+                      <td className="py-4 px-5 max-w-xs md:max-w-md">
+                        <div className="flex items-center gap-1.5 text-neutral-600">
+                          <ArrowRight className="w-3 h-3 text-neutral-400 flex-shrink-0" />
+                          <a
+                            href={r.destinationUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="truncate text-neutral-600 hover:text-black transition text-xs font-mono"
+                            title={r.destinationUrl}
+                          >
+                            {r.destinationUrl}
+                          </a>
+                        </div>
+                      </td>
+
+                      {/* Clicks */}
+                      <td className="py-4 px-5 text-center font-mono font-semibold text-neutral-900">
                         {r.clickCount || 0}
-                      </span>
-                    )}
-                  </td>
+                      </td>
+                    </>
+                  )}
 
                   {/* 3 Dots Menu Button & Dropdown */}
                   <td className="py-4 px-5 text-right relative">
