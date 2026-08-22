@@ -177,14 +177,14 @@ export default function AdminDashboardPage() {
             <button
               onClick={() => fetchRedirects()}
               title="Refresh real-time data"
-              className="p-2 rounded-xl text-neutral-400 hover:text-black hover:bg-neutral-50 border border-neutral-200 transition"
+              className="p-2 rounded-xl text-neutral-400 hover:text-black hover:bg-neutral-50 border border-neutral-200 transition cursor-pointer"
             >
               <RotateCw className={`w-4 h-4 ${loading ? "animate-spin text-black" : ""}`} />
             </button>
 
             <button
               onClick={() => setIsCreateOpen(true)}
-              className="flex items-center gap-1.5 px-4 py-2 bg-black hover:bg-neutral-800 text-white rounded-xl text-xs font-semibold transition shadow-sm"
+              className="flex items-center gap-1.5 px-4 py-2 bg-black hover:bg-neutral-800 text-white rounded-xl text-xs font-semibold transition shadow-sm cursor-pointer"
             >
               <Plus className="w-4 h-4" />
               <span>Create Link</span>
@@ -192,7 +192,7 @@ export default function AdminDashboardPage() {
             <button
               onClick={handleLogout}
               title="Sign Out"
-              className="p-2 rounded-xl text-neutral-400 hover:text-black hover:bg-neutral-50 border border-neutral-200 transition"
+              className="p-2 rounded-xl text-neutral-400 hover:text-black hover:bg-neutral-50 border border-neutral-200 transition cursor-pointer"
             >
               <LogOut className="w-4 h-4" />
             </button>
@@ -258,14 +258,14 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
-        {/* Tab Selection Switcher (Active Links | Expired Links | Analytics | Bio Page) */}
+        {/* Unified Tab Selection Switcher (All 4 tabs with consistent white background and black text when active) */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-neutral-100 pb-4 gap-3">
-          <div className="flex flex-wrap items-center gap-2 bg-neutral-100 p-1 rounded-xl">
-            {/* Active Links Tab */}
+          <div className="flex flex-wrap items-center gap-1.5 bg-neutral-100 p-1 rounded-xl">
+            {/* 1. Active Links Tab */}
             <button
               type="button"
               onClick={() => setActiveTab("links")}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition ${
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer ${
                 activeTab === "links"
                   ? "bg-white text-black shadow-sm"
                   : "text-neutral-500 hover:text-black"
@@ -277,11 +277,11 @@ export default function AdminDashboardPage() {
               </span>
             </button>
 
-            {/* Expired Links Tab */}
+            {/* 2. Expired Links Tab */}
             <button
               type="button"
               onClick={() => setActiveTab("expired")}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition ${
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer ${
                 activeTab === "expired"
                   ? "bg-white text-black shadow-sm"
                   : "text-neutral-500 hover:text-black"
@@ -296,11 +296,11 @@ export default function AdminDashboardPage() {
               )}
             </button>
 
-            {/* Analytics Tab */}
+            {/* 3. Analytics Tab */}
             <button
               type="button"
               onClick={() => setActiveTab("analytics")}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition ${
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer ${
                 activeTab === "analytics"
                   ? "bg-white text-black shadow-sm"
                   : "text-neutral-500 hover:text-black"
@@ -310,17 +310,17 @@ export default function AdminDashboardPage() {
               <span>Analytics</span>
             </button>
 
-            {/* Bio Page Tab */}
+            {/* 4. Bio Page Tab (Unified & Consistent Style) */}
             <button
               type="button"
               onClick={() => setActiveTab("bio")}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition ${
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer ${
                 activeTab === "bio"
-                  ? "bg-black text-white shadow-sm"
+                  ? "bg-white text-black shadow-sm"
                   : "text-neutral-500 hover:text-black"
               }`}
             >
-              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+              <Sparkles className="w-3.5 h-3.5" />
               <span>Bio Page (/{currentUser})</span>
             </button>
           </div>
