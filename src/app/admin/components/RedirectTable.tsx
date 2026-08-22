@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Redirect } from "@/lib/db/schema";
 import {
   ExternalLink,
@@ -11,6 +11,7 @@ import {
   Search,
   ArrowRight,
   Link2,
+  MoreVertical,
 } from "lucide-react";
 
 interface RedirectTableProps {
@@ -30,6 +31,19 @@ export function RedirectTable({
 }: RedirectTableProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [copiedId, setCopiedId] = useState<number | null>(null);
+  const [openMenuId, setOpenMenuId] = useState<number | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  // Close dropdown on click outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setOpenMenuId(null);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const filteredRedirects = redirects.filter((r) => {
     const q = searchTerm.toLowerCase();
@@ -44,10 +58,11 @@ export function RedirectTable({
     const fullUrl = `${baseUrl}${path}`;
     navigator.clipboard.writeText(fullUrl);
     setCopiedId(id);
+    setOpenMenuId(null);
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  // Empty state: Simple & Clean
+  // Empty state
   if (redirects.length === 0) {
     return (
       <div className="text-center py-24 rounded-3xl border border-neutral-100 bg-neutral-50/50">
@@ -69,8 +84,8 @@ export function RedirectTable({
   }
 
   return (
-    <div className="space-y-4">
-      {/* Search Bar (Only when there are links) */}
+    <div className="space-y-4 font-sans">
+      {/* Search Bar (When there are multiple links) */}
       {redirects.length > 2 && (
         <div className="relative max-w-sm">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
@@ -85,25 +100,26 @@ export function RedirectTable({
       )}
 
       {/* Table */}
-      <div className="overflow-x-auto rounded-2xl border border-neutral-200 bg-white shadow-sm">
+      <div className="rounded-2xl border border-neutral-200 bg-white shadow-sm overflow-visible">
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="border-b border-neutral-100 bg-neutral-50/70 text-[11px] uppercase tracking-wider text-neutral-400 font-semibold">
               <th className="py-3.5 px-5">Your Link</th>
               <th className="py-3.5 px-5">Goes To</th>
               <th className="py-3.5 px-5 text-center">Clicks</th>
-              <th className="py-3.5 px-5 text-right">Actions</th>
+              <th className="py-3.5 px-5 text-right w-16"></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-neutral-100 text-xs">
             {filteredRedirects.map((r) => {
               const path = `/${r.username}/${r.webname}`;
               const isCopied = copiedId === r.id;
+              const isMenuOpen = openMenuId === r.id;
 
               return (
                 <tr
                   key={r.id}
-                  className="hover:bg-neutral-50/60 transition duration-150"
+                  className="hover:bg-neutral-50/60 transition duration-150 relative"
                 >
                   {/* Link */}
                   <td className="py-4 px-5 font-mono font-medium">
@@ -120,15 +136,6 @@ export function RedirectTable({
                           <Copy className="w-3.5 h-3.5" />
                         )}
                       </button>
-                      <a
-                        href={path}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        title="Open link"
-                        className="p-1 rounded-lg text-neutral-400 hover:text-black hover:bg-neutral-100 transition"
-                      >
-                        <ExternalLink className="w-3.5 h-3.5" />
-                      </a>
                     </div>
                   </td>
 
@@ -153,23 +160,71 @@ export function RedirectTable({
                     {r.clickCount || 0}
                   </td>
 
-                  {/* Actions */}
-                  <td className="py-4 px-5 text-right">
-                    <div className="flex items-center justify-end gap-1">
+                  {/* 3 Dots Menu Button & Dropdown */}
+                  <td className="py-4 px-5 text-right relative">
+                    <div className="inline-block text-left" ref={isMenuOpen ? menuRef : null}>
                       <button
-                        onClick={() => onEdit(r)}
-                        title="Edit destination"
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setOpenMenuId(isMenuOpen ? null : r.id);
+                        }}
                         className="p-1.5 rounded-lg text-neutral-400 hover:text-black hover:bg-neutral-100 transition"
+                        title="More options"
                       >
-                        <Edit2 className="w-4 h-4" />
+                        <MoreVertical className="w-4 h-4" />
                       </button>
-                      <button
-                        onClick={() => onDelete(r)}
-                        title="Delete link"
-                        className="p-1.5 rounded-lg text-neutral-400 hover:text-black hover:bg-neutral-100 transition"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+
+                      {/* 3-Dots Dropdown Menu */}
+                      {isMenuOpen && (
+                        <div className="absolute right-4 top-12 z-50 w-44 rounded-2xl bg-white border border-neutral-200 p-1.5 shadow-xl animate-in fade-in zoom-in-95 duration-150">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setOpenMenuId(null);
+                              onEdit(r);
+                            }}
+                            className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 hover:text-black hover:bg-neutral-50 rounded-xl transition text-left"
+                          >
+                            <Edit2 className="w-3.5 h-3.5 text-neutral-500" />
+                            <span>Edit destination</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleCopy(r.id, path)}
+                            className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 hover:text-black hover:bg-neutral-50 rounded-xl transition text-left"
+                          >
+                            <Copy className="w-3.5 h-3.5 text-neutral-500" />
+                            <span>Copy link</span>
+                          </button>
+
+                          <a
+                            href={path}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={() => setOpenMenuId(null)}
+                            className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 hover:text-black hover:bg-neutral-50 rounded-xl transition text-left"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5 text-neutral-500" />
+                            <span>Open link</span>
+                          </a>
+
+                          <div className="h-px bg-neutral-100 my-1" />
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setOpenMenuId(null);
+                              onDelete(r);
+                            }}
+                            className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 hover:text-black hover:bg-neutral-50 rounded-xl transition text-left"
+                          >
+                            <Trash2 className="w-3.5 h-3.5 text-neutral-500" />
+                            <span>Delete link</span>
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </td>
                 </tr>

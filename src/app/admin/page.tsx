@@ -13,7 +13,6 @@ import {
   Plus,
   LogOut,
   Check,
-  BarChart2,
   CheckCircle2,
   TrendingUp,
 } from "lucide-react";
@@ -243,6 +242,8 @@ export default function AdminDashboardPage() {
           <AnalyticsView
             redirects={redirects}
             baseUrl={baseUrl}
+            onEdit={(r) => setEditingRedirect(r)}
+            onDelete={(r) => setDeletingRedirect(r)}
           />
         )}
       </div>

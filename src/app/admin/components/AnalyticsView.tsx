@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect, useRef } from "react";
 import { Redirect } from "@/lib/db/schema";
 import {
   TrendingUp,
@@ -9,14 +10,41 @@ import {
   ArrowRight,
   Sparkles,
   Link2,
+  MoreVertical,
+  Edit2,
+  Trash2,
+  Copy,
+  Check,
 } from "lucide-react";
 
 interface AnalyticsViewProps {
   redirects: Redirect[];
   baseUrl: string;
+  onEdit?: (redirect: Redirect) => void;
+  onDelete?: (redirect: Redirect) => void;
 }
 
-export function AnalyticsView({ redirects, baseUrl }: AnalyticsViewProps) {
+export function AnalyticsView({
+  redirects,
+  baseUrl,
+  onEdit,
+  onDelete,
+}: AnalyticsViewProps) {
+  const [openMenuId, setOpenMenuId] = useState<number | null>(null);
+  const [copiedId, setCopiedId] = useState<number | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  // Close dropdown on click outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setOpenMenuId(null);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   const totalClicks = redirects.reduce((acc, curr) => acc + (curr.clickCount || 0), 0);
   const activeCount = redirects.length;
   const avgClicks = activeCount > 0 ? (totalClicks / activeCount).toFixed(1) : "0";
@@ -27,6 +55,14 @@ export function AnalyticsView({ redirects, baseUrl }: AnalyticsViewProps) {
   );
 
   const topLink = sortedRedirects[0]?.clickCount > 0 ? sortedRedirects[0] : null;
+
+  const handleCopy = (id: number, path: string) => {
+    const fullUrl = `${baseUrl}${path}`;
+    navigator.clipboard.writeText(fullUrl);
+    setCopiedId(id);
+    setOpenMenuId(null);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
 
   if (redirects.length === 0) {
     return (
@@ -97,7 +133,7 @@ export function AnalyticsView({ redirects, baseUrl }: AnalyticsViewProps) {
         </div>
       </div>
 
-      {/* Traffic Breakdown List */}
+      {/* Traffic Breakdown List with 3-Dots Action Menu on each row */}
       <div className="rounded-3xl border border-neutral-200 bg-white p-6 sm:p-8 shadow-sm">
         <div className="flex items-center justify-between mb-6 pb-4 border-b border-neutral-100">
           <div>
@@ -119,48 +155,126 @@ export function AnalyticsView({ redirects, baseUrl }: AnalyticsViewProps) {
             {sortedRedirects.map((r, index) => {
               const path = `/${r.username}/${r.webname}`;
               const percentage = totalClicks > 0 ? Math.round(((r.clickCount || 0) / totalClicks) * 100) : 0;
+              const isMenuOpen = openMenuId === r.id;
+              const isCopied = copiedId === r.id;
 
               return (
                 <div
                   key={r.id}
-                  className="p-4 rounded-2xl border border-neutral-100 bg-neutral-50/50 hover:bg-neutral-50 transition space-y-2.5"
+                  className="p-4 rounded-2xl border border-neutral-100 bg-neutral-50/50 hover:bg-neutral-50 transition space-y-2.5 relative"
                 >
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                    <div className="flex items-center gap-3">
+                  <div className="flex items-center justify-between gap-2">
+                    {/* Left: Rank, Link Name, Destination */}
+                    <div className="flex items-center gap-3 min-w-0">
                       <span className="w-6 h-6 rounded-full bg-black text-white text-xs font-bold font-mono flex items-center justify-center flex-shrink-0">
                         {index + 1}
                       </span>
-                      <div>
+                      <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="font-mono font-bold text-sm text-neutral-900">
+                          <span className="font-mono font-bold text-sm text-neutral-900 truncate">
                             {path}
                           </span>
-                          <a
-                            href={path}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-neutral-400 hover:text-black transition"
-                            title="Open link"
+                          <button
+                            type="button"
+                            onClick={() => handleCopy(r.id, path)}
+                            title="Copy link"
+                            className="p-1 rounded-lg text-neutral-400 hover:text-black hover:bg-neutral-200/60 transition flex-shrink-0"
                           >
-                            <ExternalLink className="w-3.5 h-3.5" />
-                          </a>
+                            {isCopied ? (
+                              <Check className="w-3.5 h-3.5 text-black" />
+                            ) : (
+                              <Copy className="w-3.5 h-3.5" />
+                            )}
+                          </button>
                         </div>
-                        <div className="flex items-center gap-1 text-xs text-neutral-500 mt-0.5 truncate max-w-sm">
+                        <div className="flex items-center gap-1 text-xs text-neutral-500 mt-0.5 truncate">
                           <ArrowRight className="w-3 h-3 text-neutral-400 flex-shrink-0" />
-                          <span className="truncate">{r.destinationUrl}</span>
+                          <span className="truncate max-w-xs sm:max-w-md">{r.destinationUrl}</span>
                         </div>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-4 sm:text-right">
-                      <div>
-                        <div className="font-mono font-bold text-base text-neutral-900">
+                    {/* Right: Clicks, Traffic Share & 3 Dots Button */}
+                    <div className="flex items-center gap-3 sm:gap-5 flex-shrink-0">
+                      <div className="text-right">
+                        <div className="font-mono font-bold text-sm sm:text-base text-neutral-900">
                           {r.clickCount || 0}{" "}
                           <span className="text-xs font-normal text-neutral-500">clicks</span>
                         </div>
                         <div className="text-[11px] font-mono text-neutral-400">
                           {percentage}% of traffic
                         </div>
+                      </div>
+
+                      {/* 3 Dots Button */}
+                      <div className="relative" ref={isMenuOpen ? menuRef : null}>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenMenuId(isMenuOpen ? null : r.id);
+                          }}
+                          className="p-1.5 rounded-lg text-neutral-400 hover:text-black hover:bg-neutral-200/60 transition"
+                          title="More options"
+                        >
+                          <MoreVertical className="w-4 h-4" />
+                        </button>
+
+                        {/* 3-Dots Dropdown Menu */}
+                        {isMenuOpen && (
+                          <div className="absolute right-0 top-9 z-50 w-44 rounded-2xl bg-white border border-neutral-200 p-1.5 shadow-xl animate-in fade-in zoom-in-95 duration-150">
+                            {onEdit && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOpenMenuId(null);
+                                  onEdit(r);
+                                }}
+                                className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 hover:text-black hover:bg-neutral-50 rounded-xl transition text-left"
+                              >
+                                <Edit2 className="w-3.5 h-3.5 text-neutral-500" />
+                                <span>Edit destination</span>
+                              </button>
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={() => handleCopy(r.id, path)}
+                              className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 hover:text-black hover:bg-neutral-50 rounded-xl transition text-left"
+                            >
+                              <Copy className="w-3.5 h-3.5 text-neutral-500" />
+                              <span>Copy link</span>
+                            </button>
+
+                            <a
+                              href={path}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={() => setOpenMenuId(null)}
+                              className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 hover:text-black hover:bg-neutral-50 rounded-xl transition text-left"
+                            >
+                              <ExternalLink className="w-3.5 h-3.5 text-neutral-500" />
+                              <span>Open link</span>
+                            </a>
+
+                            {onDelete && (
+                              <>
+                                <div className="h-px bg-neutral-100 my-1" />
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setOpenMenuId(null);
+                                    onDelete(r);
+                                  }}
+                                  className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 hover:text-black hover:bg-neutral-50 rounded-xl transition text-left"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5 text-neutral-500" />
+                                  <span>Delete link</span>
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
