@@ -17,26 +17,31 @@ import {
   AlertTriangle,
   KeyRound,
   CheckCircle2,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { sanitizeSlug } from "@/lib/utils";
 
 export default function HomePage() {
   const [isSignUp, setIsSignUp] = useState(true);
+  const [authMethod, setAuthMethod] = useState<"code" | "password">("code");
   const [step, setStep] = useState<"input" | "verify">("input");
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
   const [isUsernameFocused, setIsUsernameFocused] = useState(false);
-  const [modalType, setModalType] = useState<"features" | "howItWorks" | "about" | "smtpConfig" | null>(null);
+  const [modalType, setModalType] = useState<"features" | "howItWorks" | "about" | "forgotPassword" | null>(null);
   const router = useRouter();
 
   const cleanUsername = sanitizeSlug(username);
 
-  // Step 1: Send verification code to email
-  const handleSendCode = async (e: React.FormEvent) => {
+  // Step 1: Send verification code to email or direct password submit
+  const handlePrimarySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setInfoMessage(null);
@@ -51,6 +56,36 @@ export default function HomePage() {
       return;
     }
 
+    // If using password method directly
+    if (authMethod === "password") {
+      if (!password) {
+        setError("Please enter your password");
+        return;
+      }
+      setLoading(true);
+      try {
+        const res = await fetch("/api/auth", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: email.trim(),
+            password,
+            username: isSignUp ? cleanUsername : undefined,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Authentication failed");
+        router.push("/admin");
+        router.refresh();
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : "Authentication failed");
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
+    // Default: Send 6-digit verification code to email
     setLoading(true);
     try {
       const res = await fetch("/api/auth", {
@@ -71,7 +106,6 @@ export default function HomePage() {
       setStep("verify");
       setInfoMessage(`Verification code sent to ${email.trim()}`);
       if (data.devCode) {
-        // Auto-populate for seamless local testing
         setCode(data.devCode);
       }
     } catch (err: unknown) {
@@ -224,7 +258,7 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Right Column: Code Verification Card */}
+        {/* Right Column: Sign Up / Sign In Card */}
         <div className="lg:col-span-5 flex justify-center lg:justify-end w-full">
           <div className="w-full max-w-md rounded-3xl border border-neutral-200 bg-white p-7 sm:p-9 shadow-sm">
             {step === "input" ? (
@@ -245,8 +279,8 @@ export default function HomePage() {
                   </div>
                 )}
 
-                <form onSubmit={handleSendCode} className="space-y-3.5">
-                  {/* Username (Sign Up only) */}
+                <form onSubmit={handlePrimarySubmit} className="space-y-3.5">
+                  {/* 1. Username (Sign Up only) */}
                   {isSignUp && (
                     <div>
                       <div className="flex items-center justify-between mb-1">
@@ -286,7 +320,7 @@ export default function HomePage() {
                     </div>
                   )}
 
-                  {/* Gmail / Email */}
+                  {/* 2. Gmail / Email */}
                   <div>
                     <label className="block text-xs font-semibold text-neutral-800 mb-1">
                       Gmail / Email
@@ -305,21 +339,85 @@ export default function HomePage() {
                     </div>
                   </div>
 
+                  {/* 3. Password Box with Eye Toggle Button */}
+                  {authMethod === "password" && (
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-xs font-semibold text-neutral-800">
+                          Password
+                        </label>
+                        {!isSignUp && (
+                          <button
+                            type="button"
+                            onClick={() => setModalType("forgotPassword")}
+                            className="text-xs text-neutral-500 hover:text-black font-medium transition"
+                          >
+                            Forgot password?
+                          </button>
+                        )}
+                      </div>
+                      <div className="relative">
+                        <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+                        <input
+                          id="password-input"
+                          type={showPassword ? "text" : "password"}
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          placeholder={isSignUp ? "Create a password" : "Enter your password"}
+                          required
+                          className="w-full pl-10 pr-10 py-2.5 text-sm bg-white border border-neutral-300 rounded-xl text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-black focus:ring-1 focus:ring-black transition"
+                        />
+                        {/* Eye Toggle Button on right side */}
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-700 transition p-0.5"
+                          title={showPassword ? "Hide password" : "Show password"}
+                        >
+                          {showPassword ? (
+                            <EyeOff className="w-4 h-4" />
+                          ) : (
+                            <Eye className="w-4 h-4" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   <button
                     type="submit"
                     disabled={loading}
                     className="w-full mt-2 py-3 bg-black hover:bg-neutral-800 text-white rounded-xl text-sm font-semibold transition disabled:opacity-50 shadow-sm flex items-center justify-center gap-2"
                   >
                     {loading ? (
-                      "Sending verification code..."
-                    ) : (
+                      "Processing..."
+                    ) : authMethod === "code" ? (
                       <>
                         <span>{isSignUp ? "Send Verification Code" : "Sign in with Code"}</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </>
+                    ) : (
+                      <>
+                        <span>{isSignUp ? "Create Account" : "Sign in"}</span>
                         <ArrowRight className="w-4 h-4" />
                       </>
                     )}
                   </button>
                 </form>
+
+                {/* Option to switch between Code and Password */}
+                <div className="mt-3 text-center">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setError(null);
+                      setAuthMethod(authMethod === "code" ? "password" : "code");
+                    }}
+                    className="text-xs text-neutral-500 hover:text-black transition underline underline-offset-2"
+                  >
+                    {authMethod === "code" ? "Or sign in with Password →" : "Or sign in with 6-Digit Email Code →"}
+                  </button>
+                </div>
 
                 <div className="my-4 flex items-center justify-center gap-3">
                   <div className="h-px bg-neutral-200 flex-1" />
@@ -327,7 +425,7 @@ export default function HomePage() {
                   <div className="h-px bg-neutral-200 flex-1" />
                 </div>
 
-                {/* Toggle */}
+                {/* Toggle between Sign up and Sign in */}
                 <div className="text-center">
                   <button
                     type="button"
@@ -414,7 +512,7 @@ export default function HomePage() {
                   </button>
                   <button
                     type="button"
-                    onClick={handleSendCode}
+                    onClick={handlePrimarySubmit}
                     disabled={loading}
                     className="hover:text-black transition underline underline-offset-2"
                   >
@@ -439,6 +537,12 @@ export default function HomePage() {
           <div className="relative w-full max-w-lg rounded-3xl bg-white border border-neutral-200 p-7 sm:p-8 shadow-2xl">
             <div className="flex items-center justify-between pb-4 border-b border-neutral-100">
               <h3 className="text-lg font-bold text-neutral-900 flex items-center gap-2">
+                {modalType === "forgotPassword" && (
+                  <>
+                    <KeyRound className="w-5 h-5 text-neutral-900" />
+                    <span>Reset Password</span>
+                  </>
+                )}
                 {modalType === "features" && "PermanentLink Features"}
                 {modalType === "howItWorks" && "How PermanentLink Works"}
                 {modalType === "about" && "About PermanentLink"}
@@ -452,6 +556,27 @@ export default function HomePage() {
             </div>
 
             <div className="mt-5 space-y-4 text-sm text-neutral-600 leading-relaxed">
+              {modalType === "forgotPassword" && (
+                <div className="space-y-3">
+                  <p>
+                    Because PermanentLink is your self-hosted service, you can reset or update your admin password directly in your environment configuration:
+                  </p>
+                  <div className="p-3.5 rounded-xl bg-neutral-50 border border-neutral-200 font-mono text-xs text-neutral-900 space-y-2">
+                    <div>
+                      <strong className="block text-[11px] text-neutral-500 uppercase tracking-wider">Local Development:</strong>
+                      Update <code className="bg-white border px-1.5 py-0.5 rounded text-black">ADMIN_PASSWORD</code> in your <code className="bg-white border px-1.5 py-0.5 rounded text-black">.env.local</code> file.
+                    </div>
+                    <div>
+                      <strong className="block text-[11px] text-neutral-500 uppercase tracking-wider">Vercel Deployment:</strong>
+                      Go to <strong>Project Settings → Environment Variables</strong> and update <code className="bg-white border px-1.5 py-0.5 rounded text-black">ADMIN_PASSWORD</code>.
+                    </div>
+                  </div>
+                  <p className="text-xs text-neutral-500">
+                    Changes take effect immediately upon saving.
+                  </p>
+                </div>
+              )}
+
               {modalType === "howItWorks" && (
                 <>
                   <div className="flex items-start gap-3">
@@ -492,7 +617,7 @@ export default function HomePage() {
                   </p>
                   <div className="flex items-center gap-2 text-neutral-900 font-medium pt-2">
                     <ShieldCheck className="w-4 h-4 text-black" />
-                    <span>Secure Email Verification Code</span>
+                    <span>Secure Email Verification Code & Password</span>
                   </div>
                   <p className="text-xs text-neutral-500">
                     Sign in with direct 6-digit email codes sent securely via Gmail SMTP.
