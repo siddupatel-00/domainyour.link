@@ -18,6 +18,7 @@ export default function AdminDashboardPage() {
   const [redirects, setRedirects] = useState<Redirect[]>([]);
   const [loading, setLoading] = useState(true);
   const [baseUrl, setBaseUrl] = useState("");
+  const [currentUser, setCurrentUser] = useState("siddu");
 
   // Modals state
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -41,6 +42,10 @@ export default function AdminDashboardPage() {
       if (!authData.authenticated) {
         router.push("/");
         return;
+      }
+
+      if (authData.user?.username) {
+        setCurrentUser(authData.user.username);
       }
 
       const res = await fetch("/api/redirects");
@@ -115,7 +120,7 @@ export default function AdminDashboardPage() {
         </div>
       </header>
 
-      {/* Main Content Area - Clean & Direct */}
+      {/* Main Content Area */}
       <div className="max-w-5xl mx-auto px-6 sm:px-12 py-8 sm:py-12">
         {loading && redirects.length === 0 ? (
           <div className="py-20 text-center text-neutral-400 text-xs font-medium">
@@ -137,6 +142,7 @@ export default function AdminDashboardPage() {
         isOpen={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
         baseUrl={baseUrl}
+        currentUser={currentUser}
         onCreated={() => {
           fetchRedirects();
           showToast("Link created!");

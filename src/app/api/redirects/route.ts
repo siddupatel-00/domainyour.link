@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { redirects, Redirect } from "@/lib/db/schema";
-import { isAuthenticated } from "@/lib/auth";
+import { isAuthenticated, getSessionUser } from "@/lib/auth";
 import { sanitizeSlug, isValidUrl } from "@/lib/utils";
 import { desc, and, eq } from "drizzle-orm";
 
@@ -30,7 +30,6 @@ export async function GET() {
 
     return NextResponse.json({ redirects: list });
   } catch (error) {
-    // If DB is not connected locally, fallback gracefully to in-memory store
     console.warn("Using local fallback store:", error);
     return NextResponse.json({ redirects: localFallbackLinks });
   }
@@ -38,35 +37,38 @@ export async function GET() {
 
 // POST /api/redirects - Create a new redirect
 export async function POST(request: NextRequest) {
-  const authed = await isAuthenticated();
-  if (!authed) {
+  const session = await getSessionUser();
+  if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
     const body = await request.json();
-    const { username, webname, destinationUrl } = body;
+    const { username: bodyUsername, webname, destinationUrl } = body;
 
-    if (!username || !webname || !destinationUrl) {
+    // Use session username if not passed in body
+    const finalUsername = bodyUsername || session.username || "siddu";
+
+    if (!webname || !destinationUrl) {
       return NextResponse.json(
-        { error: "Username, link name, and destination URL are required" },
+        { error: "Link name and destination URL are required" },
         { status: 400 }
       );
     }
 
-    const cleanUsername = sanitizeSlug(username);
+    const cleanUsername = sanitizeSlug(finalUsername);
     const cleanWebname = sanitizeSlug(webname);
 
     if (!cleanUsername || cleanUsername.length < 1) {
       return NextResponse.json(
-        { error: "Username contains invalid characters" },
+        { error: "Username is invalid" },
         { status: 400 }
       );
     }
 
     if (!cleanWebname || cleanWebname.length < 1) {
       return NextResponse.json(
-        { error: "Link name contains invalid characters" },
+        { error: "Please enter a valid link name (e.g. linkedin)" },
         { status: 400 }
       );
     }
@@ -148,7 +150,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Create redirect error:", error);
     return NextResponse.json(
-      { error: "Failed to create redirect" },
+      { error: "Failed to create link" },
       { status: 500 }
     );
   }

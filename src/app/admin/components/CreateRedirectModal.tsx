@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Link2, AlertCircle, CornerDownRight, AlertTriangle, Lock } from "lucide-react";
+import { X, Link2, AlertCircle, CornerDownRight } from "lucide-react";
 import { sanitizeSlug } from "@/lib/utils";
 
 interface CreateRedirectModalProps {
@@ -9,6 +9,7 @@ interface CreateRedirectModalProps {
   onClose: () => void;
   onCreated: () => void;
   baseUrl: string;
+  currentUser?: string;
 }
 
 export function CreateRedirectModal({
@@ -16,13 +17,12 @@ export function CreateRedirectModal({
   onClose,
   onCreated,
   baseUrl,
+  currentUser = "siddu",
 }: CreateRedirectModalProps) {
-  const [username, setUsername] = useState("");
   const [webname, setWebname] = useState("");
   const [destinationUrl, setDestinationUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isUsernameFocused, setIsUsernameFocused] = useState(false);
 
   // Close on Escape key press
   useEffect(() => {
@@ -37,18 +37,13 @@ export function CreateRedirectModal({
 
   if (!isOpen) return null;
 
-  const cleanUsername = sanitizeSlug(username);
   const cleanWebname = sanitizeSlug(webname);
-  const previewPath = `${baseUrl}/${cleanUsername || ":username"}/${cleanWebname || ":link-name"}`;
+  const previewPath = `${baseUrl}/${currentUser}/${cleanWebname || "link-name"}`;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    if (!cleanUsername) {
-      setError("Please enter your username");
-      return;
-    }
     if (!cleanWebname) {
       setError("Please enter a link name (e.g. linkedin)");
       return;
@@ -64,7 +59,6 @@ export function CreateRedirectModal({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          username: cleanUsername,
           webname: cleanWebname,
           destinationUrl: destinationUrl.trim(),
         }),
@@ -72,10 +66,9 @@ export function CreateRedirectModal({
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || "Failed to create permanent link");
+        throw new Error(data.error || "Failed to create link");
       }
 
-      setUsername("");
       setWebname("");
       setDestinationUrl("");
       onCreated();
@@ -124,52 +117,19 @@ export function CreateRedirectModal({
         )}
 
         <form onSubmit={handleSubmit} className="mt-5 space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-xs font-semibold text-neutral-800">
-                  Your Username
-                </label>
-                <span className="text-[10px] text-neutral-500 flex items-center gap-1">
-                  <Lock className="w-2.5 h-2.5" /> Permanent
-                </span>
-              </div>
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                onFocus={() => setIsUsernameFocused(true)}
-                onBlur={() => setIsUsernameFocused(false)}
-                placeholder="siddu"
-                required
-                className={`w-full px-3.5 py-2.5 text-xs bg-white border rounded-xl text-neutral-900 placeholder-neutral-400 focus:outline-none transition ${
-                  isUsernameFocused || username ? "border-black ring-1 ring-black" : "border-neutral-300"
-                }`}
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-neutral-800 mb-1.5">
-                Link Name
-              </label>
-              <input
-                type="text"
-                value={webname}
-                onChange={(e) => setWebname(e.target.value)}
-                placeholder="linkedin, github, portfolio"
-                required
-                className="w-full px-3.5 py-2.5 text-xs bg-white border border-neutral-300 rounded-xl text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-black focus:ring-1 focus:ring-black"
-              />
-            </div>
-          </div>
-
-          {/* Simple username notice */}
-          <div className="p-3 rounded-xl border border-neutral-200 bg-neutral-50 flex items-start gap-2.5 text-xs text-neutral-700">
-            <AlertTriangle className="w-4 h-4 text-black flex-shrink-0 mt-0.5" />
-            <div className="text-xs leading-relaxed">
-              <span className="font-semibold text-neutral-900">Your username is permanent: </span>
-              Once created, <code className="bg-white border border-neutral-200 px-1.5 py-0.5 rounded font-mono text-[11px] text-neutral-900">/{cleanUsername || "username"}</code> cannot be renamed. You can change where the link points anytime!
-            </div>
+          <div>
+            <label className="block text-xs font-semibold text-neutral-800 mb-1.5">
+              Link Name
+            </label>
+            <input
+              type="text"
+              value={webname}
+              onChange={(e) => setWebname(e.target.value)}
+              placeholder="e.g. linkedin, github, portfolio, myapp"
+              autoFocus
+              required
+              className="w-full px-3.5 py-2.5 text-xs bg-white border border-neutral-300 rounded-xl text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-black focus:ring-1 focus:ring-black"
+            />
           </div>
 
           <div>
