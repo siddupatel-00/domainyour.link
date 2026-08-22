@@ -6,6 +6,7 @@ import { Redirect } from "@/lib/db/schema";
 import { RedirectTable } from "./components/RedirectTable";
 import { AnalyticsView } from "./components/AnalyticsView";
 import { CreateRedirectModal } from "./components/CreateRedirectModal";
+import { CreateSublinkModal } from "./components/CreateSublinkModal";
 import { EditRedirectModal } from "./components/EditRedirectModal";
 import { DeleteRedirectModal } from "./components/DeleteRedirectModal";
 import {
@@ -27,6 +28,7 @@ export default function AdminDashboardPage() {
 
   // Modals state
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [sublinkParent, setSublinkParent] = useState<Redirect | null>(null);
   const [editingRedirect, setEditingRedirect] = useState<Redirect | null>(null);
   const [deletingRedirect, setDeletingRedirect] = useState<Redirect | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -135,7 +137,7 @@ export default function AdminDashboardPage() {
 
       {/* Main Content Area */}
       <div className="max-w-5xl mx-auto px-6 sm:px-12 py-8 sm:py-10 space-y-8">
-        {/* 3 Clean Boxes Side by Side: All styled consistently with subtle borders */}
+        {/* 3 Clean Boxes Side by Side */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {/* 1. Total Links Box */}
           <button
@@ -266,6 +268,7 @@ export default function AdminDashboardPage() {
             onEdit={(r) => setEditingRedirect(r)}
             onDelete={(r) => setDeletingRedirect(r)}
             onCreateOpen={() => setIsCreateOpen(true)}
+            onCreateSublink={(r) => setSublinkParent(r)}
             isExpiredView={false}
           />
         ) : activeTab === "expired" ? (
@@ -275,6 +278,7 @@ export default function AdminDashboardPage() {
             onEdit={(r) => setEditingRedirect(r)}
             onDelete={(r) => setDeletingRedirect(r)}
             onCreateOpen={() => setIsCreateOpen(true)}
+            onCreateSublink={(r) => setSublinkParent(r)}
             isExpiredView={true}
           />
         ) : (
@@ -283,6 +287,7 @@ export default function AdminDashboardPage() {
             baseUrl={baseUrl}
             onEdit={(r) => setEditingRedirect(r)}
             onDelete={(r) => setDeletingRedirect(r)}
+            onCreateSublink={(r) => setSublinkParent(r)}
           />
         )}
       </div>
@@ -296,6 +301,18 @@ export default function AdminDashboardPage() {
         onCreated={() => {
           fetchRedirects();
           showToast("Link created!");
+        }}
+      />
+
+      <CreateSublinkModal
+        parentRedirect={sublinkParent}
+        isOpen={!!sublinkParent}
+        onClose={() => setSublinkParent(null)}
+        baseUrl={baseUrl}
+        currentUser={currentUser}
+        onCreated={() => {
+          fetchRedirects();
+          showToast("Sub-link created!");
         }}
       />
 

@@ -30,7 +30,6 @@ export function calculateExpiration(duration?: string | null): Date | null {
     case "30d":
       return new Date(now + 30 * 24 * 60 * 60 * 1000);
     default:
-      // Check if it's a valid custom ISO date string
       const parsed = new Date(duration);
       return !isNaN(parsed.getTime()) ? parsed : null;
   }
@@ -56,7 +55,7 @@ export async function GET() {
   }
 }
 
-// POST /api/redirects - Create a new redirect (Permanent or Temporary)
+// POST /api/redirects - Create a new redirect or sub-link
 export async function POST(request: NextRequest) {
   const session = await getSessionUser();
   if (!session) {
@@ -65,13 +64,20 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { username: bodyUsername, webname, destinationUrl, duration, expiresAt } = body;
+    const {
+      username: bodyUsername,
+      webname,
+      destinationUrl,
+      duration,
+      expiresAt,
+      parentId,
+    } = body;
 
     const finalUsername = bodyUsername || session.username || "siddu";
 
     if (!webname || !destinationUrl) {
       return NextResponse.json(
-        { error: "Link name and destination URL are required" },
+        { error: "Name and destination URL are required" },
         { status: 400 }
       );
     }
@@ -88,7 +94,7 @@ export async function POST(request: NextRequest) {
 
     if (!cleanWebname || cleanWebname.length < 1) {
       return NextResponse.json(
-        { error: "Please enter a valid link name (e.g. linkedin)" },
+        { error: "Please enter a valid name (e.g. linkedin, reddit, insta)" },
         { status: 400 }
       );
     }
@@ -108,7 +114,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Calculate expiration date
     const expirationDate = expiresAt ? new Date(expiresAt) : calculateExpiration(duration);
 
     try {
@@ -126,7 +131,7 @@ export async function POST(request: NextRequest) {
       if (existing.length > 0) {
         return NextResponse.json(
           {
-            error: `A link for /${cleanUsername}/${cleanWebname} already exists. You can edit it instead.`,
+            error: `A link for /${cleanUsername}/${cleanWebname} already exists. Please choose a different name.`,
           },
           { status: 409 }
         );
@@ -141,6 +146,7 @@ export async function POST(request: NextRequest) {
           redirectCode: 307,
           clickCount: 0,
           expiresAt: expirationDate,
+          parentId: parentId ? Number(parentId) : null,
         })
         .returning();
 
@@ -165,6 +171,7 @@ export async function POST(request: NextRequest) {
         redirectCode: 307,
         clickCount: 0,
         expiresAt: expirationDate,
+        parentId: parentId ? Number(parentId) : null,
         createdAt: new Date(),
         updatedAt: new Date(),
       };

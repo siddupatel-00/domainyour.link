@@ -15,6 +15,7 @@ import {
   Trash2,
   Copy,
   Check,
+  GitFork,
 } from "lucide-react";
 
 interface AnalyticsViewProps {
@@ -22,6 +23,7 @@ interface AnalyticsViewProps {
   baseUrl: string;
   onEdit?: (redirect: Redirect) => void;
   onDelete?: (redirect: Redirect) => void;
+  onCreateSublink?: (parentRedirect: Redirect) => void;
 }
 
 export function AnalyticsView({
@@ -29,6 +31,7 @@ export function AnalyticsView({
   baseUrl,
   onEdit,
   onDelete,
+  onCreateSublink,
 }: AnalyticsViewProps) {
   const [openMenuId, setOpenMenuId] = useState<number | null>(null);
   const [copiedId, setCopiedId] = useState<number | null>(null);
@@ -66,7 +69,7 @@ export function AnalyticsView({
 
   if (redirects.length === 0) {
     return (
-      <div className="text-center py-24 rounded-3xl border border-neutral-100 bg-neutral-50/50">
+      <div className="text-center py-24 rounded-3xl border border-neutral-100 bg-neutral-50/50 font-sans">
         <div className="w-12 h-12 mx-auto mb-3 rounded-2xl bg-white border border-neutral-200 flex items-center justify-center text-black shadow-sm">
           <BarChart2 className="w-6 h-6 stroke-[2]" />
         </div>
@@ -83,7 +86,7 @@ export function AnalyticsView({
       {/* 4 Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Clicks */}
-        <div className="p-5 rounded-2xl border border-neutral-200 bg-neutral-50/40 shadow-sm">
+        <div className="p-5 rounded-2xl border border-neutral-200 bg-white hover:border-neutral-300 transition shadow-sm">
           <div className="flex items-center justify-between text-neutral-500 mb-2">
             <span className="text-xs font-medium">Total Clicks</span>
             <TrendingUp className="w-4 h-4 text-black" />
@@ -95,7 +98,7 @@ export function AnalyticsView({
         </div>
 
         {/* Active Links */}
-        <div className="p-5 rounded-2xl border border-neutral-200 bg-neutral-50/40 shadow-sm">
+        <div className="p-5 rounded-2xl border border-neutral-200 bg-white hover:border-neutral-300 transition shadow-sm">
           <div className="flex items-center justify-between text-neutral-500 mb-2">
             <span className="text-xs font-medium">Active Links</span>
             <Link2 className="w-4 h-4 text-black" />
@@ -103,11 +106,11 @@ export function AnalyticsView({
           <div className="text-3xl font-bold text-neutral-900 font-mono">
             {activeCount}
           </div>
-          <p className="text-[11px] text-neutral-400 mt-1">Permanent URLs created</p>
+          <p className="text-[11px] text-neutral-400 mt-1">Permanent & sub-links</p>
         </div>
 
         {/* Most Clicked */}
-        <div className="p-5 rounded-2xl border border-neutral-200 bg-neutral-50/40 shadow-sm">
+        <div className="p-5 rounded-2xl border border-neutral-200 bg-white hover:border-neutral-300 transition shadow-sm">
           <div className="flex items-center justify-between text-neutral-500 mb-2">
             <span className="text-xs font-medium">Top Link</span>
             <Sparkles className="w-4 h-4 text-black" />
@@ -121,7 +124,7 @@ export function AnalyticsView({
         </div>
 
         {/* Avg Clicks */}
-        <div className="p-5 rounded-2xl border border-neutral-200 bg-neutral-50/40 shadow-sm">
+        <div className="p-5 rounded-2xl border border-neutral-200 bg-white hover:border-neutral-300 transition shadow-sm">
           <div className="flex items-center justify-between text-neutral-500 mb-2">
             <span className="text-xs font-medium">Avg Clicks / Link</span>
             <Globe className="w-4 h-4 text-black" />
@@ -133,12 +136,12 @@ export function AnalyticsView({
         </div>
       </div>
 
-      {/* Traffic Breakdown List with 3-Dots Action Menu on each row */}
+      {/* Traffic Breakdown List */}
       <div className="rounded-3xl border border-neutral-200 bg-white p-6 sm:p-8 shadow-sm">
         <div className="flex items-center justify-between mb-6 pb-4 border-b border-neutral-100">
           <div>
-            <h3 className="text-base font-bold text-neutral-900">Traffic Breakdown</h3>
-            <p className="text-xs text-neutral-500">See which links are getting the most visitors</p>
+            <h3 className="text-base font-bold text-neutral-900">Traffic Breakdown by Source & Link</h3>
+            <p className="text-xs text-neutral-500">Track which links and platforms (Reddit, X, Insta, Groups) bring the most visitors</p>
           </div>
           <span className="text-xs font-mono text-neutral-400">
             {sortedRedirects.length} links ranked
@@ -148,7 +151,7 @@ export function AnalyticsView({
         {totalClicks === 0 ? (
           <div className="text-center py-12 text-neutral-400 text-xs">
             <p>Your links haven&apos;t received any clicks yet.</p>
-            <p className="mt-1 text-neutral-500">Share your permanent links to start tracking clicks!</p>
+            <p className="mt-1 text-neutral-500">Share your permanent links and sub-links to start tracking clicks!</p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -157,6 +160,7 @@ export function AnalyticsView({
               const percentage = totalClicks > 0 ? Math.round(((r.clickCount || 0) / totalClicks) * 100) : 0;
               const isMenuOpen = openMenuId === r.id;
               const isCopied = copiedId === r.id;
+              const isSublink = !!r.parentId;
 
               return (
                 <div
@@ -171,6 +175,11 @@ export function AnalyticsView({
                       </span>
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
+                          {isSublink && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-neutral-200 text-neutral-800 font-sans font-medium flex items-center gap-1">
+                              <GitFork className="w-2.5 h-2.5" /> sub-link
+                            </span>
+                          )}
                           <span className="font-mono font-bold text-sm text-neutral-900 truncate">
                             {path}
                           </span>
@@ -222,7 +231,24 @@ export function AnalyticsView({
 
                         {/* 3-Dots Dropdown Menu */}
                         {isMenuOpen && (
-                          <div className="absolute right-0 top-9 z-50 w-44 rounded-2xl bg-white border border-neutral-200 p-1.5 shadow-xl animate-in fade-in zoom-in-95 duration-150">
+                          <div className="absolute right-0 top-9 z-50 w-48 rounded-2xl bg-white border border-neutral-200 p-1.5 shadow-xl animate-in fade-in zoom-in-95 duration-150">
+                            {onCreateSublink && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setOpenMenuId(null);
+                                    onCreateSublink(r);
+                                  }}
+                                  className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-black hover:bg-neutral-50 rounded-xl transition text-left"
+                                >
+                                  <GitFork className="w-3.5 h-3.5 text-black" />
+                                  <span>Add Sub-link</span>
+                                </button>
+                                <div className="h-px bg-neutral-100 my-1" />
+                              </>
+                            )}
+
                             {onEdit && (
                               <button
                                 type="button"

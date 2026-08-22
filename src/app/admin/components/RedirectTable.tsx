@@ -13,6 +13,7 @@ import {
   Link2,
   MoreVertical,
   RotateCcw,
+  GitFork,
 } from "lucide-react";
 
 interface RedirectTableProps {
@@ -21,6 +22,7 @@ interface RedirectTableProps {
   onEdit: (redirect: Redirect) => void;
   onDelete: (redirect: Redirect) => void;
   onCreateOpen: () => void;
+  onCreateSublink?: (parentRedirect: Redirect) => void;
   isExpiredView?: boolean;
 }
 
@@ -30,6 +32,7 @@ export function RedirectTable({
   onEdit,
   onDelete,
   onCreateOpen,
+  onCreateSublink,
   isExpiredView = false,
 }: RedirectTableProps) {
   const [searchTerm, setSearchTerm] = useState("");
@@ -170,6 +173,7 @@ export function RedirectTable({
               const path = `/${r.username}/${r.webname}`;
               const isCopied = copiedId === r.id;
               const isMenuOpen = openMenuId === r.id;
+              const isSublink = !!r.parentId;
 
               return (
                 <tr
@@ -179,6 +183,11 @@ export function RedirectTable({
                   {/* Link */}
                   <td className="py-4 px-5 font-mono font-medium">
                     <div className="flex items-center gap-2">
+                      {isSublink && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-600 font-sans font-medium flex items-center gap-1">
+                          <GitFork className="w-2.5 h-2.5" /> sub-link
+                        </span>
+                      )}
                       <span className="text-neutral-900 font-bold">{path}</span>
                       <button
                         onClick={() => handleCopy(r.id, path)}
@@ -237,7 +246,25 @@ export function RedirectTable({
 
                       {/* 3-Dots Dropdown Menu */}
                       {isMenuOpen && (
-                        <div className="absolute right-4 top-12 z-50 w-44 rounded-2xl bg-white border border-neutral-200 p-1.5 shadow-xl animate-in fade-in zoom-in-95 duration-150">
+                        <div className="absolute right-4 top-12 z-50 w-48 rounded-2xl bg-white border border-neutral-200 p-1.5 shadow-xl animate-in fade-in zoom-in-95 duration-150">
+                          {/* Add Sublink option */}
+                          {onCreateSublink && !isExpiredView && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOpenMenuId(null);
+                                  onCreateSublink(r);
+                                }}
+                                className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-black hover:bg-neutral-50 rounded-xl transition text-left"
+                              >
+                                <GitFork className="w-3.5 h-3.5 text-black" />
+                                <span>Add Sub-link</span>
+                              </button>
+                              <div className="h-px bg-neutral-100 my-1" />
+                            </>
+                          )}
+
                           {isExpiredView ? (
                             <button
                               type="button"
