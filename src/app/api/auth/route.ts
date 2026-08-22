@@ -3,20 +3,24 @@ import {
   checkAdminPassword,
   setAdminSession,
   clearAdminSession,
-  isAuthenticated,
+  getSessionUser,
 } from "@/lib/auth";
+import { sanitizeSlug } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const authed = await isAuthenticated();
-  return NextResponse.json({ authenticated: authed });
+  const session = await getSessionUser();
+  return NextResponse.json({
+    authenticated: session !== null,
+    user: session,
+  });
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { password } = body;
+    const { username, email, password } = body;
 
     if (!password) {
       return NextResponse.json(
@@ -35,13 +39,19 @@ export async function POST(request: NextRequest) {
     const isValid = checkAdminPassword(password);
     if (!isValid) {
       return NextResponse.json(
-        { error: "Invalid admin password" },
+        { error: "Invalid password" },
         { status: 401 }
       );
     }
 
-    await setAdminSession();
-    return NextResponse.json({ success: true });
+    const cleanUsername = username ? sanitizeSlug(username) : "admin";
+    const cleanEmail = email ? String(email).trim().toLowerCase() : "";
+
+    await setAdminSession(cleanUsername, cleanEmail);
+    return NextResponse.json({
+      success: true,
+      user: { username: cleanUsername, email: cleanEmail },
+    });
   } catch (err) {
     console.error("Auth login error:", err);
     return NextResponse.json(

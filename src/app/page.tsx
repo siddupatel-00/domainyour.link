@@ -5,24 +5,33 @@ import { useRouter } from "next/navigation";
 import {
   Link2,
   Lock,
+  Mail,
+  User,
   ArrowRight,
   Globe,
   RefreshCw,
   AlertCircle,
   X,
-  CheckCircle2,
   Zap,
   ShieldCheck,
+  AlertTriangle,
 } from "lucide-react";
+import { sanitizeSlug } from "@/lib/utils";
 
 export default function HomePage() {
+  const [isSignUp, setIsSignUp] = useState(true);
+  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isUsernameFocused, setIsUsernameFocused] = useState(false);
   const [modalType, setModalType] = useState<"features" | "howItWorks" | "about" | null>(null);
   const router = useRouter();
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const cleanUsername = sanitizeSlug(username);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
@@ -31,12 +40,16 @@ export default function HomePage() {
       const res = await fetch("/api/auth", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({
+          username: cleanUsername,
+          email: email.trim(),
+          password,
+        }),
       });
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || "Invalid password");
+        throw new Error(data.error || "Authentication failed");
       }
 
       router.push("/admin");
@@ -48,8 +61,9 @@ export default function HomePage() {
     }
   };
 
-  const scrollToSignIn = () => {
-    const input = document.getElementById("password-input");
+  const scrollToAuth = (signupMode: boolean) => {
+    setIsSignUp(signupMode);
+    const input = document.getElementById("username-input");
     input?.focus();
   };
 
@@ -84,10 +98,10 @@ export default function HomePage() {
             About
           </button>
           <button
-            onClick={scrollToSignIn}
+            onClick={() => scrollToAuth(!isSignUp)}
             className="px-4 py-1.5 border border-neutral-300 rounded-lg text-xs font-semibold text-black hover:border-black transition"
           >
-            Sign in
+            {isSignUp ? "Sign in" : "Sign up"}
           </button>
         </nav>
       </header>
@@ -113,7 +127,7 @@ export default function HomePage() {
                   <Link2 className="w-5 h-5 stroke-[2]" />
                 </div>
                 <div className="font-semibold text-xs sm:text-sm text-neutral-900 font-mono truncate">
-                  yourlink.com/alex/linkedin
+                  yourlink.com/{cleanUsername || "alex"}/linkedin
                 </div>
                 <div className="text-[11px] sm:text-xs text-neutral-400 mt-0.5">
                   Share this link
@@ -131,7 +145,7 @@ export default function HomePage() {
                   <Globe className="w-5 h-5 stroke-[2]" />
                 </div>
                 <div className="font-semibold text-xs sm:text-sm text-neutral-900 font-mono truncate">
-                  linkedin.com/in/alex
+                  linkedin.com/in/{cleanUsername || "alex"}
                 </div>
                 <div className="text-[11px] sm:text-xs text-neutral-400 mt-0.5">
                   Goes here
@@ -147,36 +161,94 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Right Column: Sign In Card */}
+        {/* Right Column: Sign Up (Default) / Sign In Card */}
         <div className="lg:col-span-5 flex justify-center lg:justify-end w-full">
-          <div className="w-full max-w-md rounded-3xl border border-neutral-200 bg-white p-8 sm:p-10 shadow-sm">
+          <div className="w-full max-w-md rounded-3xl border border-neutral-200 bg-white p-7 sm:p-9 shadow-sm">
             <h2 className="text-2xl sm:text-3xl font-bold text-center text-neutral-900 tracking-tight">
-              Welcome back
+              {isSignUp ? "Create your account" : "Welcome back"}
             </h2>
-            <p className="text-xs sm:text-sm text-neutral-500 text-center mt-1.5 mb-8">
-              Sign in to manage your links
+            <p className="text-xs sm:text-sm text-neutral-500 text-center mt-1 mb-6">
+              {isSignUp
+                ? "Sign up to claim your permanent link"
+                : "Sign in to manage your links"}
             </p>
 
             {error && (
-              <div className="mb-5 p-3 rounded-xl border border-neutral-200 bg-neutral-50 text-neutral-800 text-xs flex items-center gap-2.5">
+              <div className="mb-4 p-3 rounded-xl border border-neutral-200 bg-neutral-50 text-neutral-800 text-xs flex items-center gap-2.5">
                 <AlertCircle className="w-4 h-4 text-neutral-700 flex-shrink-0" />
                 <span>{error}</span>
               </div>
             )}
 
-            <form onSubmit={handleLogin} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-3.5">
+              {/* 1. Username Field */}
               <div>
-                <label className="block text-xs font-semibold text-neutral-800 mb-1.5">
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-semibold text-neutral-800">
+                    Username
+                  </label>
+                  <span className="text-[10px] font-mono text-neutral-500 flex items-center gap-1">
+                    <Lock className="w-2.5 h-2.5" /> Permanent
+                  </span>
+                </div>
+                <div className="relative">
+                  <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+                  <input
+                    id="username-input"
+                    type="text"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    onFocus={() => setIsUsernameFocused(true)}
+                    onBlur={() => setIsUsernameFocused(false)}
+                    placeholder="Enter your username (e.g. siddu)"
+                    required
+                    className={`w-full pl-10 pr-4 py-2.5 text-sm bg-white border rounded-xl text-neutral-900 placeholder-neutral-400 focus:outline-none transition ${
+                      isUsernameFocused || username
+                        ? "border-black ring-1 ring-black"
+                        : "border-neutral-300"
+                    }`}
+                  />
+                </div>
+
+                {/* Live Permanent Username Notice */}
+                <div className="mt-1.5 p-2 rounded-lg bg-neutral-50 border border-neutral-200 flex items-start gap-1.5 text-[11px] text-neutral-600 leading-snug">
+                  <AlertTriangle className="w-3.5 h-3.5 text-neutral-800 flex-shrink-0 mt-0.5" />
+                  <span>
+                    <strong className="text-neutral-900 font-semibold">Note:</strong> Username cannot be changed once set. It is permanent.
+                  </span>
+                </div>
+              </div>
+
+              {/* 2. Gmail / Email Field */}
+              <div>
+                <label className="block text-xs font-semibold text-neutral-800 mb-1">
+                  Gmail / Email
+                </label>
+                <div className="relative">
+                  <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="Enter your email (e.g. you@gmail.com)"
+                    required
+                    className="w-full pl-10 pr-4 py-2.5 text-sm bg-white border border-neutral-300 rounded-xl text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-black focus:ring-1 focus:ring-black transition"
+                  />
+                </div>
+              </div>
+
+              {/* 3. Password Field */}
+              <div>
+                <label className="block text-xs font-semibold text-neutral-800 mb-1">
                   Password
                 </label>
                 <div className="relative">
                   <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
                   <input
-                    id="password-input"
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Enter your password"
+                    placeholder={isSignUp ? "Create a password" : "Enter your password"}
                     required
                     className="w-full pl-10 pr-4 py-2.5 text-sm bg-white border border-neutral-300 rounded-xl text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-black focus:ring-1 focus:ring-black transition"
                   />
@@ -186,25 +258,45 @@ export default function HomePage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-3 bg-black hover:bg-neutral-800 text-white rounded-xl text-sm font-semibold transition disabled:opacity-50 shadow-sm"
+                className="w-full mt-2 py-3 bg-black hover:bg-neutral-800 text-white rounded-xl text-sm font-semibold transition disabled:opacity-50 shadow-sm"
               >
-                {loading ? "Signing in..." : "Sign in"}
+                {loading
+                  ? isSignUp
+                    ? "Creating account..."
+                    : "Signing in..."
+                  : isSignUp
+                  ? "Sign up"
+                  : "Sign in"}
               </button>
             </form>
 
-            <div className="my-5 flex items-center justify-center gap-3">
+            <div className="my-4 flex items-center justify-center gap-3">
               <div className="h-px bg-neutral-200 flex-1" />
               <span className="text-xs text-neutral-400">or</span>
               <div className="h-px bg-neutral-200 flex-1" />
             </div>
 
-            <button
-              onClick={() => setModalType("howItWorks")}
-              type="button"
-              className="w-full py-3 bg-white hover:bg-neutral-50 border border-neutral-200 text-neutral-900 rounded-xl text-sm font-semibold transition"
-            >
-              View how it works
-            </button>
+            {/* Toggle between Sign up and Sign in */}
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={() => {
+                  setError(null);
+                  setIsSignUp(!isSignUp);
+                }}
+                className="text-xs text-neutral-600 hover:text-black font-medium transition"
+              >
+                {isSignUp ? (
+                  <>
+                    Already have an account? <span className="text-black font-semibold underline underline-offset-2">Sign in</span>
+                  </>
+                ) : (
+                  <>
+                    Don&apos;t have an account? <span className="text-black font-semibold underline underline-offset-2">Sign up</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       </main>
@@ -241,7 +333,7 @@ export default function HomePage() {
                       1
                     </div>
                     <div>
-                      <strong className="text-neutral-900">Create your link:</strong> Set a permanent username and slug (e.g. <code className="text-xs bg-neutral-100 px-1 py-0.5 rounded font-mono">domain.com/siddu/linkedin</code>).
+                      <strong className="text-neutral-900">Choose your permanent username:</strong> Pick your unique username (e.g. <code className="text-xs bg-neutral-100 px-1 py-0.5 rounded font-mono">siddu</code>). Remember, usernames cannot be changed later.
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
@@ -249,7 +341,7 @@ export default function HomePage() {
                       2
                     </div>
                     <div>
-                      <strong className="text-neutral-900">Share it anywhere:</strong> Put it on your resume, GitHub profile, NFC card, or email signature.
+                      <strong className="text-neutral-900">Create slug links:</strong> e.g. <code className="text-xs bg-neutral-100 px-1 py-0.5 rounded font-mono">domain.com/siddu/linkedin</code> pointing to your profile.
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
@@ -257,7 +349,7 @@ export default function HomePage() {
                       3
                     </div>
                     <div>
-                      <strong className="text-neutral-900">Update destination anytime:</strong> If your LinkedIn handle changes, change the destination in your dashboard. Your public link stays unchanged.
+                      <strong className="text-neutral-900">Update destination anytime:</strong> Whenever your handle or website changes, change the destination. Your public link stays unchanged.
                     </div>
                   </div>
                 </>
@@ -270,7 +362,7 @@ export default function HomePage() {
                     <span>Instant Server-Side HTTP 307 Redirects</span>
                   </div>
                   <p className="text-xs text-neutral-500">
-                    Single indexed database query. No client-side scripts, zero intermediate loading page.
+                    Single indexed database query. Zero intermediate loading screens.
                   </p>
                   <div className="flex items-center gap-2 text-neutral-900 font-medium pt-2">
                     <ShieldCheck className="w-4 h-4 text-black" />

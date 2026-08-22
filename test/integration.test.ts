@@ -42,11 +42,11 @@ async function runTests() {
   const token = await createSessionToken();
   assert(typeof token === "string" && token.length > 20, "Creates signed JWT session token");
 
-  const isValid = await verifySessionToken(token);
-  assert(isValid === true, "Verifies valid JWT session token");
+  const session = await verifySessionToken(token);
+  assert(session !== null && session.role === "admin", "Verifies valid JWT session token");
 
-  const isInvalid = await verifySessionToken("tampered.token.here");
-  assert(isInvalid === false, "Rejects tampered JWT token");
+  const invalidSession = await verifySessionToken("tampered.token.here");
+  assert(invalidSession === null, "Rejects tampered JWT token");
 
   console.log(`\n========================================`);
   console.log(`Summary: ${passed} passed, ${failed} failed`);
