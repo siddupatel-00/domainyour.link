@@ -137,13 +137,12 @@ export default function AdminDashboardPage() {
 
       {/* Main Content Area */}
       <div className="max-w-5xl mx-auto px-6 sm:px-12 py-8 sm:py-10 space-y-8">
-        {/* 3 Clean Boxes Side by Side */}
+        {/* 3 Overview Boxes Side by Side (Clean, consistent, subtle borders) */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {/* 1. Total Links Box */}
-          <button
-            type="button"
+          <div
             onClick={() => setActiveTab("links")}
-            className="text-left p-5 rounded-2xl border border-neutral-200 bg-white hover:border-neutral-300 transition shadow-sm flex items-center justify-between"
+            className="cursor-pointer text-left p-5 rounded-2xl border border-neutral-200 bg-white hover:border-neutral-300 transition shadow-sm flex items-center justify-between"
           >
             <div>
               <p className="text-xs text-neutral-500 font-medium">Total Links</p>
@@ -155,13 +154,12 @@ export default function AdminDashboardPage() {
             <div className="w-10 h-10 rounded-xl bg-neutral-100 border border-neutral-200 flex items-center justify-center text-black">
               <Link2 className="w-5 h-5 stroke-[2]" />
             </div>
-          </button>
+          </div>
 
           {/* 2. Working Links Box */}
-          <button
-            type="button"
+          <div
             onClick={() => setActiveTab("links")}
-            className="text-left p-5 rounded-2xl border border-neutral-200 bg-white hover:border-neutral-300 transition shadow-sm flex items-center justify-between"
+            className="cursor-pointer text-left p-5 rounded-2xl border border-neutral-200 bg-white hover:border-neutral-300 transition shadow-sm flex items-center justify-between"
           >
             <div>
               <p className="text-xs text-neutral-500 font-medium">Working Links</p>
@@ -175,13 +173,12 @@ export default function AdminDashboardPage() {
             <div className="w-10 h-10 rounded-xl bg-neutral-100 border border-neutral-200 flex items-center justify-center text-black">
               <CheckCircle2 className="w-5 h-5 stroke-[2]" />
             </div>
-          </button>
+          </div>
 
           {/* 3. Analytics Box */}
-          <button
-            type="button"
+          <div
             onClick={() => setActiveTab("analytics")}
-            className="text-left p-5 rounded-2xl border border-neutral-200 bg-white hover:border-neutral-300 transition shadow-sm flex items-center justify-between"
+            className="cursor-pointer text-left p-5 rounded-2xl border border-neutral-200 bg-white hover:border-neutral-300 transition shadow-sm flex items-center justify-between"
           >
             <div>
               <p className="text-xs text-neutral-500 font-medium">Analytics</p>
@@ -193,7 +190,7 @@ export default function AdminDashboardPage() {
             <div className="w-10 h-10 rounded-xl bg-neutral-100 border border-neutral-200 flex items-center justify-center text-black">
               <TrendingUp className="w-5 h-5 stroke-[2]" />
             </div>
-          </button>
+          </div>
         </div>
 
         {/* Tab Selection Switcher (Active Links | Expired Links | Analytics Breakdown) */}

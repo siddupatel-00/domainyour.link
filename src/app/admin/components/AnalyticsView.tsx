@@ -3,13 +3,9 @@
 import { useState, useEffect, useRef } from "react";
 import { Redirect } from "@/lib/db/schema";
 import {
-  TrendingUp,
-  BarChart2,
-  Globe,
   ExternalLink,
   ArrowRight,
-  Sparkles,
-  Link2,
+  BarChart2,
   MoreVertical,
   Edit2,
   Trash2,
@@ -49,15 +45,11 @@ export function AnalyticsView({
   }, []);
 
   const totalClicks = redirects.reduce((acc, curr) => acc + (curr.clickCount || 0), 0);
-  const activeCount = redirects.length;
-  const avgClicks = activeCount > 0 ? (totalClicks / activeCount).toFixed(1) : "0";
 
   // Sort redirects by clicks descending
   const sortedRedirects = [...redirects].sort(
     (a, b) => (b.clickCount || 0) - (a.clickCount || 0)
   );
-
-  const topLink = sortedRedirects[0]?.clickCount > 0 ? sortedRedirects[0] : null;
 
   const handleCopy = (id: number, path: string) => {
     const fullUrl = `${baseUrl}${path}`;
@@ -82,66 +74,13 @@ export function AnalyticsView({
   }
 
   return (
-    <div className="space-y-8 font-sans">
-      {/* 4 Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Total Clicks */}
-        <div className="p-5 rounded-2xl border border-neutral-200 bg-white hover:border-neutral-300 transition shadow-sm">
-          <div className="flex items-center justify-between text-neutral-500 mb-2">
-            <span className="text-xs font-medium">Total Clicks</span>
-            <TrendingUp className="w-4 h-4 text-black" />
-          </div>
-          <div className="text-3xl font-bold text-neutral-900 font-mono">
-            {totalClicks}
-          </div>
-          <p className="text-[11px] text-neutral-400 mt-1">Across all your links</p>
-        </div>
-
-        {/* Active Links */}
-        <div className="p-5 rounded-2xl border border-neutral-200 bg-white hover:border-neutral-300 transition shadow-sm">
-          <div className="flex items-center justify-between text-neutral-500 mb-2">
-            <span className="text-xs font-medium">Active Links</span>
-            <Link2 className="w-4 h-4 text-black" />
-          </div>
-          <div className="text-3xl font-bold text-neutral-900 font-mono">
-            {activeCount}
-          </div>
-          <p className="text-[11px] text-neutral-400 mt-1">Permanent & sub-links</p>
-        </div>
-
-        {/* Most Clicked */}
-        <div className="p-5 rounded-2xl border border-neutral-200 bg-white hover:border-neutral-300 transition shadow-sm">
-          <div className="flex items-center justify-between text-neutral-500 mb-2">
-            <span className="text-xs font-medium">Top Link</span>
-            <Sparkles className="w-4 h-4 text-black" />
-          </div>
-          <div className="text-base font-bold text-neutral-900 font-mono truncate">
-            {topLink ? `/${topLink.webname}` : "—"}
-          </div>
-          <p className="text-[11px] text-neutral-400 mt-1">
-            {topLink ? `${topLink.clickCount} clicks` : "No clicks yet"}
-          </p>
-        </div>
-
-        {/* Avg Clicks */}
-        <div className="p-5 rounded-2xl border border-neutral-200 bg-white hover:border-neutral-300 transition shadow-sm">
-          <div className="flex items-center justify-between text-neutral-500 mb-2">
-            <span className="text-xs font-medium">Avg Clicks / Link</span>
-            <Globe className="w-4 h-4 text-black" />
-          </div>
-          <div className="text-3xl font-bold text-neutral-900 font-mono">
-            {avgClicks}
-          </div>
-          <p className="text-[11px] text-neutral-400 mt-1">Average traffic per link</p>
-        </div>
-      </div>
-
-      {/* Traffic Breakdown List */}
+    <div className="space-y-6 font-sans">
+      {/* Traffic Breakdown Card (No duplicate metric cards!) */}
       <div className="rounded-3xl border border-neutral-200 bg-white p-6 sm:p-8 shadow-sm">
         <div className="flex items-center justify-between mb-6 pb-4 border-b border-neutral-100">
           <div>
-            <h3 className="text-base font-bold text-neutral-900">Traffic Breakdown by Source & Link</h3>
-            <p className="text-xs text-neutral-500">Track which links and platforms (Reddit, X, Insta, Groups) bring the most visitors</p>
+            <h3 className="text-base font-bold text-neutral-900">Traffic Breakdown by Source</h3>
+            <p className="text-xs text-neutral-500">Track which links and sub-links (Reddit, X, Insta, Groups) bring the most visitors</p>
           </div>
           <span className="text-xs font-mono text-neutral-400">
             {sortedRedirects.length} links ranked
