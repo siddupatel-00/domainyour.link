@@ -6,6 +6,7 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin123";
 const CEO_PASSWORD = process.env.CEO_PASSWORD || "ceo123456";
 const COOKIE_NAME = "permanentlink_session";
 const CEO_COOKIE_NAME = "permanentlink_ceo_session";
+const EMPLOYEE_COOKIE_NAME = "permanentlink_employee_session";
 
 // In-memory OTP store for email logins (email -> { code, expiresAt })
 const otpStore = new Map<string, { code: string; expiresAt: number }>();
@@ -180,4 +181,101 @@ export async function isCeoAuthenticated(): Promise<boolean> {
   return verifyCeoSessionToken(token);
 }
 
-export { COOKIE_NAME, CEO_COOKIE_NAME };
+// Employee Authentication Helpers
+export interface EmployeeSessionPayload {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+  permissions: string[];
+}
+
+export function createEmployeeSessionToken(employee: EmployeeSessionPayload): string {
+  const header = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url");
+  const body = Buffer.from(
+    JSON.stringify({
+      ...employee,
+      type: "employee",
+      iat: Math.floor(Date.now() / 1000),
+      exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 7, // 7 days employee session
+    })
+  ).toString("base64url");
+
+  const signature = crypto
+    .createHmac("sha256", JWT_SECRET + "-employee-secret")
+    .update(`${header}.${body}`)
+    .digest("base64url");
+
+  return `${header}.${body}.${signature}`;
+}
+
+export function verifyEmployeeSessionToken(token: string): EmployeeSessionPayload | null {
+  try {
+    const parts = token.split(".");
+    if (parts.length !== 3) return null;
+
+    const [header, body, signature] = parts;
+    const expectedSignature = crypto
+      .createHmac("sha256", JWT_SECRET + "-employee-secret")
+      .update(`${header}.${body}`)
+      .digest("base64url");
+
+    if (signature !== expectedSignature) return null;
+
+    const decoded = JSON.parse(Buffer.from(body, "base64url").toString("utf8"));
+    if (decoded.exp && decoded.exp < Math.floor(Date.now() / 1000)) {
+      return null;
+    }
+
+    if (decoded.type !== "employee") return null;
+
+    return {
+      id: decoded.id,
+      name: decoded.name,
+      email: decoded.email,
+      role: decoded.role,
+      permissions: decoded.permissions || [],
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function setEmployeeSession(employee: EmployeeSessionPayload): Promise<void> {
+  const token = createEmployeeSessionToken(employee);
+  const cookieStore = await cookies();
+  cookieStore.set({
+    name: EMPLOYEE_COOKIE_NAME,
+    value: token,
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: 60 * 60 * 24 * 7,
+    path: "/",
+  });
+}
+
+export async function clearEmployeeSession(): Promise<void> {
+  const cookieStore = await cookies();
+  cookieStore.set({
+    name: EMPLOYEE_COOKIE_NAME,
+    value: "",
+    httpOnly: true,
+    maxAge: 0,
+    path: "/",
+  });
+}
+
+export async function getEmployeeSession(): Promise<EmployeeSessionPayload | null> {
+  const cookieStore = await cookies();
+  const token = cookieStore.get(EMPLOYEE_COOKIE_NAME)?.value;
+  if (!token) return null;
+  return verifyEmployeeSessionToken(token);
+}
+
+export async function isEmployeeAuthenticated(): Promise<boolean> {
+  const session = await getEmployeeSession();
+  return session !== null;
+}
+
+export { COOKIE_NAME, CEO_COOKIE_NAME, EMPLOYEE_COOKIE_NAME };

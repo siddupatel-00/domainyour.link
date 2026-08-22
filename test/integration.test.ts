@@ -6,6 +6,8 @@ import {
   verifyCeoPassword,
   createCeoSessionToken,
   verifyCeoSessionToken,
+  createEmployeeSessionToken,
+  verifyEmployeeSessionToken,
 } from "../src/lib/auth";
 import { generateOtp, storeOtp, verifyOtp } from "../src/lib/email";
 
@@ -80,6 +82,29 @@ async function runTests() {
   assert(verifyCeoSessionToken(ceoToken) === true, "Successfully verifies valid CEO master token");
   assert(verifyCeoSessionToken(token) === false, "Prevents regular user session token from unlocking CEO portal");
   assert(verifyCeoSessionToken("tampered.ceo.token") === false, "Rejects tampered CEO token");
+
+  // 6. Employee Session Authentication & Security Tests
+  console.log("\n6. Employee Session Authentication & Security Tests");
+  const empToken = createEmployeeSessionToken({
+    id: 1,
+    name: "Alex Vance",
+    email: "alex@company.com",
+    role: "Support Moderator",
+    permissions: ["view_links", "manage_support"],
+  });
+  assert(typeof empToken === "string" && empToken.length > 20, "Generates signed employee session token");
+
+  const empSession = verifyEmployeeSessionToken(empToken);
+  assert(
+    empSession !== null &&
+    empSession.email === "alex@company.com" &&
+    empSession.role === "Support Moderator" &&
+    empSession.permissions.includes("manage_support"),
+    "Successfully verifies employee session with assigned permissions"
+  );
+  assert(verifyEmployeeSessionToken(token) === null, "Rejects regular user session token for employee portal");
+  assert(verifyEmployeeSessionToken(ceoToken) === null, "Rejects CEO master token for employee portal");
+  assert(verifyEmployeeSessionToken("tampered.emp.token") === null, "Rejects tampered employee token");
 
   console.log(`\n========================================`);
   console.log(`Summary: ${passed} passed, ${failed} failed`);
