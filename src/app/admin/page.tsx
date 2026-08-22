@@ -135,17 +135,13 @@ export default function AdminDashboardPage() {
 
       {/* Main Content Area */}
       <div className="max-w-5xl mx-auto px-6 sm:px-12 py-8 sm:py-10 space-y-8">
-        {/* 3 Clean Boxes Side by Side: Total Links | Working Links | Analytics */}
+        {/* 3 Clean Boxes Side by Side: All styled consistently with subtle borders */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {/* 1. Total Links Box */}
           <button
             type="button"
             onClick={() => setActiveTab("links")}
-            className={`text-left p-5 rounded-2xl border transition shadow-sm flex items-center justify-between ${
-              activeTab === "links"
-                ? "border-black bg-neutral-50/70 ring-1 ring-black"
-                : "border-neutral-200 bg-white hover:border-neutral-300"
-            }`}
+            className="text-left p-5 rounded-2xl border border-neutral-200 bg-white hover:border-neutral-300 transition shadow-sm flex items-center justify-between"
           >
             <div>
               <p className="text-xs text-neutral-500 font-medium">Total Links</p>
@@ -163,11 +159,7 @@ export default function AdminDashboardPage() {
           <button
             type="button"
             onClick={() => setActiveTab("links")}
-            className={`text-left p-5 rounded-2xl border transition shadow-sm flex items-center justify-between ${
-              activeTab === "links" && expiredLinks.length === 0
-                ? "border-black bg-neutral-50/70 ring-1 ring-black"
-                : "border-neutral-200 bg-white hover:border-neutral-300"
-            }`}
+            className="text-left p-5 rounded-2xl border border-neutral-200 bg-white hover:border-neutral-300 transition shadow-sm flex items-center justify-between"
           >
             <div>
               <p className="text-xs text-neutral-500 font-medium">Working Links</p>
@@ -187,11 +179,7 @@ export default function AdminDashboardPage() {
           <button
             type="button"
             onClick={() => setActiveTab("analytics")}
-            className={`text-left p-5 rounded-2xl border transition shadow-sm flex items-center justify-between ${
-              activeTab === "analytics"
-                ? "border-black bg-neutral-50/70 ring-1 ring-black"
-                : "border-neutral-200 bg-white hover:border-neutral-300"
-            }`}
+            className="text-left p-5 rounded-2xl border border-neutral-200 bg-white hover:border-neutral-300 transition shadow-sm flex items-center justify-between"
           >
             <div>
               <p className="text-xs text-neutral-500 font-medium">Analytics</p>
@@ -235,7 +223,7 @@ export default function AdminDashboardPage() {
                   : "text-neutral-500 hover:text-black"
               }`}
             >
-              <Clock className="w-3 h-3" />
+              <Clock className="w-3.5 h-3.5" />
               <span>Expired</span>
               {expiredLinks.length > 0 && (
                 <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-neutral-200 text-neutral-800 font-semibold">
@@ -254,7 +242,7 @@ export default function AdminDashboardPage() {
                   : "text-neutral-500 hover:text-black"
               }`}
             >
-              <TrendingUp className="w-3 h-3" />
+              <TrendingUp className="w-3.5 h-3.5" />
               <span>Analytics</span>
             </button>
           </div>
