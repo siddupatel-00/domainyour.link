@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Edit3, AlertCircle } from "lucide-react";
+import { X, Edit3, AlertCircle, Clock, ShieldCheck } from "lucide-react";
 import { Redirect } from "@/lib/db/schema";
 
 interface EditRedirectModalProps {
@@ -20,12 +20,19 @@ export function EditRedirectModal({
   baseUrl,
 }: EditRedirectModalProps) {
   const [destinationUrl, setDestinationUrl] = useState("");
+  const [linkType, setLinkType] = useState<"permanent" | "temporary">("permanent");
+  const [duration, setDuration] = useState<string>("24h");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (redirect) {
       setDestinationUrl(redirect.destinationUrl);
+      if (redirect.expiresAt) {
+        setLinkType("temporary");
+      } else {
+        setLinkType("permanent");
+      }
       setError(null);
     }
   }, [redirect]);
@@ -44,6 +51,7 @@ export function EditRedirectModal({
   if (!isOpen || !redirect) return null;
 
   const publicLink = `${baseUrl}/${redirect.username}/${redirect.webname}`;
+  const isExpired = redirect.expiresAt && new Date(redirect.expiresAt).getTime() <= Date.now();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,12 +69,13 @@ export function EditRedirectModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           destinationUrl: destinationUrl.trim(),
+          duration: linkType === "temporary" ? duration : "permanent",
         }),
       });
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || "Failed to update destination");
+        throw new Error(data.error || "Failed to update link");
       }
 
       onUpdated();
@@ -85,7 +94,7 @@ export function EditRedirectModal({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-lg rounded-3xl bg-white border border-neutral-200 p-7 sm:p-8 shadow-2xl cursor-default"
+        className="relative w-full max-w-lg rounded-3xl bg-white border border-neutral-200 p-7 sm:p-8 shadow-2xl cursor-default font-sans"
       >
         <div className="flex items-center justify-between pb-4 border-b border-neutral-100">
           <div className="flex items-center gap-2.5">
@@ -93,8 +102,10 @@ export function EditRedirectModal({
               <Edit3 className="w-4 h-4 stroke-[2.2]" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-neutral-900">Update Destination</h2>
-              <p className="text-xs text-neutral-500">Change where your permanent link points</p>
+              <h2 className="text-base font-bold text-neutral-900">
+                {isExpired ? "Reactivate / Edit Link" : "Edit Link"}
+              </h2>
+              <p className="text-xs text-neutral-500">Update destination or link expiration</p>
             </div>
           </div>
           <button
@@ -116,15 +127,98 @@ export function EditRedirectModal({
 
         <form onSubmit={handleSubmit} className="mt-5 space-y-4">
           <div className="p-4 rounded-xl bg-neutral-50 border border-neutral-200 text-xs font-mono">
-            <span className="text-[10px] text-neutral-500 uppercase tracking-wider block mb-1 font-semibold">
-              Your Permanent Link (Never Changes)
-            </span>
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[10px] text-neutral-500 uppercase tracking-wider font-semibold">
+                Your Link
+              </span>
+              {isExpired ? (
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-neutral-200 text-neutral-800 font-semibold font-sans">
+                  ⏳ Expired
+                </span>
+              ) : (
+                <span className="text-[10px] text-neutral-500 font-sans">
+                  {redirect.expiresAt ? "Temporary" : "Permanent"}
+                </span>
+              )}
+            </div>
             <span className="text-neutral-900 font-bold">{publicLink}</span>
           </div>
 
+          {/* Link Type Toggle */}
           <div>
             <label className="block text-xs font-semibold text-neutral-800 mb-1.5">
-              Where should this link go now?
+              Expiration Setting
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setLinkType("permanent")}
+                className={`p-3 rounded-xl border text-left transition flex items-center gap-2.5 ${
+                  linkType === "permanent"
+                    ? "border-black bg-neutral-50/80 ring-1 ring-black"
+                    : "border-neutral-200 hover:border-neutral-300 bg-white"
+                }`}
+              >
+                <ShieldCheck className="w-4 h-4 text-black flex-shrink-0" />
+                <div>
+                  <div className="text-xs font-bold text-neutral-900">Make Permanent</div>
+                  <div className="text-[10px] text-neutral-500">Never expires</div>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setLinkType("temporary")}
+                className={`p-3 rounded-xl border text-left transition flex items-center gap-2.5 ${
+                  linkType === "temporary"
+                    ? "border-black bg-neutral-50/80 ring-1 ring-black"
+                    : "border-neutral-200 hover:border-neutral-300 bg-white"
+                }`}
+              >
+                <Clock className="w-4 h-4 text-black flex-shrink-0" />
+                <div>
+                  <div className="text-xs font-bold text-neutral-900">
+                    {isExpired ? "Reactivate (Temporary)" : "Temporary"}
+                  </div>
+                  <div className="text-[10px] text-neutral-500">Set new duration</div>
+                </div>
+              </button>
+            </div>
+          </div>
+
+          {/* Duration Selector */}
+          {linkType === "temporary" && (
+            <div className="p-3.5 rounded-2xl bg-neutral-50 border border-neutral-200 space-y-2">
+              <label className="block text-xs font-semibold text-neutral-800">
+                Extend / Set Duration:
+              </label>
+              <div className="grid grid-cols-4 gap-2">
+                {[
+                  { label: "1 Hour", val: "1h" },
+                  { label: "24 Hours", val: "24h" },
+                  { label: "7 Days", val: "7d" },
+                  { label: "30 Days", val: "30d" },
+                ].map((d) => (
+                  <button
+                    key={d.val}
+                    type="button"
+                    onClick={() => setDuration(d.val)}
+                    className={`py-2 px-1 text-center rounded-xl text-xs font-semibold border transition ${
+                      duration === d.val
+                        ? "bg-black text-white border-black"
+                        : "bg-white text-neutral-700 border-neutral-200 hover:border-neutral-400"
+                    }`}
+                  >
+                    {d.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div>
+            <label className="block text-xs font-semibold text-neutral-800 mb-1.5">
+              Where should this link go?
             </label>
             <input
               type="text"
@@ -150,7 +244,7 @@ export function EditRedirectModal({
               disabled={loading}
               className="px-5 py-2 text-xs font-semibold text-white bg-black hover:bg-neutral-800 rounded-xl transition disabled:opacity-50 shadow-sm"
             >
-              {loading ? "Updating..." : "Save Changes"}
+              {loading ? "Updating..." : isExpired ? "Reactivate Link" : "Save Changes"}
             </button>
           </div>
         </form>

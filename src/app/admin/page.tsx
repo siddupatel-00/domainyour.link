@@ -15,10 +15,11 @@ import {
   Check,
   CheckCircle2,
   TrendingUp,
+  Clock,
 } from "lucide-react";
 
 export default function AdminDashboardPage() {
-  const [activeTab, setActiveTab] = useState<"links" | "analytics">("links");
+  const [activeTab, setActiveTab] = useState<"links" | "expired" | "analytics">("links");
   const [redirects, setRedirects] = useState<Redirect[]>([]);
   const [loading, setLoading] = useState(true);
   const [baseUrl, setBaseUrl] = useState("");
@@ -32,6 +33,12 @@ export default function AdminDashboardPage() {
 
   const router = useRouter();
 
+  const isLinkExpired = (r: Redirect) => {
+    return r.expiresAt && new Date(r.expiresAt).getTime() <= Date.now();
+  };
+
+  const activeLinks = redirects.filter((r) => !isLinkExpired(r));
+  const expiredLinks = redirects.filter((r) => isLinkExpired(r));
   const totalClicks = redirects.reduce((acc, curr) => acc + (curr.clickCount || 0), 0);
 
   const showToast = (msg: string) => {
@@ -156,14 +163,20 @@ export default function AdminDashboardPage() {
           <button
             type="button"
             onClick={() => setActiveTab("links")}
-            className="text-left p-5 rounded-2xl border border-neutral-200 bg-white hover:border-neutral-300 transition shadow-sm flex items-center justify-between"
+            className={`text-left p-5 rounded-2xl border transition shadow-sm flex items-center justify-between ${
+              activeTab === "links" && expiredLinks.length === 0
+                ? "border-black bg-neutral-50/70 ring-1 ring-black"
+                : "border-neutral-200 bg-white hover:border-neutral-300"
+            }`}
           >
             <div>
               <p className="text-xs text-neutral-500 font-medium">Working Links</p>
               <h4 className="text-2xl font-bold text-neutral-900 mt-1 font-mono">
-                {redirects.length}
+                {activeLinks.length}
               </h4>
-              <p className="text-[11px] text-neutral-400 mt-0.5">100% active & fast</p>
+              <p className="text-[11px] text-neutral-400 mt-0.5">
+                {expiredLinks.length > 0 ? `${expiredLinks.length} expired` : "100% active & fast"}
+              </p>
             </div>
             <div className="w-10 h-10 rounded-xl bg-neutral-100 border border-neutral-200 flex items-center justify-center text-black">
               <CheckCircle2 className="w-5 h-5 stroke-[2]" />
@@ -193,35 +206,63 @@ export default function AdminDashboardPage() {
           </button>
         </div>
 
-        {/* Tab Selection Switcher (Links | Analytics Breakdown) */}
+        {/* Tab Selection Switcher (Active Links | Expired Links | Analytics Breakdown) */}
         <div className="flex items-center justify-between border-b border-neutral-100 pb-4">
           <div className="flex items-center gap-2 bg-neutral-100 p-1 rounded-xl">
+            {/* Active Links Tab */}
             <button
               type="button"
               onClick={() => setActiveTab("links")}
-              className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition ${
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition ${
                 activeTab === "links"
                   ? "bg-white text-black shadow-sm"
                   : "text-neutral-500 hover:text-black"
               }`}
             >
-              Links List ({redirects.length})
+              <span>Active Links</span>
+              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-neutral-200 text-neutral-700">
+                {activeLinks.length}
+              </span>
             </button>
+
+            {/* Expired Links Tab */}
+            <button
+              type="button"
+              onClick={() => setActiveTab("expired")}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition ${
+                activeTab === "expired"
+                  ? "bg-white text-black shadow-sm"
+                  : "text-neutral-500 hover:text-black"
+              }`}
+            >
+              <Clock className="w-3 h-3" />
+              <span>Expired</span>
+              {expiredLinks.length > 0 && (
+                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-neutral-200 text-neutral-800 font-semibold">
+                  {expiredLinks.length}
+                </span>
+              )}
+            </button>
+
+            {/* Analytics Tab */}
             <button
               type="button"
               onClick={() => setActiveTab("analytics")}
-              className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition ${
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition ${
                 activeTab === "analytics"
                   ? "bg-white text-black shadow-sm"
                   : "text-neutral-500 hover:text-black"
               }`}
             >
-              Analytics Breakdown
+              <TrendingUp className="w-3 h-3" />
+              <span>Analytics</span>
             </button>
           </div>
 
           <div className="text-xs text-neutral-400 font-mono">
-            {activeTab === "links" ? `${redirects.length} links` : `${totalClicks} total clicks`}
+            {activeTab === "links" && `${activeLinks.length} active`}
+            {activeTab === "expired" && `${expiredLinks.length} expired`}
+            {activeTab === "analytics" && `${totalClicks} total clicks`}
           </div>
         </div>
 
@@ -232,11 +273,21 @@ export default function AdminDashboardPage() {
           </div>
         ) : activeTab === "links" ? (
           <RedirectTable
-            redirects={redirects}
+            redirects={activeLinks}
             baseUrl={baseUrl}
             onEdit={(r) => setEditingRedirect(r)}
             onDelete={(r) => setDeletingRedirect(r)}
             onCreateOpen={() => setIsCreateOpen(true)}
+            isExpiredView={false}
+          />
+        ) : activeTab === "expired" ? (
+          <RedirectTable
+            redirects={expiredLinks}
+            baseUrl={baseUrl}
+            onEdit={(r) => setEditingRedirect(r)}
+            onDelete={(r) => setDeletingRedirect(r)}
+            onCreateOpen={() => setIsCreateOpen(true)}
+            isExpiredView={true}
           />
         ) : (
           <AnalyticsView
@@ -267,7 +318,7 @@ export default function AdminDashboardPage() {
         baseUrl={baseUrl}
         onUpdated={() => {
           fetchRedirects();
-          showToast("Destination updated!");
+          showToast("Link updated!");
         }}
       />
 

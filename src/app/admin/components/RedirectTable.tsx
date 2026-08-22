@@ -12,6 +12,7 @@ import {
   ArrowRight,
   Link2,
   MoreVertical,
+  RotateCcw,
 } from "lucide-react";
 
 interface RedirectTableProps {
@@ -20,6 +21,7 @@ interface RedirectTableProps {
   onEdit: (redirect: Redirect) => void;
   onDelete: (redirect: Redirect) => void;
   onCreateOpen: () => void;
+  isExpiredView?: boolean;
 }
 
 export function RedirectTable({
@@ -28,6 +30,7 @@ export function RedirectTable({
   onEdit,
   onDelete,
   onCreateOpen,
+  isExpiredView = false,
 }: RedirectTableProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [copiedId, setCopiedId] = useState<number | null>(null);
@@ -62,6 +65,51 @@ export function RedirectTable({
     setTimeout(() => setCopiedId(null), 2000);
   };
 
+  const getExpirationBadge = (r: Redirect) => {
+    if (!r.expiresAt) {
+      return (
+        <span className="text-[10px] text-neutral-400 font-sans font-normal">
+          Permanent
+        </span>
+      );
+    }
+
+    const diff = new Date(r.expiresAt).getTime() - Date.now();
+    if (diff <= 0) {
+      return (
+        <span className="text-[10px] px-2 py-0.5 rounded-md bg-neutral-200 text-neutral-800 font-semibold font-sans">
+          Expired
+        </span>
+      );
+    }
+
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const days = Math.floor(hours / 24);
+
+    if (days > 0) {
+      return (
+        <span className="text-[10px] px-2 py-0.5 rounded-md bg-neutral-100 text-neutral-700 font-medium font-sans">
+          ⏳ {days}d left
+        </span>
+      );
+    }
+
+    if (hours > 0) {
+      return (
+        <span className="text-[10px] px-2 py-0.5 rounded-md bg-neutral-100 text-neutral-700 font-medium font-sans">
+          ⏳ {hours}h left
+        </span>
+      );
+    }
+
+    const mins = Math.max(1, Math.floor(diff / (1000 * 60)));
+    return (
+      <span className="text-[10px] px-2 py-0.5 rounded-md bg-neutral-100 text-neutral-700 font-medium font-sans">
+        ⏳ {mins}m left
+      </span>
+    );
+  };
+
   // Empty state
   if (redirects.length === 0) {
     return (
@@ -69,23 +117,29 @@ export function RedirectTable({
         <div className="w-12 h-12 mx-auto mb-3 rounded-2xl bg-white border border-neutral-200 flex items-center justify-center text-black shadow-sm">
           <Link2 className="w-6 h-6 stroke-[2]" />
         </div>
-        <h3 className="text-base font-bold text-neutral-900">No links yet</h3>
+        <h3 className="text-base font-bold text-neutral-900">
+          {isExpiredView ? "No expired links" : "No links yet"}
+        </h3>
         <p className="text-xs text-neutral-500 max-w-xs mx-auto mt-1 mb-5">
-          Create your first permanent link and share it anywhere.
+          {isExpiredView
+            ? "When a temporary link's timer finishes, it will appear here."
+            : "Create your first permanent link and share it anywhere."}
         </p>
-        <button
-          onClick={onCreateOpen}
-          className="px-5 py-2.5 text-xs font-semibold text-white bg-black hover:bg-neutral-800 rounded-xl transition shadow-sm"
-        >
-          Create First Link
-        </button>
+        {!isExpiredView && (
+          <button
+            onClick={onCreateOpen}
+            className="px-5 py-2.5 text-xs font-semibold text-white bg-black hover:bg-neutral-800 rounded-xl transition shadow-sm"
+          >
+            Create First Link
+          </button>
+        )}
       </div>
     );
   }
 
   return (
     <div className="space-y-4 font-sans">
-      {/* Search Bar (When there are multiple links) */}
+      {/* Search Bar */}
       {redirects.length > 2 && (
         <div className="relative max-w-sm">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
@@ -105,6 +159,7 @@ export function RedirectTable({
           <thead>
             <tr className="border-b border-neutral-100 bg-neutral-50/70 text-[11px] uppercase tracking-wider text-neutral-400 font-semibold">
               <th className="py-3.5 px-5">Your Link</th>
+              <th className="py-3.5 px-5">Type / Expiry</th>
               <th className="py-3.5 px-5">Goes To</th>
               <th className="py-3.5 px-5 text-center">Clicks</th>
               <th className="py-3.5 px-5 text-right w-16"></th>
@@ -137,6 +192,11 @@ export function RedirectTable({
                         )}
                       </button>
                     </div>
+                  </td>
+
+                  {/* Expiration Status */}
+                  <td className="py-4 px-5">
+                    {getExpirationBadge(r)}
                   </td>
 
                   {/* Destination */}
@@ -178,17 +238,31 @@ export function RedirectTable({
                       {/* 3-Dots Dropdown Menu */}
                       {isMenuOpen && (
                         <div className="absolute right-4 top-12 z-50 w-44 rounded-2xl bg-white border border-neutral-200 p-1.5 shadow-xl animate-in fade-in zoom-in-95 duration-150">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setOpenMenuId(null);
-                              onEdit(r);
-                            }}
-                            className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 hover:text-black hover:bg-neutral-50 rounded-xl transition text-left"
-                          >
-                            <Edit2 className="w-3.5 h-3.5 text-neutral-500" />
-                            <span>Edit destination</span>
-                          </button>
+                          {isExpiredView ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenMenuId(null);
+                                onEdit(r);
+                              }}
+                              className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 hover:text-black hover:bg-neutral-50 rounded-xl transition text-left"
+                            >
+                              <RotateCcw className="w-3.5 h-3.5 text-neutral-500" />
+                              <span>Reactivate link</span>
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenMenuId(null);
+                                onEdit(r);
+                              }}
+                              className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 hover:text-black hover:bg-neutral-50 rounded-xl transition text-left"
+                            >
+                              <Edit2 className="w-3.5 h-3.5 text-neutral-500" />
+                              <span>Edit destination</span>
+                            </button>
+                          )}
 
                           <button
                             type="button"

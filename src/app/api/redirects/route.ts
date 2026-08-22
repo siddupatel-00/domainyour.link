@@ -15,6 +15,27 @@ export function getLocalFallbackLinks() {
   return localFallbackLinks;
 }
 
+// Helper to calculate expiration date from preset duration
+export function calculateExpiration(duration?: string | null): Date | null {
+  if (!duration || duration === "permanent" || duration === "never") return null;
+
+  const now = Date.now();
+  switch (duration) {
+    case "1h":
+      return new Date(now + 1 * 60 * 60 * 1000);
+    case "24h":
+      return new Date(now + 24 * 60 * 60 * 1000);
+    case "7d":
+      return new Date(now + 7 * 24 * 60 * 60 * 1000);
+    case "30d":
+      return new Date(now + 30 * 24 * 60 * 60 * 1000);
+    default:
+      // Check if it's a valid custom ISO date string
+      const parsed = new Date(duration);
+      return !isNaN(parsed.getTime()) ? parsed : null;
+  }
+}
+
 // GET /api/redirects - List all redirects
 export async function GET() {
   const authed = await isAuthenticated();
@@ -35,7 +56,7 @@ export async function GET() {
   }
 }
 
-// POST /api/redirects - Create a new redirect
+// POST /api/redirects - Create a new redirect (Permanent or Temporary)
 export async function POST(request: NextRequest) {
   const session = await getSessionUser();
   if (!session) {
@@ -44,9 +65,8 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { username: bodyUsername, webname, destinationUrl } = body;
+    const { username: bodyUsername, webname, destinationUrl, duration, expiresAt } = body;
 
-    // Use session username if not passed in body
     const finalUsername = bodyUsername || session.username || "siddu";
 
     if (!webname || !destinationUrl) {
@@ -88,8 +108,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Calculate expiration date
+    const expirationDate = expiresAt ? new Date(expiresAt) : calculateExpiration(duration);
+
     try {
-      // Check if (username, webname) already exists in DB
       const existing = await db
         .select({ id: redirects.id })
         .from(redirects)
@@ -118,6 +140,7 @@ export async function POST(request: NextRequest) {
           destinationUrl: formattedDestination,
           redirectCode: 307,
           clickCount: 0,
+          expiresAt: expirationDate,
         })
         .returning();
 
@@ -141,6 +164,7 @@ export async function POST(request: NextRequest) {
         destinationUrl: formattedDestination,
         redirectCode: 307,
         clickCount: 0,
+        expiresAt: expirationDate,
         createdAt: new Date(),
         updatedAt: new Date(),
       };

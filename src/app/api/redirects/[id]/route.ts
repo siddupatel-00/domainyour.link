@@ -4,11 +4,11 @@ import { redirects } from "@/lib/db/schema";
 import { isAuthenticated } from "@/lib/auth";
 import { isValidUrl } from "@/lib/utils";
 import { eq } from "drizzle-orm";
-import { getLocalFallbackLinks } from "../route";
+import { getLocalFallbackLinks, calculateExpiration } from "../route";
 
 export const dynamic = "force-dynamic";
 
-// PATCH /api/redirects/[id] - Update destination URL
+// PATCH /api/redirects/[id] - Update destination URL or expiration
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -26,37 +26,44 @@ export async function PATCH(
     }
 
     const body = await request.json();
-    const { destinationUrl } = body;
+    const { destinationUrl, duration, expiresAt } = body;
 
-    if (!destinationUrl) {
-      return NextResponse.json(
-        { error: "Destination URL is required" },
-        { status: 400 }
-      );
+    const updateFields: {
+      destinationUrl?: string;
+      expiresAt?: Date | null;
+      updatedAt: Date;
+    } = {
+      updatedAt: new Date(),
+    };
+
+    if (destinationUrl) {
+      let formattedDestination = destinationUrl.trim();
+      if (
+        !formattedDestination.startsWith("http://") &&
+        !formattedDestination.startsWith("https://")
+      ) {
+        formattedDestination = `https://${formattedDestination}`;
+      }
+
+      if (!isValidUrl(formattedDestination)) {
+        return NextResponse.json(
+          { error: "Please enter a valid destination URL" },
+          { status: 400 }
+        );
+      }
+      updateFields.destinationUrl = formattedDestination;
     }
 
-    let formattedDestination = destinationUrl.trim();
-    if (
-      !formattedDestination.startsWith("http://") &&
-      !formattedDestination.startsWith("https://")
-    ) {
-      formattedDestination = `https://${formattedDestination}`;
-    }
-
-    if (!isValidUrl(formattedDestination)) {
-      return NextResponse.json(
-        { error: "Please enter a valid destination URL" },
-        { status: 400 }
-      );
+    if (duration !== undefined || expiresAt !== undefined) {
+      updateFields.expiresAt = expiresAt !== undefined
+        ? (expiresAt ? new Date(expiresAt) : null)
+        : calculateExpiration(duration);
     }
 
     try {
       const [updatedRecord] = await db
         .update(redirects)
-        .set({
-          destinationUrl: formattedDestination,
-          updatedAt: new Date(),
-        })
+        .set(updateFields)
         .where(eq(redirects.id, numericId))
         .returning();
 
@@ -71,7 +78,8 @@ export async function PATCH(
     const fallbackList = getLocalFallbackLinks();
     const item = fallbackList.find((l) => l.id === numericId);
     if (item) {
-      item.destinationUrl = formattedDestination;
+      if (updateFields.destinationUrl) item.destinationUrl = updateFields.destinationUrl;
+      if (updateFields.expiresAt !== undefined) item.expiresAt = updateFields.expiresAt;
       item.updatedAt = new Date();
       return NextResponse.json({ success: true, redirect: item });
     }
