@@ -574,16 +574,19 @@ export function CeoCommandView({ initialTab = "analytics" }: CeoCommandViewProps
                   {employeesList.map((emp) => {
                     const isMenuOpen = openEmployeeMenuId === emp.id;
                     const isActive = emp.status === "active";
+                    const isInvited = emp.status === "invited";
+                    const displayName = emp.name?.trim() || emp.email.split("@")[0];
+                    const initialLetter = (emp.name?.trim() || emp.email).charAt(0).toUpperCase();
 
                     return (
                       <tr key={emp.id} className="hover:bg-neutral-800/40 transition relative">
                         <td className="py-4 px-5">
                           <div className="flex items-center gap-3">
                             <div className="w-8 h-8 rounded-full bg-neutral-800 text-white flex items-center justify-center font-bold text-xs">
-                              {emp.name.charAt(0).toUpperCase()}
+                              {initialLetter}
                             </div>
                             <div>
-                              <span className="font-bold text-white block">{emp.name}</span>
+                              <span className="font-bold text-white block">{displayName}</span>
                               <span className="text-[11px] text-neutral-500 font-mono">{emp.email}</span>
                             </div>
                           </div>
@@ -598,10 +601,12 @@ export function CeoCommandView({ initialTab = "analytics" }: CeoCommandViewProps
                             className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
                               isActive
                                 ? "bg-emerald-950 text-emerald-300 border border-emerald-800"
+                                : isInvited
+                                ? "bg-amber-950 text-amber-300 border border-amber-800"
                                 : "bg-neutral-800 text-neutral-400 border border-neutral-700"
                             }`}
                           >
-                            {isActive ? "Active" : "Suspended"}
+                            {isActive ? "Active" : isInvited ? "Invited (Pending)" : "Suspended"}
                           </span>
                         </td>
 

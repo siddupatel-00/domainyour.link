@@ -67,16 +67,20 @@ export const employees = pgTable(
   "employees",
   {
     id: serial("id").primaryKey(),
-    name: varchar("name", { length: 128 }).notNull(),
+    name: varchar("name", { length: 128 }).default(""),
     email: varchar("email", { length: 255 }).notNull(),
-    role: varchar("role", { length: 64 }).notNull().default("Support Moderator"), // e.g. "Link Manager", "Support Moderator", "Analyst"
-    status: varchar("status", { length: 32 }).notNull().default("active"), // "active" | "suspended"
-    permissions: text("permissions").notNull().default("[\"view_links\", \"manage_support\"]"),
+    username: varchar("username", { length: 64 }),
+    password: text("password"),
+    role: varchar("role", { length: 64 }).notNull().default("Insights Viewer"),
+    status: varchar("status", { length: 32 }).notNull().default("invited"), // "invited" | "active" | "suspended"
+    inviteToken: varchar("invite_token", { length: 128 }),
+    permissions: text("permissions").notNull().default("[\"view_insights\"]"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => [
     uniqueIndex("employee_email_idx").on(table.email),
+    uniqueIndex("employee_invite_token_idx").on(table.inviteToken),
   ]
 );
 

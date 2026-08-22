@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { employees, Employee } from "@/lib/db/schema";
 import { isCeoAuthenticated } from "@/lib/auth";
+import { sendEmployeeInviteEmail } from "@/lib/email";
 import { desc, eq } from "drizzle-orm";
+import crypto from "crypto";
 
 export const dynamic = "force-dynamic";
 
@@ -12,24 +14,24 @@ const localFallbackEmployees: Employee[] = [
     id: 1,
     name: "Alex Vance",
     email: "alex@company.com",
-    role: "Support Moderator",
+    username: "alex",
+    password: null,
+    role: "Insights Viewer",
     status: "active",
-    permissions: "[\"view_links\", \"manage_support\"]",
+    inviteToken: null,
+    permissions: "[\"view_insights\"]",
     createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
     updatedAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
   },
-  {
-    id: 2,
-    name: "Jordan Lee",
-    email: "jordan@company.com",
-    role: "Link Manager",
-    status: "active",
-    permissions: "[\"view_links\", \"edit_links\", \"manage_redirects\"]",
-    createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
-    updatedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
-  },
 ];
-let nextEmployeeId = 3;
+let nextEmployeeId = 2;
+
+// Expose fallback store globally so other routes can share it
+declare global {
+  // eslint-disable-next-line no-var
+  var fallbackEmployeesStore: Employee[] | undefined;
+}
+global.fallbackEmployeesStore = localFallbackEmployees;
 
 export function getLocalFallbackEmployees() {
   return localFallbackEmployees;
@@ -57,7 +59,7 @@ export async function GET() {
   }
 }
 
-// POST /api/ceo/employees - Add new employee
+// POST /api/ceo/employees - Invite employee by email
 export async function POST(request: NextRequest) {
   const authed = await isCeoAuthenticated();
   if (!authed) {
@@ -66,34 +68,32 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { name, email, role, permissions } = body;
+    const { email, role } = body;
 
-    if (!name || !email) {
+    if (!email || !email.includes("@")) {
       return NextResponse.json(
-        { error: "Name and email are required" },
+        { error: "Please enter a valid work email address" },
         { status: 400, headers: noCacheHeaders }
       );
     }
 
     const cleanEmail = email.trim().toLowerCase();
-    const cleanName = name.trim();
-    const employeeRole = role?.trim() || "Support Moderator";
-    const permissionsJson = Array.isArray(permissions)
-      ? JSON.stringify(permissions)
-      : typeof permissions === "string"
-      ? permissions
-      : JSON.stringify(["view_links", "manage_support"]);
+    const employeeRole = role?.trim() || "Insights Viewer";
+    const inviteToken = crypto.randomBytes(24).toString("hex");
+
+    const origin = request.nextUrl.origin || "http://localhost:3000";
+    const inviteLink = `${origin}/employee/join?token=${inviteToken}`;
 
     try {
       const existing = await db
-        .select({ id: employees.id })
+        .select({ id: employees.id, status: employees.status })
         .from(employees)
         .where(eq(employees.email, cleanEmail))
         .limit(1);
 
       if (existing.length > 0) {
         return NextResponse.json(
-          { error: `An employee with email "${cleanEmail}" already exists.` },
+          { error: `An employee with email "${cleanEmail}" is already added or invited.` },
           { status: 409, headers: noCacheHeaders }
         );
       }
@@ -101,42 +101,58 @@ export async function POST(request: NextRequest) {
       const [newRecord] = await db
         .insert(employees)
         .values({
-          name: cleanName,
+          name: "",
           email: cleanEmail,
           role: employeeRole,
-          status: "active",
-          permissions: permissionsJson,
+          status: "invited",
+          inviteToken,
+          permissions: JSON.stringify(["view_insights"]),
         })
         .returning();
 
-      return NextResponse.json({ success: true, employee: newRecord }, { status: 201, headers: noCacheHeaders });
+      // Send the email automatically
+      await sendEmployeeInviteEmail(cleanEmail, employeeRole, inviteLink);
+
+      return NextResponse.json(
+        { success: true, employee: newRecord, inviteLink },
+        { status: 201, headers: noCacheHeaders }
+      );
     } catch {
-      // Fallback
+      // Fallback in-memory
       const exists = localFallbackEmployees.some((e) => e.email === cleanEmail);
       if (exists) {
         return NextResponse.json(
-          { error: `An employee with email "${cleanEmail}" already exists.` },
+          { error: `An employee with email "${cleanEmail}" is already added or invited.` },
           { status: 409, headers: noCacheHeaders }
         );
       }
 
       const newRecord: Employee = {
         id: nextEmployeeId++,
-        name: cleanName,
+        name: "",
         email: cleanEmail,
+        username: null,
+        password: null,
         role: employeeRole,
-        status: "active",
-        permissions: permissionsJson,
+        status: "invited",
+        inviteToken,
+        permissions: JSON.stringify(["view_insights"]),
         createdAt: new Date(),
         updatedAt: new Date(),
       };
       localFallbackEmployees.unshift(newRecord);
-      return NextResponse.json({ success: true, employee: newRecord }, { status: 201, headers: noCacheHeaders });
+
+      await sendEmployeeInviteEmail(cleanEmail, employeeRole, inviteLink);
+
+      return NextResponse.json(
+        { success: true, employee: newRecord, inviteLink },
+        { status: 201, headers: noCacheHeaders }
+      );
     }
   } catch (error) {
-    console.error("Create employee error:", error);
+    console.error("Invite employee error:", error);
     return NextResponse.json(
-      { error: "Failed to add employee" },
+      { error: "Failed to send employee invite" },
       { status: 500, headers: noCacheHeaders }
     );
   }

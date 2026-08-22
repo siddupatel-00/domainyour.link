@@ -6,22 +6,14 @@ import {
 } from "@/lib/auth";
 import { generateOtp, storeOtp, verifyOtp, sendOtpEmail } from "@/lib/email";
 import { db } from "@/lib/db";
-import { employees } from "@/lib/db/schema";
+import { employees, Employee } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
 
-// In-memory fallback if offline
 declare global {
   // eslint-disable-next-line no-var
-  var fallbackEmployeesStore: Array<{
-    id: number;
-    name: string;
-    email: string;
-    role: string;
-    status: string;
-    permissions: string;
-  }> | undefined;
+  var fallbackEmployeesStore: Employee[] | undefined;
 }
 
 export async function GET() {
@@ -54,7 +46,7 @@ export async function POST(request: NextRequest) {
     const cleanEmail = email.trim().toLowerCase();
 
     // Look up employee in database or local fallback
-    let targetEmployee = null;
+    let targetEmployee: Employee | null = null;
     try {
       if (db) {
         const found = await db
@@ -73,10 +65,10 @@ export async function POST(request: NextRequest) {
     if (!targetEmployee && global.fallbackEmployeesStore) {
       targetEmployee = global.fallbackEmployeesStore.find(
         (e) => e.email.toLowerCase() === cleanEmail
-      );
+      ) || null;
     }
 
-    // If still not found, check if it's default admin/dev employee
+    // If still not found
     if (!targetEmployee) {
       return NextResponse.json(
         { error: "Work email not authorized. Please ask your CEO to invite you." },
@@ -95,13 +87,13 @@ export async function POST(request: NextRequest) {
     // Action 1: Send 6-digit OTP code to employee work email
     if (action === "send_code") {
       const otp = generateOtp();
-      storeOtp(cleanEmail, otp, targetEmployee.name);
+      storeOtp(cleanEmail, otp, targetEmployee.name || cleanEmail);
       const emailResult = await sendOtpEmail(cleanEmail, otp);
 
       return NextResponse.json({
         success: true,
         message: `6-digit security code sent to ${cleanEmail}`,
-        devCode: emailResult.devCode, // For seamless testing
+        devCode: emailResult.devCode,
       });
     }
 
@@ -122,7 +114,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      let perms: string[] = ["view_links", "manage_support"];
+      let perms: string[] = ["view_insights"];
       try {
         const parsed = JSON.parse(targetEmployee.permissions || "[]");
         if (Array.isArray(parsed) && parsed.length > 0) perms = parsed;
@@ -130,7 +122,7 @@ export async function POST(request: NextRequest) {
 
       const employeePayload = {
         id: targetEmployee.id,
-        name: targetEmployee.name,
+        name: targetEmployee.name || cleanEmail.split("@")[0],
         email: targetEmployee.email,
         role: targetEmployee.role,
         permissions: perms,
