@@ -7,6 +7,8 @@ import { desc, and, eq, gte, lte } from "drizzle-orm";
 import {
   isTursoEnabled,
   tursoGetRedirects,
+  tursoGetRedirectsWithTimeframe,
+  parseTimeframeDates,
   tursoFindRedirect,
   tursoCreateRedirect,
 } from "@/lib/tursoDb";
@@ -60,7 +62,7 @@ export function calculateExpiration(duration?: string | null): Date | null {
   }
 }
 
-// GET /api/redirects - List all redirects
+// GET /api/redirects - List all redirects with accurate timeframe filtering
 export async function GET(request: NextRequest) {
   const authed = await isAuthenticated();
   if (!authed) {
@@ -70,12 +72,21 @@ export async function GET(request: NextRequest) {
   const session = await getSessionUser();
   const username = session?.username || "creator";
 
+  const { searchParams } = new URL(request.url);
+  const timeframe = searchParams.get("timeframe");
+  const customStart = searchParams.get("startDate");
+  const customEnd = searchParams.get("endDate");
+
+  const { startDate, endDate } = parseTimeframeDates(timeframe, customStart, customEnd);
+
   // 1. Try Turso if enabled
   if (isTursoEnabled) {
     try {
-      const list = await tursoGetRedirects(username);
+      const list = await tursoGetRedirectsWithTimeframe(username, startDate, endDate);
       return NextResponse.json({ redirects: list }, { headers: noCacheHeaders });
-    } catch {}
+    } catch (err) {
+      console.error("Turso redirects list error:", err);
+    }
   }
 
   // 2. Try PostgreSQL / Neon
@@ -83,12 +94,55 @@ export async function GET(request: NextRequest) {
     const list = await db
       .select()
       .from(redirects)
+      .where(eq(redirects.username, username))
       .orderBy(desc(redirects.createdAt));
+
+    if (startDate) {
+      const events = await db
+        .select()
+        .from(clickEvents)
+        .where(
+          and(
+            gte(clickEvents.createdAt, startDate),
+            lte(clickEvents.createdAt, endDate)
+          )
+        );
+
+      const countMap: Record<number, number> = {};
+      events.forEach((e) => {
+        countMap[e.redirectId] = (countMap[e.redirectId] || 0) + 1;
+      });
+
+      const filtered = list.map((r) => ({
+        ...r,
+        clickCount: countMap[r.id] ?? 0,
+      }));
+
+      return NextResponse.json({ redirects: filtered }, { headers: noCacheHeaders });
+    }
 
     return NextResponse.json({ redirects: list }, { headers: noCacheHeaders });
   } catch {
     // 3. Fallback memory store
-    return NextResponse.json({ redirects: localFallbackLinks }, { headers: noCacheHeaders });
+    const userLinks = localFallbackLinks.filter((l) => l.username === username);
+    if (startDate) {
+      const filteredEvents = localFallbackClickEvents.filter(
+        (e) => e.createdAt >= startDate && e.createdAt <= endDate
+      );
+      const countMap: Record<number, number> = {};
+      filteredEvents.forEach((e) => {
+        countMap[e.redirectId] = (countMap[e.redirectId] || 0) + 1;
+      });
+
+      const filtered = userLinks.map((r) => ({
+        ...r,
+        clickCount: countMap[r.id] ?? 0,
+      }));
+
+      return NextResponse.json({ redirects: filtered }, { headers: noCacheHeaders });
+    }
+
+    return NextResponse.json({ redirects: userLinks }, { headers: noCacheHeaders });
   }
 }
 
@@ -115,7 +169,7 @@ export async function POST(request: NextRequest) {
 
     if (!webname || !destinationUrl) {
       return NextResponse.json(
-        { error: "Name and destination URL are required" },
+        { error: "Link name and destination URL are required" },
         { status: 400, headers: noCacheHeaders }
       );
     }
@@ -123,16 +177,9 @@ export async function POST(request: NextRequest) {
     const cleanUsername = sanitizeSlug(finalUsername);
     const cleanWebname = sanitizeSlug(webname);
 
-    if (!cleanUsername || cleanUsername.length < 1) {
+    if (!cleanWebname) {
       return NextResponse.json(
-        { error: "Username is invalid" },
-        { status: 400, headers: noCacheHeaders }
-      );
-    }
-
-    if (!cleanWebname || cleanWebname.length < 1) {
-      return NextResponse.json(
-        { error: "Please enter a valid name (e.g. linkedin, reddit, insta)" },
+        { error: "Please enter a valid link name" },
         { status: 400, headers: noCacheHeaders }
       );
     }
@@ -147,13 +194,12 @@ export async function POST(request: NextRequest) {
 
     if (!isValidUrl(formattedDestination)) {
       return NextResponse.json(
-        { error: "Please enter a valid destination URL (e.g. https://linkedin.com/in/...)" },
+        { error: "Please enter a valid destination URL (e.g. https://linkedin.com/in/you)" },
         { status: 400, headers: noCacheHeaders }
       );
     }
 
     const expirationDate = expiresAt ? new Date(expiresAt) : calculateExpiration(duration);
-    const profileVisibility = showOnProfile !== undefined ? Boolean(showOnProfile) : true;
 
     // 1. Try Turso if enabled
     if (isTursoEnabled) {
@@ -161,7 +207,7 @@ export async function POST(request: NextRequest) {
         const existing = await tursoFindRedirect(cleanUsername, cleanWebname);
         if (existing) {
           return NextResponse.json(
-            { error: `A link for /${cleanUsername}/${cleanWebname} already exists.` },
+            { error: `The link /${cleanUsername}/${cleanWebname} already exists.` },
             { status: 409, headers: noCacheHeaders }
           );
         }
@@ -170,9 +216,10 @@ export async function POST(request: NextRequest) {
           username: cleanUsername,
           webname: cleanWebname,
           destinationUrl: formattedDestination,
+          redirectCode: 307,
           expiresAt: expirationDate,
           parentId: parentId ? Number(parentId) : null,
-          showOnProfile: profileVisibility,
+          showOnProfile: showOnProfile !== false,
         });
 
         return NextResponse.json({ success: true, redirect: newRecord }, { status: 201, headers: noCacheHeaders });
@@ -197,7 +244,7 @@ export async function POST(request: NextRequest) {
       if (existing.length > 0) {
         return NextResponse.json(
           {
-            error: `A link for /${cleanUsername}/${cleanWebname} already exists. Please choose a different name.`,
+            error: `The link /${cleanUsername}/${cleanWebname} already exists.`,
           },
           { status: 409, headers: noCacheHeaders }
         );
@@ -210,11 +257,9 @@ export async function POST(request: NextRequest) {
           webname: cleanWebname,
           destinationUrl: formattedDestination,
           redirectCode: 307,
-          clickCount: 0,
-          expiredClickCount: 0,
           expiresAt: expirationDate,
           parentId: parentId ? Number(parentId) : null,
-          showOnProfile: profileVisibility,
+          showOnProfile: showOnProfile !== false,
         })
         .returning();
 
@@ -226,7 +271,7 @@ export async function POST(request: NextRequest) {
       );
       if (exists) {
         return NextResponse.json(
-          { error: `A link for /${cleanUsername}/${cleanWebname} already exists.` },
+          { error: `The link /${cleanUsername}/${cleanWebname} already exists.` },
           { status: 409, headers: noCacheHeaders }
         );
       }
@@ -241,7 +286,7 @@ export async function POST(request: NextRequest) {
         expiredClickCount: 0,
         expiresAt: expirationDate,
         parentId: parentId ? Number(parentId) : null,
-        showOnProfile: profileVisibility,
+        showOnProfile: showOnProfile !== false,
         createdAt: new Date(),
         updatedAt: new Date(),
       };

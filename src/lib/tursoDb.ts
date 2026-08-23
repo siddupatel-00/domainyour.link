@@ -41,6 +41,110 @@ export async function tursoGetRedirects(username: string): Promise<Redirect[]> {
   }));
 }
 
+export function parseTimeframeDates(
+  timeframe?: string | null,
+  customStart?: string | null,
+  customEnd?: string | null
+): { startDate: Date | null; endDate: Date } {
+  const now = new Date();
+  let startDate: Date | null = null;
+  let endDate: Date = now;
+
+  if (!timeframe || timeframe === "all") {
+    return { startDate: null, endDate: now };
+  }
+
+  switch (timeframe) {
+    case "24h":
+      startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      break;
+    case "7d":
+      startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      break;
+    case "14d":
+      startDate = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+      break;
+    case "this_month":
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+      break;
+    case "last_month":
+      startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0, 0);
+      endDate = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+      break;
+    case "custom":
+      startDate = customStart ? new Date(customStart) : new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      if (customEnd) endDate = new Date(new Date(customEnd).setHours(23, 59, 59, 999));
+      break;
+    default:
+      startDate = null;
+  }
+
+  return { startDate, endDate };
+}
+
+export async function tursoGetRedirectsWithTimeframe(
+  username: string,
+  startDate?: Date | null,
+  endDate?: Date | null
+): Promise<Redirect[]> {
+  const redirects = await tursoGetRedirects(username);
+  if (!startDate || redirects.length === 0) return redirects;
+
+  const startIso = startDate.toISOString();
+  const endIso = (endDate || new Date()).toISOString();
+  const redirectIds = redirects.map((r) => r.id);
+  const placeholders = redirectIds.map(() => "?").join(", ");
+
+  try {
+    const result = await turso.execute({
+      sql: `SELECT redirect_id, COUNT(*) as count
+            FROM click_events
+            WHERE redirect_id IN (${placeholders})
+              AND datetime(created_at) >= datetime(?)
+              AND datetime(created_at) <= datetime(?)
+            GROUP BY redirect_id;`,
+      args: [...redirectIds, startIso, endIso],
+    });
+
+    const countMap: Record<number, number> = {};
+    for (const row of result.rows) {
+      countMap[Number(row.redirect_id)] = Number(row.count || 0);
+    }
+
+    return redirects.map((r) => ({
+      ...r,
+      clickCount: countMap[r.id] ?? 0,
+    }));
+  } catch (err) {
+    try {
+      const fallbackResult = await turso.execute({
+        sql: `SELECT redirect_id, COUNT(*) as count
+              FROM click_events
+              WHERE redirect_id IN (${placeholders})
+                AND created_at >= ?
+                AND created_at <= ?
+              GROUP BY redirect_id;`,
+        args: [...redirectIds, startIso.slice(0, 19).replace("T", " "), endIso.slice(0, 19).replace("T", " ")],
+      });
+
+      const countMap: Record<number, number> = {};
+      for (const row of fallbackResult.rows) {
+        countMap[Number(row.redirect_id)] = Number(row.count || 0);
+      }
+
+      return redirects.map((r) => ({
+        ...r,
+        clickCount: countMap[r.id] ?? 0,
+      }));
+    } catch {
+      return redirects.map((r) => ({
+        ...r,
+        clickCount: 0,
+      }));
+    }
+  }
+}
+
 export async function tursoGetAllRedirects(): Promise<Redirect[]> {
   const result = await turso.execute({
     sql: `SELECT * FROM redirects ORDER BY click_count DESC, id DESC;`,
