@@ -169,6 +169,69 @@ export async function tursoIncrementExpiredClick(id: number): Promise<void> {
   });
 }
 
+export async function tursoUpdateRedirect(
+  id: number,
+  data: {
+    destinationUrl?: string;
+    expiresAt?: Date | null;
+    showOnProfile?: boolean;
+    webname?: string;
+  }
+): Promise<Redirect | null> {
+  const sets: string[] = [];
+  const args: any[] = [];
+
+  if (data.destinationUrl !== undefined) {
+    sets.push("destination_url = ?");
+    args.push(data.destinationUrl);
+  }
+  if (data.expiresAt !== undefined) {
+    sets.push("expires_at = ?");
+    args.push(data.expiresAt ? data.expiresAt.toISOString() : null);
+  }
+  if (data.showOnProfile !== undefined) {
+    sets.push("show_on_profile = ?");
+    args.push(data.showOnProfile ? 1 : 0);
+  }
+  if (data.webname !== undefined) {
+    sets.push("webname = ?");
+    args.push(data.webname.toLowerCase());
+  }
+
+  sets.push("updated_at = CURRENT_TIMESTAMP");
+  args.push(id);
+
+  const result = await turso.execute({
+    sql: `UPDATE redirects SET ${sets.join(", ")} WHERE id = ? RETURNING *;`,
+    args,
+  });
+
+  if (result.rows.length === 0) return null;
+  const row = result.rows[0];
+  return {
+    id: Number(row.id),
+    username: String(row.username),
+    webname: String(row.webname),
+    destinationUrl: String(row.destination_url),
+    redirectCode: Number(row.redirect_code || 307),
+    clickCount: Number(row.click_count || 0),
+    expiredClickCount: Number(row.expired_click_count || 0),
+    expiresAt: row.expires_at ? new Date(String(row.expires_at)) : null,
+    parentId: row.parent_id !== null && row.parent_id !== undefined ? Number(row.parent_id) : null,
+    showOnProfile: Boolean(row.show_on_profile),
+    createdAt: new Date(String(row.created_at || Date.now())),
+    updatedAt: new Date(String(row.updated_at || Date.now())),
+  };
+}
+
+export async function tursoDeleteRedirect(id: number): Promise<boolean> {
+  const result = await turso.execute({
+    sql: `DELETE FROM redirects WHERE id = ?;`,
+    args: [id],
+  });
+  return result.rowsAffected > 0;
+}
+
 // ==========================================
 // 2. BIOS (Sub-Bios & Link Hubs)
 // ==========================================
@@ -212,6 +275,66 @@ export async function tursoFindBio(username: string, bioname: string): Promise<B
     createdAt: new Date(String(row.created_at || Date.now())),
     updatedAt: new Date(String(row.updated_at || Date.now())),
   };
+}
+
+export async function tursoUpdateBio(
+  id: number,
+  data: {
+    title?: string;
+    description?: string | null;
+    linkIds?: string;
+    expiresAt?: Date | null;
+  }
+): Promise<Bio | null> {
+  const sets: string[] = [];
+  const args: any[] = [];
+
+  if (data.title !== undefined) {
+    sets.push("title = ?");
+    args.push(data.title);
+  }
+  if (data.description !== undefined) {
+    sets.push("description = ?");
+    args.push(data.description);
+  }
+  if (data.linkIds !== undefined) {
+    sets.push("link_ids = ?");
+    args.push(data.linkIds);
+  }
+  if (data.expiresAt !== undefined) {
+    sets.push("expires_at = ?");
+    args.push(data.expiresAt ? data.expiresAt.toISOString() : null);
+  }
+
+  sets.push("updated_at = CURRENT_TIMESTAMP");
+  args.push(id);
+
+  const result = await turso.execute({
+    sql: `UPDATE bios SET ${sets.join(", ")} WHERE id = ? RETURNING *;`,
+    args,
+  });
+
+  if (result.rows.length === 0) return null;
+  const row = result.rows[0];
+  return {
+    id: Number(row.id),
+    username: String(row.username),
+    bioname: String(row.bioname),
+    title: row.title ? String(row.title) : null,
+    description: row.description ? String(row.description) : null,
+    linkIds: String(row.link_ids || "[]"),
+    expiresAt: row.expires_at ? new Date(String(row.expires_at)) : null,
+    createdAt: new Date(String(row.created_at || Date.now())),
+    updatedAt: new Date(String(row.updated_at || Date.now())),
+  };
+}
+
+export async function tursoDeleteBio(id: number): Promise<boolean> {
+  const result = await turso.execute({
+    sql: `DELETE FROM bios WHERE id = ?;`,
+    args: [id],
+  });
+  return result.rowsAffected > 0;
 }
 
 // ==========================================

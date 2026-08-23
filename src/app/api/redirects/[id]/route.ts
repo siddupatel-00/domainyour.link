@@ -5,8 +5,14 @@ import { isAuthenticated } from "@/lib/auth";
 import { isValidUrl } from "@/lib/utils";
 import { eq } from "drizzle-orm";
 import { getLocalFallbackLinks, calculateExpiration } from "../route";
+import {
+  isTursoEnabled,
+  tursoUpdateRedirect,
+  tursoDeleteRedirect,
+} from "@/lib/tursoDb";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 const noCacheHeaders = {
   "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
@@ -71,21 +77,34 @@ export async function PATCH(
       updateFields.showOnProfile = Boolean(showOnProfile);
     }
 
-    try {
-      const [updatedRecord] = await db
-        .update(redirects)
-        .set(updateFields)
-        .where(eq(redirects.id, numericId))
-        .returning();
-
-      if (updatedRecord) {
-        return NextResponse.json({ success: true, redirect: updatedRecord }, { headers: noCacheHeaders });
+    // 1. Try Turso Database
+    if (isTursoEnabled) {
+      try {
+        const updated = await tursoUpdateRedirect(numericId, updateFields);
+        if (updated) {
+          return NextResponse.json({ success: true, redirect: updated }, { headers: noCacheHeaders });
+        }
+      } catch (err) {
+        console.error("Turso update redirect error:", err);
       }
-    } catch {
-      // Fallback
     }
 
-    // Fallback store update
+    // 2. Try PostgreSQL / Neon Database
+    if (db) {
+      try {
+        const [updatedRecord] = await db
+          .update(redirects)
+          .set(updateFields)
+          .where(eq(redirects.id, numericId))
+          .returning();
+
+        if (updatedRecord) {
+          return NextResponse.json({ success: true, redirect: updatedRecord }, { headers: noCacheHeaders });
+        }
+      } catch {}
+    }
+
+    // 3. Fallback in-memory store
     const fallbackList = getLocalFallbackLinks();
     const item = fallbackList.find((l) => l.id === numericId);
     if (item) {
@@ -126,20 +145,33 @@ export async function DELETE(
       return NextResponse.json({ error: "Invalid ID" }, { status: 400, headers: noCacheHeaders });
     }
 
-    try {
-      const [deletedRecord] = await db
-        .delete(redirects)
-        .where(eq(redirects.id, numericId))
-        .returning();
-
-      if (deletedRecord) {
-        return NextResponse.json({ success: true, message: "Link deleted" }, { headers: noCacheHeaders });
+    // 1. Try Turso Database
+    if (isTursoEnabled) {
+      try {
+        const ok = await tursoDeleteRedirect(numericId);
+        if (ok) {
+          return NextResponse.json({ success: true, message: "Link deleted" }, { headers: noCacheHeaders });
+        }
+      } catch (err) {
+        console.error("Turso delete redirect error:", err);
       }
-    } catch {
-      // Fallback
     }
 
-    // Fallback store delete
+    // 2. Try PostgreSQL / Neon Database
+    if (db) {
+      try {
+        const [deletedRecord] = await db
+          .delete(redirects)
+          .where(eq(redirects.id, numericId))
+          .returning();
+
+        if (deletedRecord) {
+          return NextResponse.json({ success: true, message: "Link deleted" }, { headers: noCacheHeaders });
+        }
+      } catch {}
+    }
+
+    // 3. Fallback in-memory store
     const fallbackList = getLocalFallbackLinks();
     const index = fallbackList.findIndex((l) => l.id === numericId);
     if (index !== -1) {
