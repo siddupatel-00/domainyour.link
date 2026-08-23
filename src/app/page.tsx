@@ -416,8 +416,8 @@ export default function HomePage() {
                 </p>
 
                 {error && (
-                  <div className="mb-4 p-3 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/60 text-neutral-800 dark:text-neutral-200 text-xs flex items-center gap-2.5">
-                    <AlertCircle className="w-4 h-4 text-neutral-700 dark:text-neutral-300 flex-shrink-0" />
+                  <div className="mb-4 p-3 rounded-xl border border-rose-200 dark:border-rose-900/50 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 text-xs flex items-center gap-2.5">
+                    <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 flex-shrink-0" />
                     <span>{error}</span>
                   </div>
                 )}
@@ -646,16 +646,9 @@ export default function HomePage() {
                   </p>
                 </div>
 
-                {infoMessage && (
-                  <div className="mb-4 p-3 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/60 text-neutral-800 dark:text-neutral-200 text-xs flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-black dark:text-white flex-shrink-0" />
-                    <span>{infoMessage}</span>
-                  </div>
-                )}
-
                 {error && (
-                  <div className="mb-4 p-3 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/60 text-neutral-800 dark:text-neutral-200 text-xs flex items-center gap-2.5">
-                    <AlertCircle className="w-4 h-4 text-neutral-700 dark:text-neutral-300 flex-shrink-0" />
+                  <div className="mb-4 p-3 rounded-xl border border-rose-200 dark:border-rose-900/50 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 text-xs flex items-center gap-2.5">
+                    <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 flex-shrink-0" />
                     <span>{error}</span>
                   </div>
                 )}
@@ -751,8 +744,8 @@ export default function HomePage() {
                 </div>
 
                 {error && (
-                  <div className="mb-4 p-3 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/60 text-neutral-800 dark:text-neutral-200 text-xs flex items-center gap-2.5">
-                    <AlertCircle className="w-4 h-4 text-neutral-700 dark:text-neutral-300 flex-shrink-0" />
+                  <div className="mb-4 p-3 rounded-xl border border-rose-200 dark:border-rose-900/50 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 text-xs flex items-center gap-2.5">
+                    <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 flex-shrink-0" />
                     <span>{error}</span>
                   </div>
                 )}
