@@ -203,7 +203,7 @@ export default function SubBioPage({ params }: SubBioPageProps) {
           className="inline-flex items-center gap-1.5 font-semibold text-neutral-600 dark:text-neutral-400 hover:text-black dark:hover:text-white transition text-[11px]"
         >
           <Link2 className="w-3 h-3 text-black dark:text-white" />
-          <span>PermanentLink</span>
+          <span>domainyourlink</span>
         </a>
       </footer>
     </main>

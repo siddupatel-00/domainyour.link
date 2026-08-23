@@ -182,7 +182,7 @@ export default function HomePage() {
         <div className="flex items-center gap-2.5">
           <Link2 className="w-6 h-6 text-black dark:text-white stroke-[2.2]" />
           <span className="font-bold text-lg text-black dark:text-white tracking-tight">
-            PermanentLink
+            domainyourlink
           </span>
         </div>
 
@@ -540,7 +540,7 @@ export default function HomePage() {
 
       {/* Footer */}
       <footer className="max-w-7xl w-full mx-auto flex flex-col sm:flex-row items-center justify-between text-xs text-neutral-400 dark:text-neutral-600 pt-6 border-t border-neutral-100 dark:border-neutral-800">
-        <div>© 2026 PermanentLink. All rights reserved.</div>
+        <div>© 2026 domainyourlink. All rights reserved.</div>
         <div className="mt-2 sm:mt-0">Simple links. Permanent forever.</div>
       </footer>
 
@@ -556,7 +556,7 @@ export default function HomePage() {
           >
             <div className="flex items-center justify-between pb-4 border-b border-neutral-100 dark:border-neutral-800">
               <h3 className="text-lg font-bold text-neutral-900 dark:text-white flex items-center gap-2">
-                {modalType === "about" && "About PermanentLink"}
+                {modalType === "about" && "About domainyourlink"}
                 {modalType === "howItWorks" && "How it works"}
                 {modalType === "features" && "Features"}
                 {modalType === "forgotPassword" && "Reset Password"}
@@ -576,10 +576,10 @@ export default function HomePage() {
               {modalType === "about" && (
                 <div className="space-y-3">
                   <p className="text-neutral-800 dark:text-neutral-200 font-medium">
-                    PermanentLink gives you one simple link that stays with you forever.
+                    domainyourlink gives you one simple link that stays with you forever.
                   </p>
                   <p>
-                    Ever printed a link on your resume or business card, only to change your username later? With PermanentLink, you never have to worry.
+                    Ever printed a link on your resume or business card, only to change your username later? With domainyourlink, you never have to worry.
                   </p>
                   <p>
                     Whenever you update your social media handle or website, just change where the link points in your dashboard. Your shared link stays the exact same!

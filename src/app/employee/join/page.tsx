@@ -103,7 +103,7 @@ function EmployeeJoinContent() {
             <ShieldCheck className="w-5 h-5 stroke-[2.2]" />
           </div>
           <span className="font-bold text-base text-neutral-900 dark:text-white tracking-tight">
-            PermanentLink Staff
+            domainyourlink Staff
           </span>
         </div>
 
@@ -261,7 +261,7 @@ function EmployeeJoinContent() {
 
       {/* Footer */}
       <footer className="text-center text-xs text-neutral-400 dark:text-neutral-500">
-        PermanentLink Staff Portal
+        domainyourlink Staff Portal
       </footer>
     </main>
   );

@@ -3,8 +3,8 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
 
 export const metadata: Metadata = {
-  title: "PermanentLink — One link. Always yours.",
-  description: "Create a single, permanent link for your profiles and websites. Update the destination anytime, your link never changes.",
+  title: "domainyourlink — One link. Always yours.",
+  description: "Create a single permanent link for your profile or website. Change where it points anytime, and your link never breaks.",
 };
 
 export default function RootLayout({

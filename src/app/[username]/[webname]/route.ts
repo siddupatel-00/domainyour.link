@@ -71,7 +71,7 @@ export async function GET(
       `<!DOCTYPE html>
       <html lang="en">
         <head>
-          <title>PermanentLink - Not Found</title>
+          <title>domainyourlink - Not Found</title>
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
           <style>
             body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #ffffff; color: #0a0a0a; }
@@ -117,7 +117,7 @@ export async function GET(
       `<!DOCTYPE html>
       <html lang="en">
         <head>
-          <title>PermanentLink - Link Expired</title>
+          <title>domainyourlink - Link Expired</title>
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
           <style>
             body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #ffffff; color: #0a0a0a; }
