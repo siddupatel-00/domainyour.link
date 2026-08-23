@@ -25,7 +25,7 @@ import { EditEmployeeModal } from "@/app/ceo/components/EditEmployeeModal";
 import { Employee } from "@/lib/db/schema";
 
 interface CeoCommandViewProps {
-  initialTab?: "analytics" | "users" | "employees";
+  initialTab?: "analytics" | "users" | "employees" | "staff";
 }
 
 interface OverviewData {
@@ -57,7 +57,8 @@ interface UserStat {
 }
 
 export function CeoCommandView({ initialTab = "analytics" }: CeoCommandViewProps) {
-  const [activeTab, setActiveTab] = useState<"analytics" | "users" | "employees">(initialTab);
+  const normalizedInitialTab = initialTab === "employees" ? "staff" : initialTab;
+  const [activeTab, setActiveTab] = useState<"analytics" | "users" | "staff">(normalizedInitialTab as "analytics" | "users" | "staff");
   const [overview, setOverview] = useState<OverviewData | null>(null);
   const [topLinks, setTopLinks] = useState<TopLink[]>([]);
   const [usersList, setUsersList] = useState<UserStat[]>([]);
@@ -78,7 +79,7 @@ export function CeoCommandView({ initialTab = "analytics" }: CeoCommandViewProps
   const router = useRouter();
 
   // Switch tab with history sync
-  const switchTab = (tab: "analytics" | "users" | "employees") => {
+  const switchTab = (tab: "analytics" | "users" | "staff") => {
     setActiveTab(tab);
     window.history.pushState(null, "", `/ceo/${tab}`);
   };
@@ -116,7 +117,7 @@ export function CeoCommandView({ initialTab = "analytics" }: CeoCommandViewProps
         setUsersList(data.usersList || []);
       }
 
-      // Fetch employee team list
+      // Fetch employee / staff team list
       const empRes = await fetch(`/api/ceo/employees?t=${Date.now()}`, {
         cache: "no-store",
         headers: { "Cache-Control": "no-cache" },
@@ -146,12 +147,12 @@ export function CeoCommandView({ initialTab = "analytics" }: CeoCommandViewProps
   };
 
   const handleDeleteEmployee = async (id: number) => {
-    if (!confirm("Are you sure you want to remove this employee's access?")) return;
+    if (!confirm("Are you sure you want to remove this staff member's access?")) return;
     try {
       const res = await fetch(`/api/ceo/employees/${id}`, { method: "DELETE" });
       if (res.ok) fetchCeoData();
     } catch (err) {
-      console.error("Delete employee error:", err);
+      console.error("Delete staff error:", err);
     }
   };
 
@@ -307,17 +308,17 @@ export function CeoCommandView({ initialTab = "analytics" }: CeoCommandViewProps
             </button>
 
             <button
-              onClick={() => switchTab("employees")}
+              onClick={() => switchTab("staff")}
               className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer ${
-                activeTab === "employees"
+                activeTab === "staff"
                   ? "bg-white dark:bg-white text-black dark:text-black shadow-sm"
                   : "text-neutral-600 dark:text-neutral-400 hover:text-black dark:hover:text-white"
               }`}
             >
               <ShieldCheck className="w-3.5 h-3.5" />
-              <span>Employees & Team</span>
+              <span>Staff & Team</span>
               <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-medium ${
-                activeTab === "employees"
+                activeTab === "staff"
                   ? "bg-neutral-200 text-neutral-800"
                   : "bg-neutral-200 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300"
               }`}>
@@ -329,7 +330,7 @@ export function CeoCommandView({ initialTab = "analytics" }: CeoCommandViewProps
           <div className="text-xs text-neutral-400 dark:text-neutral-500 font-mono">
             {activeTab === "analytics" && "/ceo/analytics"}
             {activeTab === "users" && "/ceo/users"}
-            {activeTab === "employees" && "/ceo/employees"}
+            {activeTab === "staff" && "/ceo/staff"}
           </div>
         </div>
 
@@ -529,8 +530,8 @@ export function CeoCommandView({ initialTab = "analytics" }: CeoCommandViewProps
           </div>
         )}
 
-        {/* Tab 3: Employees & Team Access */}
-        {activeTab === "employees" && (
+        {/* Tab 3: Staff & Team Access */}
+        {activeTab === "staff" && (
           <div className="space-y-6 animate-in fade-in duration-200">
             <div className="p-6 rounded-3xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/60 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
               <div className="flex items-center gap-3.5">
@@ -538,9 +539,9 @@ export function CeoCommandView({ initialTab = "analytics" }: CeoCommandViewProps
                   <ShieldCheck className="w-6 h-6" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-neutral-900 dark:text-white">Employee & Team Access</h3>
+                  <h3 className="text-base font-bold text-neutral-900 dark:text-white">Staff & Team Access</h3>
                   <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
-                    Authorize employees and manage platform insights access
+                    Authorize staff members and manage platform insights access
                   </p>
                 </div>
               </div>
@@ -550,16 +551,16 @@ export function CeoCommandView({ initialTab = "analytics" }: CeoCommandViewProps
                 className="flex items-center justify-center gap-1.5 px-4 py-2.5 text-xs font-semibold text-white dark:text-black bg-black dark:bg-white hover:bg-neutral-800 dark:hover:bg-neutral-200 rounded-xl transition shadow-sm cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
-                <span>Add Employee</span>
+                <span>Add Staff Member</span>
               </button>
             </div>
 
-            {/* Employees Table */}
+            {/* Staff Table */}
             <div className="rounded-3xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/60 shadow-sm overflow-visible">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 text-[11px] uppercase tracking-wider text-neutral-600 dark:text-neutral-400 font-semibold">
-                    <th className="py-3.5 px-5">Employee</th>
+                    <th className="py-3.5 px-5">Staff Member</th>
                     <th className="py-3.5 px-5">Role</th>
                     <th className="py-3.5 px-5">Status</th>
                     <th className="py-3.5 px-5 text-right w-16"></th>
