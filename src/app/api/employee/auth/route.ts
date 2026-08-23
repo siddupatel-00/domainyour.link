@@ -7,7 +7,7 @@ import {
 import { generateOtp, storeOtp, verifyOtp, sendOtpEmail } from "@/lib/email";
 import { db } from "@/lib/db";
 import { employees, Employee } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, or } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
 
@@ -34,8 +34,85 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { action, email, code } = body;
+    const { action, email, identifier, password, code } = body;
 
+    // Action A: Direct Password Login with Username or Work Email
+    if (action === "password" || (identifier && password)) {
+      const cleanIdent = (identifier || email || "").trim().toLowerCase();
+
+      if (!cleanIdent || !password) {
+        return NextResponse.json(
+          { error: "Please provide your username/email and password" },
+          { status: 400 }
+        );
+      }
+
+      let targetEmployee: Employee | null = null;
+      try {
+        if (db) {
+          const found = await db
+            .select()
+            .from(employees)
+            .where(or(eq(employees.email, cleanIdent), eq(employees.username, cleanIdent)))
+            .limit(1);
+          if (found.length > 0) {
+            targetEmployee = found[0];
+          }
+        }
+      } catch {}
+
+      if (!targetEmployee && global.fallbackEmployeesStore) {
+        targetEmployee = global.fallbackEmployeesStore.find(
+          (e) =>
+            e.email.toLowerCase() === cleanIdent ||
+            (e.username && e.username.toLowerCase() === cleanIdent)
+        ) || null;
+      }
+
+      if (!targetEmployee) {
+        return NextResponse.json(
+          { error: "Invalid username/email or password" },
+          { status: 401 }
+        );
+      }
+
+      if (targetEmployee.status === "suspended") {
+        return NextResponse.json(
+          { error: "Your employee account has been suspended. Please contact your CEO." },
+          { status: 403 }
+        );
+      }
+
+      if (!targetEmployee.password || targetEmployee.password !== password) {
+        return NextResponse.json(
+          { error: "Incorrect password. You can also sign in using a 6-digit email code." },
+          { status: 401 }
+        );
+      }
+
+      let perms: string[] = ["view_insights"];
+      try {
+        const parsed = JSON.parse(targetEmployee.permissions || "[]");
+        if (Array.isArray(parsed) && parsed.length > 0) perms = parsed;
+      } catch {}
+
+      const employeePayload = {
+        id: targetEmployee.id,
+        name: targetEmployee.name || targetEmployee.email.split("@")[0],
+        email: targetEmployee.email,
+        role: targetEmployee.role,
+        permissions: perms,
+      };
+
+      await setEmployeeSession(employeePayload);
+
+      return NextResponse.json({
+        success: true,
+        employee: employeePayload,
+      });
+    }
+
+    // Action B: Email OTP Flow
     if (!email || !email.includes("@")) {
       return NextResponse.json(
         { error: "Please enter a valid work email address" },
@@ -58,9 +135,7 @@ export async function POST(request: NextRequest) {
           targetEmployee = found[0];
         }
       }
-    } catch {
-      // Fallback
-    }
+    } catch {}
 
     if (!targetEmployee && global.fallbackEmployeesStore) {
       targetEmployee = global.fallbackEmployeesStore.find(
@@ -68,7 +143,6 @@ export async function POST(request: NextRequest) {
       ) || null;
     }
 
-    // If still not found
     if (!targetEmployee) {
       return NextResponse.json(
         { error: "Work email not authorized. Please ask your CEO to invite you." },
@@ -76,7 +150,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if account is suspended
     if (targetEmployee.status === "suspended") {
       return NextResponse.json(
         { error: "Your employee account has been suspended. Please contact your CEO." },
@@ -84,7 +157,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Action 1: Send 6-digit OTP code to employee work email
+    // Send 6-digit OTP code
     if (action === "send_code") {
       const otp = generateOtp();
       storeOtp(cleanEmail, otp, targetEmployee.name || cleanEmail);
@@ -97,7 +170,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Action 2: Verify code and sign into Employee Portal
+    // Verify code
     if (action === "verify_code" || code) {
       if (!code) {
         return NextResponse.json(
