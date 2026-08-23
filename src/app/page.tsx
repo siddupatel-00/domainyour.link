@@ -20,6 +20,7 @@ import {
   Eye,
   EyeOff,
   Sparkles,
+  Check,
 } from "lucide-react";
 import { sanitizeSlug } from "@/lib/utils";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -27,7 +28,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 export default function HomePage() {
   const [isSignUp, setIsSignUp] = useState(true);
   const [authMethod, setAuthMethod] = useState<"code" | "password">("code");
-  const [step, setStep] = useState<"input" | "verify">("input");
+  const [step, setStep] = useState<"input" | "verify" | "password">("input");
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -53,7 +54,7 @@ export default function HomePage() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  // Send verification code to email or direct password submit
+  // Step 1: Send verification code to email or direct password login
   const handlePrimarySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -69,7 +70,8 @@ export default function HomePage() {
       return;
     }
 
-    if (authMethod === "password") {
+    // Direct password sign in (only available in Sign In mode)
+    if (!isSignUp && authMethod === "password") {
       if (!password) {
         setError("Please enter your password");
         return;
@@ -80,13 +82,13 @@ export default function HomePage() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
+            action: "password_login",
             email: email.trim(),
             password,
-            username: isSignUp ? cleanUsername : undefined,
           }),
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Incorrect password");
+        if (!res.ok) throw new Error(data.error || "Incorrect email or password");
         router.push("/admin");
         router.refresh();
       } catch (err: unknown) {
@@ -97,6 +99,7 @@ export default function HomePage() {
       return;
     }
 
+    // Send 6-digit email code
     setLoading(true);
     try {
       const res = await fetch("/api/auth", {
@@ -126,12 +129,12 @@ export default function HomePage() {
     }
   };
 
-  // Verify code and log in
+  // Step 2: Verify 6-digit code
   const handleVerifyCode = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    if (!code.trim()) {
+    if (!code.trim() || code.length < 6) {
       setError("Please enter the 6-digit code");
       return;
     }
@@ -151,13 +154,57 @@ export default function HomePage() {
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || "Incorrect code. Please try again.");
+        throw new Error(data.error || "Incorrect code. Please check and try again.");
+      }
+
+      // If user is signing up -> Ask them to set their password next!
+      if (isSignUp) {
+        setStep("password");
+        setInfoMessage("Email verified! Now set a password to secure your account.");
+      } else {
+        // If user is signing in with code -> Direct login to dashboard!
+        router.push("/admin");
+        router.refresh();
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Verification failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Step 3: Set Password & Complete Sign Up
+  const handleCompleteSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+
+    if (!password || password.length < 6) {
+      setError("Password must be at least 6 characters long");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await fetch("/api/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "complete_signup",
+          email: email.trim(),
+          username: cleanUsername,
+          password: password,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to create account");
       }
 
       router.push("/admin");
       router.refresh();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Verification failed");
+      setError(err instanceof Error ? err.message : "Failed to create account");
     } finally {
       setLoading(false);
     }
@@ -168,7 +215,9 @@ export default function HomePage() {
     setInfoMessage(null);
     setStep("input");
     setCode("");
+    setPassword("");
     setIsSignUp(signupMode);
+    setAuthMethod(signupMode ? "code" : "password");
     setTimeout(() => {
       const input = document.getElementById(signupMode ? "username-input" : "email-input");
       input?.focus();
@@ -210,63 +259,64 @@ export default function HomePage() {
 
           <button
             onClick={() => toggleAuthMode(!isSignUp)}
-            className="px-4 py-1.5 border border-neutral-300 dark:border-neutral-700 rounded-lg text-xs font-semibold text-black dark:text-white hover:border-black dark:hover:border-white transition cursor-pointer"
+            className="px-3.5 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800 text-neutral-900 dark:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition font-medium cursor-pointer"
           >
             {isSignUp ? "Sign in" : "Sign up"}
           </button>
         </nav>
       </header>
 
-      {/* Main Content Area */}
-      <main className="max-w-7xl w-full mx-auto my-auto py-8 sm:py-12 grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center">
-        {/* Left Column */}
-        <div className="lg:col-span-7 flex flex-col space-y-6">
-          <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight text-neutral-900 dark:text-white leading-[1.08]">
-            One link.<br />Always yours.
-          </h1>
+      {/* Main Content */}
+      <main className="max-w-7xl w-full mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-8 items-center my-auto py-10 sm:py-14">
+        {/* Left Column: Hero & Interactive Diagram */}
+        <div className="lg:col-span-7 space-y-6">
+          <div className="space-y-4">
+            <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight leading-[1.08] text-neutral-900 dark:text-white">
+              One link.
+              <br />
+              Always yours.
+            </h1>
+            <p className="text-base sm:text-lg text-neutral-600 dark:text-neutral-400 max-w-lg leading-relaxed font-normal">
+              Create a single permanent link for your profile or website. Change where it points anytime, and your link never breaks.
+            </p>
+          </div>
 
-          <p className="text-base sm:text-lg text-neutral-600 dark:text-neutral-400 max-w-xl leading-relaxed">
-            Create a single permanent link for your profile or website. Change where it points anytime, and your link never breaks.
-          </p>
-
-          {/* Diagram Card */}
-          <div className="max-w-xl rounded-2xl border border-neutral-200/90 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-6 sm:p-8 shadow-sm">
-            <div className="flex items-center justify-between gap-4">
-              {/* Source Box */}
-              <div className="flex-1 text-center">
-                <div className="w-12 h-12 mx-auto rounded-xl border border-neutral-200 dark:border-neutral-700 flex items-center justify-center text-neutral-800 dark:text-neutral-200 mb-3 bg-neutral-50/50 dark:bg-neutral-800/50">
-                  <Link2 className="w-5 h-5 stroke-[2]" />
+          {/* Clean Interactive Visual Box */}
+          <div className="p-6 sm:p-7 rounded-3xl bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-200 dark:border-neutral-800/80 max-w-xl shadow-sm">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+              {/* Permanent Link Box */}
+              <div className="flex-1 w-full bg-white dark:bg-neutral-950 p-4 rounded-2xl border border-neutral-200 dark:border-neutral-800 text-center">
+                <div className="w-8 h-8 rounded-xl bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 flex items-center justify-center mx-auto mb-2">
+                  <Link2 className="w-4 h-4" />
                 </div>
-                <div className="font-semibold text-xs sm:text-sm text-neutral-900 dark:text-white font-mono truncate">
-                  yourlink.com/{cleanUsername || "alex"}/linkedin
+                <div className="text-xs font-bold text-neutral-900 dark:text-white font-mono break-all">
+                  yourlink.com/{cleanUsername || "siddu"}/linkedin
                 </div>
-                <div className="text-[11px] sm:text-xs text-neutral-400 dark:text-neutral-500 mt-0.5">
+                <div className="text-[10px] text-neutral-500 dark:text-neutral-400 mt-1">
                   Share this link
                 </div>
               </div>
 
-              {/* Arrow */}
-              <div className="flex-shrink-0 text-neutral-700 dark:text-neutral-300 px-2">
-                <ArrowRight className="w-6 h-6 stroke-[1.8]" />
+              <div className="text-neutral-400 dark:text-neutral-600 hidden sm:block">
+                <ArrowRight className="w-5 h-5" />
               </div>
 
               {/* Destination Box */}
-              <div className="flex-1 text-center">
-                <div className="w-12 h-12 mx-auto rounded-xl border border-neutral-200 dark:border-neutral-700 flex items-center justify-center text-neutral-800 dark:text-neutral-200 mb-3 bg-neutral-50/50 dark:bg-neutral-800/50">
-                  <Globe className="w-5 h-5 stroke-[2]" />
+              <div className="flex-1 w-full bg-white dark:bg-neutral-950 p-4 rounded-2xl border border-neutral-200 dark:border-neutral-800 text-center">
+                <div className="w-8 h-8 rounded-xl bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 flex items-center justify-center mx-auto mb-2">
+                  <Globe className="w-4 h-4" />
                 </div>
-                <div className="font-semibold text-xs sm:text-sm text-neutral-900 dark:text-white font-mono truncate">
-                  linkedin.com/in/{cleanUsername || "alex"}
+                <div className="text-xs font-bold text-neutral-900 dark:text-white font-mono break-all">
+                  linkedin.com/in/{cleanUsername || "siddu"}
                 </div>
-                <div className="text-[11px] sm:text-xs text-neutral-400 dark:text-neutral-500 mt-0.5">
+                <div className="text-[10px] text-neutral-500 dark:text-neutral-400 mt-1">
                   Goes here
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Bottom helper note */}
-          <div className="flex items-center gap-2 text-xs sm:text-sm text-neutral-600 dark:text-neutral-400">
+          <div className="flex items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400">
             <RefreshCw className="w-4 h-4 text-neutral-500 flex-shrink-0" />
             <span>Change where it goes anytime. Your link stays the same.</span>
           </div>
@@ -275,7 +325,11 @@ export default function HomePage() {
         {/* Right Column: Sign Up / Sign In Card */}
         <div className="lg:col-span-5 flex justify-center lg:justify-end w-full">
           <div className="w-full max-w-md rounded-3xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-7 sm:p-9 shadow-sm">
-            {step === "input" ? (
+            
+            {/* ============================================================== */}
+            {/* STEP 1: Input (Username + Email for Signup, or Email + Pass for Signin) */}
+            {/* ============================================================== */}
+            {step === "input" && (
               <>
                 <h2 className="text-2xl sm:text-3xl font-bold text-center text-neutral-900 dark:text-white tracking-tight">
                   {isSignUp ? "Create your account" : "Welcome back"}
@@ -328,13 +382,13 @@ export default function HomePage() {
                       <div className="mt-1.5 p-2 rounded-lg bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200 dark:border-neutral-700 flex items-start gap-1.5 text-[11px] text-neutral-600 dark:text-neutral-400 leading-snug">
                         <AlertTriangle className="w-3.5 h-3.5 text-neutral-800 dark:text-neutral-200 flex-shrink-0 mt-0.5" />
                         <span>
-                          <strong className="text-neutral-900 dark:text-white font-semibold">Note:</strong> Your username cannot be changed later. Pick a name you like!
+                          <strong className="text-neutral-900 dark:text-white font-semibold">Note:</strong> Your username cannot be changed later.
                         </span>
                       </div>
                     </div>
                   )}
 
-                  {/* 2. Gmail / Email */}
+                  {/* 2. Email Address */}
                   <div>
                     <label className="block text-xs font-semibold text-neutral-800 dark:text-neutral-200 mb-1">
                       Email Address
@@ -353,22 +407,20 @@ export default function HomePage() {
                     </div>
                   </div>
 
-                  {/* 3. Password Box with Eye Toggle Button */}
-                  {authMethod === "password" && (
+                  {/* 3. Password Box (Available in Sign In mode) */}
+                  {!isSignUp && authMethod === "password" && (
                     <div>
                       <div className="flex items-center justify-between mb-1">
                         <label className="block text-xs font-semibold text-neutral-800 dark:text-neutral-200">
                           Password
                         </label>
-                        {!isSignUp && (
-                          <button
-                            type="button"
-                            onClick={() => setModalType("forgotPassword")}
-                            className="text-xs text-neutral-500 dark:text-neutral-400 hover:text-black dark:hover:text-white font-medium transition cursor-pointer"
-                          >
-                            Forgot password?
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          onClick={() => setModalType("forgotPassword")}
+                          className="text-xs text-neutral-500 dark:text-neutral-400 hover:text-black dark:hover:text-white font-medium transition cursor-pointer"
+                        >
+                          Forgot password?
+                        </button>
                       </div>
                       <div className="relative">
                         <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
@@ -377,7 +429,7 @@ export default function HomePage() {
                           type={showPassword ? "text" : "password"}
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
-                          placeholder={isSignUp ? "Create a password" : "Enter your password"}
+                          placeholder="Enter your password"
                           required
                           className="w-full pl-10 pr-10 py-2.5 text-sm bg-white dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-800 rounded-xl text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-600 focus:outline-none focus:border-black dark:focus:border-white focus:ring-1 focus:ring-black dark:focus:ring-white transition"
                         />
@@ -397,6 +449,7 @@ export default function HomePage() {
                     </div>
                   )}
 
+                  {/* Primary Submit Button */}
                   <button
                     type="submit"
                     disabled={loading}
@@ -404,33 +457,42 @@ export default function HomePage() {
                   >
                     {loading ? (
                       "Please wait..."
-                    ) : authMethod === "code" ? (
+                    ) : isSignUp ? (
                       <>
-                        <span>{isSignUp ? "Send 6-Digit Code" : "Sign in with Code"}</span>
+                        <span>Send 6-Digit Code</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </>
+                    ) : authMethod === "password" ? (
+                      <>
+                        <span>Sign in</span>
                         <ArrowRight className="w-4 h-4" />
                       </>
                     ) : (
                       <>
-                        <span>{isSignUp ? "Create Account" : "Sign in"}</span>
+                        <span>Send 6-Digit Code</span>
                         <ArrowRight className="w-4 h-4" />
                       </>
                     )}
                   </button>
                 </form>
 
-                {/* Option to switch between Code and Password */}
-                <div className="mt-3 text-center">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setError(null);
-                      setAuthMethod(authMethod === "code" ? "password" : "code");
-                    }}
-                    className="text-xs text-neutral-500 dark:text-neutral-400 hover:text-black dark:hover:text-white transition underline underline-offset-2 cursor-pointer"
-                  >
-                    {authMethod === "code" ? "Or sign in with a password →" : "Or get a 6-digit code in your email →"}
-                  </button>
-                </div>
+                {/* Switcher for Sign In: between Password and 6-Digit Code */}
+                {!isSignUp && (
+                  <div className="mt-3 text-center">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setError(null);
+                        setAuthMethod(authMethod === "code" ? "password" : "code");
+                      }}
+                      className="text-xs text-neutral-500 dark:text-neutral-400 hover:text-black dark:hover:text-white transition underline underline-offset-2 cursor-pointer"
+                    >
+                      {authMethod === "code"
+                        ? "Or sign in with your password →"
+                        : "Or sign in with a 6-digit email code →"}
+                    </button>
+                  </div>
+                )}
 
                 <div className="my-4 flex items-center justify-center gap-3">
                   <div className="h-px bg-neutral-200 dark:bg-neutral-800 flex-1" />
@@ -457,8 +519,12 @@ export default function HomePage() {
                   </button>
                 </div>
               </>
-            ) : (
-              /* Step 2: Enter Verification Code */
+            )}
+
+            {/* ============================================================== */}
+            {/* STEP 2: Verify 6-Digit Code */}
+            {/* ============================================================== */}
+            {step === "verify" && (
               <>
                 <div className="text-center mb-6">
                   <div className="w-12 h-12 mx-auto rounded-2xl bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-black dark:text-white flex items-center justify-center mb-3 shadow-sm">
@@ -508,7 +574,19 @@ export default function HomePage() {
                     disabled={loading || code.length < 6}
                     className="w-full py-3 bg-black dark:bg-white hover:bg-neutral-800 dark:hover:bg-neutral-200 text-white dark:text-black rounded-xl text-sm font-semibold transition disabled:opacity-50 shadow-sm flex items-center justify-center gap-2 cursor-pointer"
                   >
-                    {loading ? "Checking code..." : "Sign in"}
+                    {loading ? (
+                      "Checking code..."
+                    ) : isSignUp ? (
+                      <>
+                        <span>Continue</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </>
+                    ) : (
+                      <>
+                        <span>Sign in</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </>
+                    )}
                   </button>
                 </form>
 
@@ -534,6 +612,107 @@ export default function HomePage() {
                 </div>
               </>
             )}
+
+            {/* ============================================================== */}
+            {/* STEP 3: Set Password (for Sign Up) */}
+            {/* ============================================================== */}
+            {step === "password" && (
+              <>
+                <div className="text-center mb-6">
+                  <div className="w-12 h-12 mx-auto rounded-2xl bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-black dark:text-white flex items-center justify-center mb-3 shadow-sm">
+                    <Lock className="w-6 h-6 stroke-[2]" />
+                  </div>
+                  <h2 className="text-2xl font-bold text-neutral-900 dark:text-white tracking-tight">
+                    Set your password
+                  </h2>
+                  <p className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400 mt-1">
+                    Choose a password to secure your account
+                  </p>
+                </div>
+
+                {/* Account Details Summary (Fixed) */}
+                <div className="mb-4 p-3 rounded-2xl bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200 dark:border-neutral-700 space-y-1.5 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-neutral-500 dark:text-neutral-400">Username</span>
+                    <span className="font-semibold text-neutral-900 dark:text-white font-mono">@{cleanUsername}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-neutral-500 dark:text-neutral-400">Email</span>
+                    <span className="font-medium text-neutral-900 dark:text-white">{email}</span>
+                  </div>
+                </div>
+
+                {error && (
+                  <div className="mb-4 p-3 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/60 text-neutral-800 dark:text-neutral-200 text-xs flex items-center gap-2.5">
+                    <AlertCircle className="w-4 h-4 text-neutral-700 dark:text-neutral-300 flex-shrink-0" />
+                    <span>{error}</span>
+                  </div>
+                )}
+
+                <form onSubmit={handleCompleteSignUp} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-neutral-800 dark:text-neutral-200 mb-1">
+                      Create Password
+                    </label>
+                    <div className="relative">
+                      <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+                      <input
+                        id="signup-password"
+                        type={showPassword ? "text" : "password"}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="Choose a password (min 6 chars)"
+                        minLength={6}
+                        autoFocus
+                        required
+                        className="w-full pl-10 pr-10 py-2.5 text-sm bg-white dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-800 rounded-xl text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-600 focus:outline-none focus:border-black dark:focus:border-white focus:ring-1 focus:ring-black dark:focus:ring-white transition"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 transition p-0.5 cursor-pointer"
+                        title={showPassword ? "Hide password" : "Show password"}
+                      >
+                        {showPassword ? (
+                          <EyeOff className="w-4 h-4" />
+                        ) : (
+                          <Eye className="w-4 h-4" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={loading || password.length < 6}
+                    className="w-full py-3 bg-black dark:bg-white hover:bg-neutral-800 dark:hover:bg-neutral-200 text-white dark:text-black rounded-xl text-sm font-semibold transition disabled:opacity-50 shadow-sm flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    {loading ? (
+                      "Creating account..."
+                    ) : (
+                      <>
+                        <span>Complete Sign Up</span>
+                        <Check className="w-4 h-4" />
+                      </>
+                    )}
+                  </button>
+                </form>
+
+                <div className="mt-5 text-center text-xs text-neutral-500 dark:text-neutral-400 pt-3 border-t border-neutral-100 dark:border-neutral-800">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStep("verify");
+                      setError(null);
+                    }}
+                    className="hover:text-black dark:hover:text-white transition underline underline-offset-2 cursor-pointer"
+                  >
+                    ← Back to verification code
+                  </button>
+                </div>
+              </>
+            )}
+
           </div>
         </div>
       </main>
@@ -641,7 +820,7 @@ export default function HomePage() {
                     <ShieldCheck className="w-5 h-5 text-black dark:text-white flex-shrink-0 mt-0.5" />
                     <div>
                       <strong className="text-neutral-900 dark:text-white block">Safe & Simple Login</strong>
-                      Sign in easily with a quick 6-digit code sent right to your email.
+                      Sign in easily with your password or a quick 6-digit code sent right to your email.
                     </div>
                   </div>
                 </div>
@@ -651,7 +830,7 @@ export default function HomePage() {
               {modalType === "forgotPassword" && (
                 <div className="space-y-3">
                   <p>
-                    You can easily sign in by requesting a <strong>6-digit verification code</strong> sent directly to your email, or update your password in your website settings.
+                    You can easily sign in by requesting a <strong>6-digit verification code</strong> sent directly to your email, or update your password in your settings.
                   </p>
                 </div>
               )}

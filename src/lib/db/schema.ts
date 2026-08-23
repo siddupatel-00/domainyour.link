@@ -11,6 +11,22 @@ import {
 } from "drizzle-orm/pg-core";
 import { InferSelectModel, InferInsertModel } from "drizzle-orm";
 
+export const users = pgTable(
+  "users",
+  {
+    id: serial("id").primaryKey(),
+    username: varchar("username", { length: 64 }).notNull(),
+    email: varchar("email", { length: 255 }).notNull(),
+    password: text("password"), // Hashed password
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("user_username_idx").on(table.username),
+    uniqueIndex("user_email_idx").on(table.email),
+  ]
+);
+
 export const redirects = pgTable(
   "redirects",
   {
@@ -84,6 +100,8 @@ export const employees = pgTable(
   ]
 );
 
+export type User = InferSelectModel<typeof users>;
+export type NewUser = InferInsertModel<typeof users>;
 export type Redirect = InferSelectModel<typeof redirects>;
 export type NewRedirect = InferInsertModel<typeof redirects>;
 export type Bio = InferSelectModel<typeof bios>;

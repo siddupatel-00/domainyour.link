@@ -9,6 +9,7 @@ import {
   verifyEmployeeSessionToken,
 } from "../src/lib/auth";
 import { generateOtp, storeOtp, verifyOtp } from "../src/lib/email";
+import { hashPassword, verifyPasswordHash, createOrUpdateUser, findUserByEmailOrUsername } from "../src/lib/userStore";
 
 async function runTests() {
   console.log("🧪 Running domainyourlink Unit & Integration Tests...\n");
@@ -67,8 +68,22 @@ async function runTests() {
   const wrongVerification = verifyOtp("wrong@gmail.com", "000000");
   assert(wrongVerification.valid === false, "Rejects incorrect OTP code");
 
-  // 5. CEO Master Authentication & Security Tests
-  console.log("\n5. CEO Master Authentication & Security Tests");
+  // 5. User Account Password Hashing & Verification Tests
+  console.log("\n5. User Account Password Hashing & Verification Tests");
+  const hashed = hashPassword("SuperSecret2026!");
+  assert(typeof hashed === "string" && hashed.length === 64, "Hashes user password using SHA-256");
+  assert(verifyPasswordHash("SuperSecret2026!", hashed), "Verifies correct hashed password");
+  assert(!verifyPasswordHash("WrongPassword!", hashed), "Rejects incorrect password");
+
+  const createdUser = await createOrUpdateUser("alex", "alex@example.com", "AlexPass123!");
+  assert(createdUser.username === "alex" && createdUser.email === "alex@example.com", "Creates new user in user store");
+
+  const foundUser = await findUserByEmailOrUsername("alex@example.com");
+  assert(foundUser !== null && foundUser.username === "alex", "Finds user by email");
+  assert(verifyPasswordHash("AlexPass123!", foundUser?.password), "Validates stored user password");
+
+  // 6. CEO Master Authentication & Security Tests
+  console.log("\n6. CEO Master Authentication & Security Tests");
   assert(verifyCeoPassword("ceo123456"), "Validates correct CEO master password");
   assert(!verifyCeoPassword("random123"), "Rejects invalid CEO password");
 
@@ -78,8 +93,8 @@ async function runTests() {
   assert(verifyCeoSessionToken(token) === false, "Prevents regular user session token from unlocking CEO portal");
   assert(verifyCeoSessionToken("tampered.ceo.token") === false, "Rejects tampered CEO token");
 
-  // 6. Employee Session Authentication & Security Tests
-  console.log("\n6. Employee Session Authentication & Security Tests");
+  // 7. Employee Session Authentication & Security Tests
+  console.log("\n7. Employee Session Authentication & Security Tests");
   const empToken = createEmployeeSessionToken({
     id: 1,
     name: "Alex Vance",
