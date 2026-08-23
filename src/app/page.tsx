@@ -23,6 +23,8 @@ import {
   EyeOff,
   Sparkles,
   Check,
+  TrendingUp,
+  BarChart2,
 } from "lucide-react";
 import { sanitizeSlug } from "@/lib/utils";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -395,6 +397,18 @@ export default function HomePage() {
             <RefreshCw className="w-4 h-4 text-neutral-500 flex-shrink-0" />
             <span>Change where it goes anytime. Your link stays the same.</span>
           </div>
+
+          {/* Simple Compact Analytics Feature Pill */}
+          <div className="flex flex-wrap items-center gap-2 pt-0.5">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50/80 dark:bg-neutral-900/60 text-xs text-neutral-700 dark:text-neutral-300">
+              <TrendingUp className="w-3.5 h-3.5 text-neutral-900 dark:text-white flex-shrink-0" />
+              <span className="font-medium">Real-time click & visitor analytics</span>
+            </div>
+            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50/80 dark:bg-neutral-900/60 text-xs text-neutral-700 dark:text-neutral-300">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="font-medium">Instant 0ms redirects</span>
+            </div>
+          </div>
         </div>
 
         {/* Right Column: Sign Up / Sign In Card */}
@@ -485,8 +499,8 @@ export default function HomePage() {
                         </div>
                       )}
 
-                      {usernameStatus === "idle" && (
-                        <div className="mt-1.5 p-2 rounded-lg bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200 dark:border-neutral-700 flex items-start gap-1.5 text-[11px] text-neutral-600 dark:text-neutral-400 leading-snug">
+                      {isUsernameFocused && usernameStatus === "idle" && (
+                        <div className="mt-1.5 p-2 rounded-lg bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200 dark:border-neutral-700 flex items-start gap-1.5 text-[11px] text-neutral-600 dark:text-neutral-400 leading-snug animate-in fade-in duration-150">
                           <AlertTriangle className="w-3.5 h-3.5 text-neutral-800 dark:text-neutral-200 flex-shrink-0 mt-0.5" />
                           <span>
                             <strong className="text-neutral-900 dark:text-white font-semibold">Note:</strong> Your username cannot be changed later.
