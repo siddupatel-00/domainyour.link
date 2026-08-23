@@ -9,10 +9,12 @@ import {
   isTursoEnabled,
   tursoGetAllRedirects,
   tursoGetAllBios,
+  parseTimeframeDates,
   tursoGetClickEventsCountMap,
 } from "@/lib/tursoDb";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 const noCacheHeaders = {
   "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
@@ -65,34 +67,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Timeframe range calculation for clicks
-    const now = new Date();
-    let startDate: Date | null = null;
-    let endDate: Date = now;
-
-    if (timeframe) {
-      switch (timeframe) {
-        case "24h":
-          startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-          break;
-        case "7d":
-          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-          break;
-        case "14d":
-          startDate = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
-          break;
-        case "this_month":
-          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-          break;
-        case "last_month":
-          startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-          endDate = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
-          break;
-        case "custom":
-          startDate = customStart ? new Date(customStart) : new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-          if (customEnd) endDate = new Date(new Date(customEnd).setHours(23, 59, 59, 999));
-          break;
-      }
-    }
+    const { startDate, endDate } = parseTimeframeDates(timeframe, customStart, customEnd);
 
     // Calculate timeframe clicks map
     let countsMap: Record<number, number> = {};
@@ -132,7 +107,7 @@ export async function GET(request: NextRequest) {
 
     const enrichedLinks = allRedirects.map((r) => ({
       ...r,
-      periodClicks: startDate ? (countsMap[r.id] ?? 0) : r.clickCount,
+      periodClicks: startDate ? (countsMap[r.id] ?? 0) : (r.clickCount || 0),
     }));
 
     const isLinkExpired = (r: Redirect) => {
@@ -159,7 +134,7 @@ export async function GET(request: NextRequest) {
       }
       userMap[u].totalLinks += 1;
       if (!isLinkExpired(r)) userMap[u].activeLinks += 1;
-      userMap[u].totalClicks += (countsMap[r.id] !== undefined ? countsMap[r.id] : r.clickCount);
+      userMap[u].totalClicks += (startDate ? (countsMap[r.id] ?? 0) : (r.clickCount || 0));
     });
 
     allBios.forEach((b) => {
@@ -173,7 +148,11 @@ export async function GET(request: NextRequest) {
     const usersList = Object.values(userMap).sort((a, b) => b.totalClicks - a.totalClicks);
 
     // Top Global Links Leaderboard
-    const topGlobalLinks = [...enrichedLinks]
+    const validLinksForLeaderboard = startDate
+      ? enrichedLinks.filter((r) => (r.periodClicks || 0) > 0)
+      : enrichedLinks;
+
+    const topGlobalLinks = [...validLinksForLeaderboard]
       .sort((a, b) => (b.periodClicks || 0) - (a.periodClicks || 0))
       .slice(0, 10);
 

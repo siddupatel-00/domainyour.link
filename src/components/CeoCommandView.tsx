@@ -363,7 +363,7 @@ export function CeoCommandView({ initialTab = "analytics" }: CeoCommandViewProps
               </div>
 
               {timeframe === "custom" && (
-                <div className="flex items-center gap-2 text-xs">
+                <div className="flex items-center gap-2 text-xs flex-wrap">
                   <div className="flex items-center gap-1.5 bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-lg px-2.5 py-1">
                     <Calendar className="w-3 h-3 text-neutral-400 dark:text-neutral-500" />
                     <input
@@ -383,6 +383,13 @@ export function CeoCommandView({ initialTab = "analytics" }: CeoCommandViewProps
                       className="bg-transparent text-neutral-900 dark:text-white focus:outline-none text-xs"
                     />
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => fetchCeoData()}
+                    className="px-3 py-1 bg-black dark:bg-white text-white dark:text-black text-xs font-semibold rounded-lg hover:bg-neutral-800 dark:hover:bg-neutral-200 transition cursor-pointer shadow-sm"
+                  >
+                    Apply
+                  </button>
                 </div>
               )}
             </div>
@@ -403,7 +410,7 @@ export function CeoCommandView({ initialTab = "analytics" }: CeoCommandViewProps
 
               {topLinks.length === 0 ? (
                 <div className="text-center py-12 text-neutral-400 dark:text-neutral-500 text-xs">
-                  No click activity recorded yet.
+                  No visitor clicks recorded across the network during this timeframe.
                 </div>
               ) : (
                 <div className="space-y-2.5">
@@ -436,7 +443,7 @@ export function CeoCommandView({ initialTab = "analytics" }: CeoCommandViewProps
 
                         <div className="text-right flex-shrink-0">
                           <div className="text-base font-bold text-neutral-900 dark:text-white font-mono">
-                            {link.periodClicks || link.clickCount || 0}
+                            {link.periodClicks !== undefined ? link.periodClicks : (link.clickCount || 0)}
                           </div>
                           <div className="text-[10px] text-neutral-400 dark:text-neutral-500">clicks in range</div>
                         </div>
