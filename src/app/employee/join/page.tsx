@@ -9,10 +9,8 @@ import {
   Mail,
   ArrowRight,
   AlertCircle,
-  Sparkles,
   Eye,
   EyeOff,
-  CheckCircle2,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
@@ -146,13 +144,13 @@ function EmployeeJoinContent() {
           <>
             <div className="text-center space-y-2">
               <div className="w-12 h-12 rounded-2xl bg-white text-black flex items-center justify-center mx-auto shadow-md">
-                <Sparkles className="w-6 h-6" />
+                <User className="w-6 h-6" />
               </div>
               <h1 className="text-2xl font-bold tracking-tight text-white">
-                Welcome to the Team!
+                Set Up Your Account
               </h1>
               <p className="text-xs text-neutral-400">
-                You have been invited to join as <span className="text-white font-semibold">{role}</span>
+                Joining as <span className="text-white font-semibold">{role}</span>
               </p>
             </div>
 
@@ -164,35 +162,20 @@ function EmployeeJoinContent() {
             )}
 
             <form onSubmit={handleSubmit} className="space-y-4">
-              {/* 1. Fixed / Non-editable Work Email (Locked by CEO) */}
+              {/* 1. Work Email (Fixed / Read-only) */}
               <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="block text-xs font-semibold text-neutral-300">
-                    Authorized Work Email
-                  </label>
-                  <span className="text-[10px] text-neutral-400 flex items-center gap-1 font-mono">
-                    <Lock className="w-3 h-3 text-neutral-500" />
-                    <span>Fixed by CEO</span>
-                  </span>
-                </div>
+                <label className="block text-xs font-semibold text-neutral-300 mb-1.5">
+                  Work Email
+                </label>
                 <div className="relative">
                   <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500" />
                   <input
                     type="email"
                     value={email}
                     readOnly
-                    tabIndex={-1}
-                    aria-readonly="true"
-                    title="This work email is permanently fixed to your CEO invitation"
-                    className="w-full pl-10 pr-10 py-2.5 text-xs bg-neutral-950/90 border border-neutral-800 rounded-xl text-neutral-300 font-mono font-medium cursor-not-allowed select-none focus:outline-none opacity-90 shadow-inner"
+                    className="w-full pl-10 pr-4 py-2.5 text-xs bg-neutral-950/80 border border-neutral-800 rounded-xl text-neutral-400 font-mono select-none cursor-not-allowed focus:outline-none"
                   />
-                  <div className="absolute right-3.5 top-1/2 -translate-y-1/2 text-neutral-500">
-                    <Lock className="w-3.5 h-3.5" />
-                  </div>
                 </div>
-                <p className="text-[10px] text-neutral-500 mt-1">
-                  Permanently assigned to your account and cannot be modified.
-                </p>
               </div>
 
               {/* 2. Full Name */}
@@ -209,7 +192,7 @@ function EmployeeJoinContent() {
                     placeholder="e.g. Alex Vance"
                     autoFocus
                     required
-                    className="w-full pl-10 pr-4 py-2.5 text-xs bg-neutral-950 border border-neutral-800 rounded-xl text-white placeholder-neutral-500 focus:outline-none focus:border-white transition font-medium"
+                    className="w-full pl-10 pr-4 py-2.5 text-xs bg-neutral-950 border border-neutral-800 rounded-xl text-white placeholder-neutral-500 focus:outline-none focus:border-white transition"
                   />
                 </div>
               </div>
@@ -217,7 +200,7 @@ function EmployeeJoinContent() {
               {/* 3. Choose Username */}
               <div>
                 <label className="block text-xs font-semibold text-neutral-300 mb-1.5">
-                  Choose Username
+                  Username
                 </label>
                 <div className="relative">
                   <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-mono text-neutral-500">@</span>
@@ -227,7 +210,7 @@ function EmployeeJoinContent() {
                     onChange={(e) => setUsername(e.target.value)}
                     placeholder="alex"
                     required
-                    className="w-full pl-8 pr-4 py-2.5 text-xs bg-neutral-950 border border-neutral-800 rounded-xl text-white placeholder-neutral-500 focus:outline-none focus:border-white transition font-mono font-medium"
+                    className="w-full pl-8 pr-4 py-2.5 text-xs bg-neutral-950 border border-neutral-800 rounded-xl text-white placeholder-neutral-500 focus:outline-none focus:border-white transition font-mono"
                   />
                 </div>
               </div>
@@ -235,7 +218,7 @@ function EmployeeJoinContent() {
               {/* 4. Create Password */}
               <div>
                 <label className="block text-xs font-semibold text-neutral-300 mb-1.5">
-                  Create Password
+                  Password
                 </label>
                 <div className="relative">
                   <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500" />
@@ -263,10 +246,10 @@ function EmployeeJoinContent() {
                 className="w-full py-3 bg-white hover:bg-neutral-200 text-black rounded-xl text-xs font-semibold transition disabled:opacity-50 shadow-sm flex items-center justify-center gap-2 cursor-pointer mt-2"
               >
                 {submitting ? (
-                  "Setting up your workspace..."
+                  "Setting up..."
                 ) : (
                   <>
-                    <span>Complete Setup & Join Workspace</span>
+                    <span>Complete Setup & Join</span>
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}
@@ -278,7 +261,7 @@ function EmployeeJoinContent() {
 
       {/* Footer */}
       <footer className="text-center text-xs text-neutral-500">
-        PermanentLink Staff Onboarding
+        PermanentLink Staff Portal
       </footer>
     </main>
   );
