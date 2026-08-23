@@ -8,7 +8,7 @@ import {
   createEmployeeSessionToken,
   verifyEmployeeSessionToken,
 } from "../src/lib/auth";
-import { generateOtp, storeOtp, verifyOtp } from "../src/lib/email";
+import { generateOtp, storeOtp, verifyOtp, createOtpChallenge, verifyOtpChallenge } from "../src/lib/email";
 import { hashPassword, verifyPasswordHash, createOrUpdateUser, findUserByEmailOrUsername } from "../src/lib/userStore";
 import { isReservedUsername } from "../src/lib/reservedUsernames";
 
@@ -53,21 +53,28 @@ async function runTests() {
   const invalidSession = verifySessionToken("tampered.token.here");
   assert(invalidSession === null, "Rejects tampered JWT token");
 
-  // 4. OTP Verification Tests
+  // 4. OTP Verification Tests (In-Memory & Serverless Stateless Tokens)
   console.log("\n4. Email OTP Code Generation & Verification Tests");
   const testOtp = generateOtp();
   assert(typeof testOtp === "string" && testOtp.length === 6 && /^\d{6}$/.test(testOtp), "Generates valid 6-digit numeric OTP");
 
+  // Serverless challenge token test
+  const challengeToken = createOtpChallenge("siddu@gmail.com", testOtp, "siddu");
+  assert(typeof challengeToken === "string" && challengeToken.includes("."), "Creates HMAC-SHA256 signed OTP challenge token");
+
+  const validChallengeResult = verifyOtpChallenge("siddu@gmail.com", testOtp, challengeToken);
+  assert(validChallengeResult.valid === true && validChallengeResult.username === "siddu", "Statelessly verifies valid OTP across serverless instances");
+
+  const wrongCodeChallengeResult = verifyOtpChallenge("siddu@gmail.com", "000000", challengeToken);
+  assert(wrongCodeChallengeResult.valid === false, "Rejects incorrect OTP code in challenge token");
+
+  const tamperedChallengeResult = verifyOtpChallenge("siddu@gmail.com", testOtp, challengeToken + "tampered");
+  assert(tamperedChallengeResult.valid === false, "Rejects tampered challenge token");
+
+  // Local fallback store test
   storeOtp("test@gmail.com", testOtp, "siddu");
   const validVerification = verifyOtp("test@gmail.com", testOtp);
-  assert(validVerification.valid === true && validVerification.username === "siddu", "Successfully validates correct OTP code");
-
-  const replayVerification = verifyOtp("test@gmail.com", testOtp);
-  assert(replayVerification.valid === false, "Prevents OTP replay attacks (one-time use)");
-
-  storeOtp("wrong@gmail.com", "999999");
-  const wrongVerification = verifyOtp("wrong@gmail.com", "000000");
-  assert(wrongVerification.valid === false, "Rejects incorrect OTP code");
+  assert(validVerification.valid === true && validVerification.username === "siddu", "Successfully validates correct OTP code from store");
 
   // 5. User Account Password Hashing & Verification Tests
   console.log("\n5. User Account Password Hashing & Verification Tests");

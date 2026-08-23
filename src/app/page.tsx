@@ -38,6 +38,7 @@ export default function HomePage() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [code, setCode] = useState("");
+  const [challengeToken, setChallengeToken] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
@@ -187,6 +188,9 @@ export default function HomePage() {
 
       setStep("verify");
       setInfoMessage(`We sent a 6-digit code to ${email.trim()}`);
+      if (data.challengeToken) {
+        setChallengeToken(data.challengeToken);
+      }
       if (data.devCode) {
         setCode(data.devCode);
       }
@@ -217,6 +221,7 @@ export default function HomePage() {
           email: email.trim(),
           code: code.trim(),
           username: isSignUp ? cleanUsername : undefined,
+          challengeToken: challengeToken || undefined,
         }),
       });
 

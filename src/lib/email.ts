@@ -1,6 +1,9 @@
 import nodemailer from "nodemailer";
+import crypto from "crypto";
 
-// In-memory OTP storage with 10-minute TTL
+const JWT_SECRET = process.env.JWT_SECRET || process.env.ADMIN_JWT_SECRET || "domainyourlink-super-secret-production-key-32chars!";
+
+// In-memory OTP storage with 10-minute TTL (for local fallback)
 interface OtpEntry {
   code: string;
   expiresAt: number;
@@ -14,19 +17,69 @@ export function generateOtp(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
-export function storeOtp(email: string, code: string, username?: string) {
-  const normalizedEmail = email.trim().toLowerCase();
-  otpStore.set(normalizedEmail, {
-    code,
-    expiresAt: Date.now() + 10 * 60 * 1000, // 10 minutes
-    username,
+// 1. Create a tamper-proof signed challenge token (Serverless Safe)
+export function createOtpChallenge(email: string, code: string, username?: string): string {
+  const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes
+  const payload = JSON.stringify({
+    email: email.trim().toLowerCase(),
+    code: code.trim(),
+    username: username ? username.trim().toLowerCase() : undefined,
+    expiresAt,
   });
+
+  const b64 = Buffer.from(payload).toString("base64url");
+  const signature = crypto
+    .createHmac("sha256", JWT_SECRET)
+    .update(b64)
+    .digest("base64url");
+
+  return `${b64}.${signature}`;
 }
 
-export function verifyOtp(email: string, code: string): { valid: boolean; username?: string; message?: string } {
+// 2. Verify challenge token across serverless instances
+export function verifyOtpChallenge(
+  email: string,
+  code: string,
+  challengeToken?: string
+): { valid: boolean; username?: string; message?: string } {
   const normalizedEmail = email.trim().toLowerCase();
-  const entry = otpStore.get(normalizedEmail);
+  const trimmedCode = code.trim();
 
+  // If signed challenge token is provided
+  if (challengeToken && challengeToken.includes(".")) {
+    try {
+      const [b64, signature] = challengeToken.split(".");
+      const expectedSig = crypto
+        .createHmac("sha256", JWT_SECRET)
+        .update(b64)
+        .digest("base64url");
+
+      if (signature !== expectedSig) {
+        return { valid: false, message: "Invalid verification session. Please request a new code." };
+      }
+
+      const data = JSON.parse(Buffer.from(b64, "base64url").toString("utf-8"));
+
+      if (data.email.toLowerCase() !== normalizedEmail) {
+        return { valid: false, message: "Email mismatch. Please request a new code." };
+      }
+
+      if (Date.now() > data.expiresAt) {
+        return { valid: false, message: "Verification code has expired. Please request a new code." };
+      }
+
+      if (data.code !== trimmedCode) {
+        return { valid: false, message: "Invalid verification code. Please try again." };
+      }
+
+      return { valid: true, username: data.username };
+    } catch {
+      // Fall through to memory store check
+    }
+  }
+
+  // Fallback memory store check
+  const entry = otpStore.get(normalizedEmail);
   if (!entry) {
     return { valid: false, message: "No verification code found. Please request a new code." };
   }
@@ -36,14 +89,26 @@ export function verifyOtp(email: string, code: string): { valid: boolean; userna
     return { valid: false, message: "Verification code has expired. Please request a new code." };
   }
 
-  if (entry.code !== code.trim()) {
+  if (entry.code !== trimmedCode) {
     return { valid: false, message: "Invalid verification code. Please try again." };
   }
 
-  // Code is valid - remove from store so it cannot be reused
   const username = entry.username;
   otpStore.delete(normalizedEmail);
   return { valid: true, username };
+}
+
+export function storeOtp(email: string, code: string, username?: string) {
+  const normalizedEmail = email.trim().toLowerCase();
+  otpStore.set(normalizedEmail, {
+    code,
+    expiresAt: Date.now() + 10 * 60 * 1000, // 10 minutes
+    username,
+  });
+}
+
+export function verifyOtp(email: string, code: string, challengeToken?: string): { valid: boolean; username?: string; message?: string } {
+  return verifyOtpChallenge(email, code, challengeToken);
 }
 
 // Send OTP email using Gmail SMTP
@@ -158,7 +223,7 @@ export async function sendEmployeeInviteEmail(
             <p style="font-size: 12px; color: #737373; line-height: 1.5; margin: 0 0 8px 0;">
               Or copy and paste this link into your browser:
             </p>
-            <p style="font-size: 11px; font-family: monospace; color: #a3a3a3; word-break: break-all; margin: 0;">
+            <p style="font-size: 11px; color: #a3a3a3; word-break: break-all; margin: 0;">
               ${inviteLink}
             </p>
           </div>
@@ -169,7 +234,7 @@ export async function sendEmployeeInviteEmail(
       console.log(`✅ Employee invite email sent to ${toEmail}`);
       return { success: true, inviteLink };
     } catch (err: unknown) {
-      console.error("❌ Gmail SMTP invite email send failed:", err);
+      console.error("❌ Gmail SMTP invite send failed:", err);
       return {
         success: true,
         inviteLink,
@@ -178,11 +243,10 @@ export async function sendEmployeeInviteEmail(
     }
   }
 
-  // Development mode fallback output
+  // Development mode fallback
   console.log(`\n======================================================`);
-  console.log(`🎉 [EMPLOYEE INVITATION EMAIL] for ${toEmail}`);
-  console.log(`Role: ${role}`);
-  console.log(`👉 Invite Link: ${inviteLink}`);
+  console.log(`✉️ [DEV EMPLOYEE INVITE LINK] for ${toEmail} (${role}):`);
+  console.log(`${inviteLink}`);
   console.log(`======================================================\n`);
 
   return { success: true, inviteLink };
