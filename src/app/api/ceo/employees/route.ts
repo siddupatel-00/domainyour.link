@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
     const inviteToken = crypto.randomBytes(24).toString("hex");
 
     const origin = request.nextUrl.origin || "http://localhost:3000";
-    const inviteLink = `${origin}/staff/join?token=${inviteToken}`;
+    const inviteLink = `${origin}/employee/join?token=${inviteToken}`;
 
     try {
       const existing = await db
