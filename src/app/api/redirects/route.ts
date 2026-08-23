@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { redirects, Redirect, clickEvents } from "@/lib/db/schema";
 import { isAuthenticated, getSessionUser } from "@/lib/auth";
-import { sanitizeSlug, isValidUrl } from "@/lib/utils";
+import { sanitizeSlug, sanitizePathSlug, isValidUrl } from "@/lib/utils";
 import { desc, and, eq, gte, lte } from "drizzle-orm";
 import {
   isTursoEnabled,
@@ -175,7 +175,7 @@ export async function POST(request: NextRequest) {
     }
 
     const cleanUsername = sanitizeSlug(finalUsername);
-    const cleanWebname = sanitizeSlug(webname);
+    const cleanWebname = sanitizePathSlug(webname);
 
     if (!cleanWebname) {
       return NextResponse.json(

@@ -15,6 +15,17 @@ export function sanitizeSlug(input: string): string {
     .replace(/^-|-$/g, "");
 }
 
+// Slugify multi-segment paths (preserves forward slashes for sub-links)
+export function sanitizePathSlug(input: string): string {
+  return input
+    .trim()
+    .toLowerCase()
+    .split("/")
+    .map((segment) => sanitizeSlug(segment))
+    .filter(Boolean)
+    .join("/");
+}
+
 // Validate URL format
 export function isValidUrl(url: string): boolean {
   try {

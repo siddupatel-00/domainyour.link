@@ -235,9 +235,17 @@ export async function tursoGetAllBios(): Promise<Bio[]> {
 }
 
 export async function tursoFindRedirect(username: string, webname: string): Promise<Redirect | null> {
+  const cleanU = username.trim().toLowerCase();
+  const cleanW = webname.trim().toLowerCase();
+  const hyphenW = cleanW.replace(/\//g, "-");
+  const slashW = cleanW.replace(/-/g, "/");
+
   const result = await turso.execute({
-    sql: `SELECT * FROM redirects WHERE LOWER(username) = LOWER(?) AND LOWER(webname) = LOWER(?) LIMIT 1;`,
-    args: [username, webname],
+    sql: `SELECT * FROM redirects 
+          WHERE LOWER(username) = LOWER(?) 
+            AND (LOWER(webname) = LOWER(?) OR LOWER(webname) = LOWER(?) OR LOWER(webname) = LOWER(?)) 
+          LIMIT 1;`,
+    args: [cleanU, cleanW, hyphenW, slashW],
   });
 
   if (result.rows.length === 0) return null;

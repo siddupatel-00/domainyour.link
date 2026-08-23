@@ -16,7 +16,7 @@ export const runtime = "nodejs";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ username: string; webname: string }> }
+  { params }: { params: Promise<{ username: string; webname: string | string[] }> }
 ) {
   const { username, webname } = await params;
 
@@ -25,7 +25,9 @@ export async function GET(
   }
 
   const cleanUsername = username.trim().toLowerCase();
-  const cleanWebname = webname.trim().toLowerCase();
+  const rawWebname = Array.isArray(webname) ? webname.join("/") : String(webname);
+  const cleanWebname = rawWebname.trim().toLowerCase();
+  const hyphenWebname = cleanWebname.replace(/\//g, "-");
 
   let destination = "";
   let recordId: number | null = null;
@@ -47,7 +49,7 @@ export async function GET(
   }
 
   // 2. Try PostgreSQL / Neon Database
-  if (!destination) {
+  if (!destination && db) {
     try {
       const results = await db
         .select({
@@ -69,6 +71,28 @@ export async function GET(
         destination = results[0].destinationUrl;
         recordId = results[0].id;
         expiresAt = results[0].expiresAt;
+      } else if (hyphenWebname !== cleanWebname) {
+        const hyphenResults = await db
+          .select({
+            id: redirects.id,
+            destinationUrl: redirects.destinationUrl,
+            redirectCode: redirects.redirectCode,
+            expiresAt: redirects.expiresAt,
+          })
+          .from(redirects)
+          .where(
+            and(
+              eq(redirects.username, cleanUsername),
+              eq(redirects.webname, hyphenWebname)
+            )
+          )
+          .limit(1);
+
+        if (hyphenResults && hyphenResults.length > 0) {
+          destination = hyphenResults[0].destinationUrl;
+          recordId = hyphenResults[0].id;
+          expiresAt = hyphenResults[0].expiresAt;
+        }
       }
     } catch {}
   }
@@ -77,7 +101,9 @@ export async function GET(
   if (!destination) {
     const fallbackList = getLocalFallbackLinks();
     const match = fallbackList.find(
-      (l) => l.username === cleanUsername && l.webname === cleanWebname
+      (l) =>
+        l.username === cleanUsername &&
+        (l.webname === cleanWebname || l.webname === hyphenWebname)
     );
     if (match) {
       destination = match.destinationUrl;
@@ -126,7 +152,7 @@ export async function GET(
         try {
           await tursoIncrementExpiredClick(recordId);
         } catch {}
-      } else {
+      } else if (db) {
         try {
           await db
             .update(redirects)
@@ -178,7 +204,7 @@ export async function GET(
       try {
         await tursoIncrementClick(recordId);
       } catch {}
-    } else {
+    } else if (db) {
       try {
         await Promise.all([
           db
