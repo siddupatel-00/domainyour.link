@@ -145,6 +145,54 @@ export async function tursoGetRedirectsWithTimeframe(
   }
 }
 
+export async function tursoGetClickEventsCountMap(
+  startDate?: Date | null,
+  endDate?: Date | null
+): Promise<Record<number, number>> {
+  if (!startDate) return {};
+
+  const startIso = startDate.toISOString();
+  const endIso = (endDate || new Date()).toISOString();
+  const countMap: Record<number, number> = {};
+
+  try {
+    const result = await turso.execute({
+      sql: `SELECT redirect_id, COUNT(*) as count
+            FROM click_events
+            WHERE datetime(created_at) >= datetime(?)
+              AND datetime(created_at) <= datetime(?)
+            GROUP BY redirect_id;`,
+      args: [startIso, endIso],
+    });
+
+    for (const row of result.rows) {
+      countMap[Number(row.redirect_id)] = Number(row.count || 0);
+    }
+    return countMap;
+  } catch (err) {
+    try {
+      const fallbackResult = await turso.execute({
+        sql: `SELECT redirect_id, COUNT(*) as count
+              FROM click_events
+              WHERE created_at >= ?
+                AND created_at <= ?
+              GROUP BY redirect_id;`,
+        args: [
+          startIso.slice(0, 19).replace("T", " "),
+          endIso.slice(0, 19).replace("T", " "),
+        ],
+      });
+
+      for (const row of fallbackResult.rows) {
+        countMap[Number(row.redirect_id)] = Number(row.count || 0);
+      }
+      return countMap;
+    } catch {
+      return {};
+    }
+  }
+}
+
 export async function tursoGetAllRedirects(): Promise<Redirect[]> {
   const result = await turso.execute({
     sql: `SELECT * FROM redirects ORDER BY click_count DESC, id DESC;`,

@@ -9,6 +9,7 @@ import {
   isTursoEnabled,
   tursoGetAllRedirects,
   tursoGetAllBios,
+  tursoGetClickEventsCountMap,
 } from "@/lib/tursoDb";
 
 export const dynamic = "force-dynamic";
@@ -94,26 +95,34 @@ export async function GET(request: NextRequest) {
     }
 
     // Calculate timeframe clicks map
-    const countsMap: Record<number, number> = {};
+    let countsMap: Record<number, number> = {};
     if (startDate) {
-      try {
-        const events = await db
-          .select()
-          .from(clickEvents)
-          .where(
-            and(
-              gte(clickEvents.createdAt, startDate),
-              lte(clickEvents.createdAt, endDate)
-            )
-          );
+      if (isTursoEnabled) {
+        try {
+          countsMap = await tursoGetClickEventsCountMap(startDate, endDate);
+        } catch (err) {
+          console.error("Turso ceo stats click map error:", err);
+        }
+      } else if (db) {
+        try {
+          const events = await db
+            .select()
+            .from(clickEvents)
+            .where(
+              and(
+                gte(clickEvents.createdAt, startDate),
+                lte(clickEvents.createdAt, endDate)
+              )
+            );
 
-        events.forEach((ev) => {
-          countsMap[ev.redirectId] = (countsMap[ev.redirectId] || 0) + 1;
-        });
-      } catch {
+          events.forEach((ev) => {
+            countsMap[ev.redirectId] = (countsMap[ev.redirectId] || 0) + 1;
+          });
+        } catch {}
+      } else {
         const localEvents = getLocalFallbackClickEvents();
         const filtered = localEvents.filter(
-          (e) => e.createdAt >= (startDate as Date) && e.createdAt <= endDate
+          (e) => e.createdAt >= startDate && e.createdAt <= endDate
         );
         filtered.forEach((ev) => {
           countsMap[ev.redirectId] = (countsMap[ev.redirectId] || 0) + 1;

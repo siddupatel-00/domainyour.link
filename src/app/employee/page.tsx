@@ -12,6 +12,7 @@ import {
   LogOut,
   RotateCw,
   Compass,
+  Calendar,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
@@ -27,6 +28,7 @@ interface PlatformInsights {
   activeLinksCount: number;
   expiredOrDeletedCount: number;
   totalClicksWorldwide: number;
+  timeframeClicks: number;
   totalBiosCreated: number;
   topDomains: Array<{ domain: string; clicks: number }>;
 }
@@ -35,10 +37,20 @@ export default function EmployeeInsightsDashboard() {
   const [employee, setEmployee] = useState<EmployeeProfile | null>(null);
   const [insights, setInsights] = useState<PlatformInsights | null>(null);
   const [timeframe, setTimeframe] = useState<string>("7d");
+  const [customStart, setCustomStart] = useState<string>("");
+  const [customEnd, setCustomEnd] = useState<string>("");
   const [loading, setLoading] = useState(true);
 
   const router = useRouter();
   const pollTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Set default custom dates (start 7 days ago, end today)
+  useEffect(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    const lastWeek = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    setCustomEnd(today);
+    setCustomStart(lastWeek);
+  }, []);
 
   const fetchInsights = useCallback(async (isBackground = false) => {
     try {
@@ -55,7 +67,12 @@ export default function EmployeeInsightsDashboard() {
       }
       setEmployee(authData.employee);
 
-      const dataRes = await fetch(`/api/employee/data?timeframe=${timeframe}&t=${Date.now()}`, {
+      let url = `/api/employee/data?timeframe=${timeframe}&t=${Date.now()}`;
+      if (timeframe === "custom" && customStart && customEnd) {
+        url += `&startDate=${customStart}&endDate=${customEnd}`;
+      }
+
+      const dataRes = await fetch(url, {
         cache: "no-store",
         headers: { "Cache-Control": "no-cache" },
       });
@@ -68,15 +85,15 @@ export default function EmployeeInsightsDashboard() {
     } finally {
       if (!isBackground) setLoading(false);
     }
-  }, [router, timeframe]);
+  }, [router, timeframe, customStart, customEnd]);
 
-  // Initial fetch and real-time auto-polling every 4 seconds
+  // Initial fetch and real-time auto-polling every 5 seconds
   useEffect(() => {
     fetchInsights();
 
     pollTimerRef.current = setInterval(() => {
       fetchInsights(true);
-    }, 4000);
+    }, 5000);
 
     return () => {
       if (pollTimerRef.current) clearInterval(pollTimerRef.current);
@@ -93,6 +110,15 @@ export default function EmployeeInsightsDashboard() {
   };
 
   const totalDomainClicks = insights?.topDomains.reduce((acc, curr) => acc + curr.clicks, 0) || 1;
+
+  const timeframeOptions = [
+    { label: "24 Hours", val: "24h" },
+    { label: "7 Days", val: "7d" },
+    { label: "14 Days", val: "14d" },
+    { label: "This Month", val: "this_month" },
+    { label: "Last Month", val: "last_month" },
+    { label: "Custom", val: "custom" },
+  ];
 
   return (
     <main className="min-h-screen bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-white font-sans selection:bg-black dark:selection:bg-white selection:text-white dark:selection:text-black transition-colors duration-200">
@@ -206,40 +232,75 @@ export default function EmployeeInsightsDashboard() {
         </div>
 
         {/* Traffic & Destinations Section */}
-        <div className="p-6 rounded-3xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/60 shadow-sm space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-neutral-100 dark:border-neutral-800">
-            <div>
-              <h3 className="text-base font-bold text-neutral-900 dark:text-white flex items-center gap-2">
-                <TrendingUp className="w-4 h-4" />
-                <span>Traffic Overview</span>
-              </h3>
-              <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
-                Visitor activity across time periods
-              </p>
+        <div className="p-6 sm:p-8 rounded-3xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/60 shadow-sm space-y-6">
+          <div className="space-y-4 pb-4 border-b border-neutral-100 dark:border-neutral-800">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="text-base font-bold text-neutral-900 dark:text-white flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4" />
+                  <span>Traffic Overview</span>
+                </h3>
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+                  Visitor activity across time periods
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-1.5">
+                {timeframeOptions.map((tf) => (
+                  <button
+                    key={tf.val}
+                    type="button"
+                    onClick={() => setTimeframe(tf.val)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition cursor-pointer ${
+                      timeframe === tf.val
+                        ? "bg-black dark:bg-white text-white dark:text-black border-black dark:border-white shadow-sm"
+                        : "bg-neutral-50 dark:bg-neutral-950 text-neutral-600 dark:text-neutral-400 border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-700 hover:text-black dark:hover:text-white"
+                    }`}
+                  >
+                    {tf.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-1.5">
-              {[
-                { label: "24 Hours", val: "24h" },
-                { label: "7 Days", val: "7d" },
-                { label: "14 Days", val: "14d" },
-                { label: "This Month", val: "this_month" },
-                { label: "Last Month", val: "last_month" },
-              ].map((tf) => (
+            {/* Custom Date Range Picker */}
+            {timeframe === "custom" && (
+              <div className="p-3.5 rounded-2xl bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 flex flex-wrap items-center gap-3 animate-in fade-in duration-150 text-xs">
+                <div className="flex items-center gap-2">
+                  <span className="text-neutral-500 dark:text-neutral-400 font-semibold flex items-center gap-1">
+                    <Calendar className="w-3.5 h-3.5 text-neutral-700 dark:text-neutral-300" />
+                    From:
+                  </span>
+                  <input
+                    type="date"
+                    value={customStart}
+                    onChange={(e) => setCustomStart(e.target.value)}
+                    className="px-2.5 py-1.5 text-xs bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-700 rounded-xl text-neutral-900 dark:text-white focus:outline-none focus:border-black dark:focus:border-white font-medium"
+                  />
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-neutral-500 dark:text-neutral-400 font-semibold flex items-center gap-1">
+                    <Calendar className="w-3.5 h-3.5 text-neutral-700 dark:text-neutral-300" />
+                    To:
+                  </span>
+                  <input
+                    type="date"
+                    value={customEnd}
+                    onChange={(e) => setCustomEnd(e.target.value)}
+                    className="px-2.5 py-1.5 text-xs bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-700 rounded-xl text-neutral-900 dark:text-white focus:outline-none focus:border-black dark:focus:border-white font-medium"
+                  />
+                </div>
+
                 <button
-                  key={tf.val}
                   type="button"
-                  onClick={() => setTimeframe(tf.val)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition cursor-pointer ${
-                    timeframe === tf.val
-                      ? "bg-black dark:bg-white text-white dark:text-black border-black dark:border-white shadow-sm"
-                      : "bg-neutral-50 dark:bg-neutral-950 text-neutral-600 dark:text-neutral-400 border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-700 hover:text-black dark:hover:text-white"
-                  }`}
+                  onClick={() => fetchInsights(false)}
+                  className="px-3.5 py-1.5 bg-black dark:bg-white text-white dark:text-black text-xs font-semibold rounded-xl hover:bg-neutral-800 dark:hover:bg-neutral-200 transition cursor-pointer shadow-sm"
                 >
-                  {tf.label}
+                  Apply Range
                 </button>
-              ))}
-            </div>
+              </div>
+            )}
           </div>
 
           {/* Top Destination Platforms */}
@@ -247,13 +308,13 @@ export default function EmployeeInsightsDashboard() {
             <div className="flex items-center justify-between">
               <h4 className="text-xs font-bold text-neutral-700 dark:text-neutral-300 uppercase tracking-wider flex items-center gap-1.5">
                 <Compass className="w-3.5 h-3.5 text-neutral-500 dark:text-neutral-400" />
-                <span>Top Destinations</span>
+                <span>Top Destinations ({insights?.timeframeClicks ?? 0} clicks in period)</span>
               </h4>
             </div>
 
             {!insights?.topDomains || insights.topDomains.length === 0 ? (
               <div className="text-center py-10 text-xs text-neutral-400 dark:text-neutral-500">
-                No clicks recorded in this timeframe yet.
+                No visitor activity recorded during this time period.
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -276,7 +337,7 @@ export default function EmployeeInsightsDashboard() {
 
                         <div className="text-right">
                           <span className="font-mono font-bold text-xs text-neutral-900 dark:text-white">
-                            {item.clicks} clicks
+                            {item.clicks} {item.clicks === 1 ? "click" : "clicks"}
                           </span>
                           <span className="text-[10px] text-neutral-500 dark:text-neutral-400 ml-1.5">
                             ({share}%)

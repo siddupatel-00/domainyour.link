@@ -9,6 +9,8 @@ import {
   isTursoEnabled,
   tursoGetAllRedirects,
   tursoGetAllBios,
+  parseTimeframeDates,
+  tursoGetClickEventsCountMap,
 } from "@/lib/tursoDb";
 
 export const dynamic = "force-dynamic";
@@ -29,6 +31,8 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const timeframe = searchParams.get("timeframe") || "7d";
+    const customStart = searchParams.get("startDate");
+    const customEnd = searchParams.get("endDate");
 
     let allLinks: Redirect[] = [];
     let allBios: Bio[] = [];
@@ -61,39 +65,21 @@ export async function GET(request: NextRequest) {
       allBios = getLocalFallbackBios();
     }
 
-    // Timeframe range calculation for real-time clicks
-    const now = new Date();
-    let startDate: Date | null = null;
-    let endDate: Date = now;
+    // Calculate timeframe range
+    const { startDate, endDate } = parseTimeframeDates(timeframe, customStart, customEnd);
 
-    if (timeframe) {
-      switch (timeframe) {
-        case "24h":
-          startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-          break;
-        case "7d":
-          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-          break;
-        case "14d":
-          startDate = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
-          break;
-        case "this_month":
-          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-          break;
-        case "last_month":
-          startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-          endDate = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
-          break;
-        default:
-          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      }
-    }
+    // Calculate timeframe clicks map from database
+    let countsMap: Record<number, number> = {};
 
-    // Calculate timeframe clicks map
-    const countsMap: Record<number, number> = {};
     if (startDate) {
-      try {
-        if (db) {
+      if (isTursoEnabled) {
+        try {
+          countsMap = await tursoGetClickEventsCountMap(startDate, endDate);
+        } catch (err) {
+          console.error("Turso click map error:", err);
+        }
+      } else if (db) {
+        try {
           const events = await db
             .select()
             .from(clickEvents)
@@ -107,11 +93,11 @@ export async function GET(request: NextRequest) {
           events.forEach((ev) => {
             countsMap[ev.redirectId] = (countsMap[ev.redirectId] || 0) + 1;
           });
-        }
-      } catch {
+        } catch {}
+      } else {
         const localEvents = getLocalFallbackClickEvents();
         const filtered = localEvents.filter(
-          (e) => e.createdAt >= (startDate as Date) && e.createdAt <= endDate
+          (e) => e.createdAt >= startDate && e.createdAt <= endDate
         );
         filtered.forEach((ev) => {
           countsMap[ev.redirectId] = (countsMap[ev.redirectId] || 0) + 1;
@@ -129,27 +115,30 @@ export async function GET(request: NextRequest) {
     const activeCount = allLinks.filter((r) => !isLinkExpired(r)).length;
     const expiredOrDeletedCount = allLinks.filter((r) => isLinkExpired(r)).length;
     const totalClicksWorldwide = allLinks.reduce((acc, curr) => acc + (curr.clickCount || 0), 0);
+
     const timeframeClicks = allLinks.reduce((acc, curr) => {
-      const pClicks = countsMap[curr.id] !== undefined ? countsMap[curr.id] : curr.clickCount;
-      return acc + (pClicks || 0);
+      const pClicks = startDate ? (countsMap[curr.id] ?? 0) : (curr.clickCount || 0);
+      return acc + pClicks;
     }, 0);
+
     const totalBiosCreated = allBios.length;
 
-    // Anonymized domain breakdown
+    // Anonymized domain breakdown for the selected timeframe
     const domainCounts: Record<string, number> = {};
     for (const link of allLinks) {
-      try {
-        let url = link.destinationUrl;
-        if (!url.startsWith("http://") && !url.startsWith("https://")) {
-          url = `https://${url}`;
+      const clicks = startDate ? (countsMap[link.id] ?? 0) : (link.clickCount || 0);
+      if (clicks > 0) {
+        try {
+          let url = link.destinationUrl;
+          if (!url.startsWith("http://") && !url.startsWith("https://")) {
+            url = `https://${url}`;
+          }
+          const parsed = new URL(url);
+          const host = parsed.hostname.replace(/^www\./, "");
+          domainCounts[host] = (domainCounts[host] || 0) + clicks;
+        } catch {
+          domainCounts["direct-links"] = (domainCounts["direct-links"] || 0) + clicks;
         }
-        const parsed = new URL(url);
-        const host = parsed.hostname.replace(/^www\./, "");
-        const clicks = countsMap[link.id] !== undefined ? countsMap[link.id] : (link.clickCount || 0);
-        domainCounts[host] = (domainCounts[host] || 0) + clicks;
-      } catch {
-        const clicks = countsMap[link.id] !== undefined ? countsMap[link.id] : (link.clickCount || 0);
-        domainCounts["direct-links"] = (domainCounts["direct-links"] || 0) + clicks;
       }
     }
 
