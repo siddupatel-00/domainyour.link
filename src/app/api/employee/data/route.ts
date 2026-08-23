@@ -5,6 +5,11 @@ import { redirects, bios, clickEvents, Redirect, Bio } from "@/lib/db/schema";
 import { desc, and, gte, lte } from "drizzle-orm";
 import { getLocalFallbackLinks, getLocalFallbackClickEvents } from "@/app/api/redirects/route";
 import { getLocalFallbackBios } from "@/app/api/bios/route";
+import {
+  isTursoEnabled,
+  tursoGetAllRedirects,
+  tursoGetAllBios,
+} from "@/lib/tursoDb";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -28,14 +33,25 @@ export async function GET(request: NextRequest) {
     let allLinks: Redirect[] = [];
     let allBios: Bio[] = [];
 
-    try {
-      if (db) {
+    // 1. Try Turso
+    if (isTursoEnabled) {
+      try {
+        allLinks = await tursoGetAllRedirects();
+        allBios = await tursoGetAllBios();
+      } catch (err) {
+        console.warn("Turso employee data error:", err);
+      }
+    }
+
+    // 2. Try PostgreSQL
+    if (allLinks.length === 0 && db) {
+      try {
         allLinks = await db.select().from(redirects).orderBy(desc(redirects.createdAt));
         allBios = await db.select().from(bios).orderBy(desc(bios.createdAt));
+      } catch {
+        allLinks = getLocalFallbackLinks();
+        allBios = getLocalFallbackBios();
       }
-    } catch {
-      allLinks = getLocalFallbackLinks();
-      allBios = getLocalFallbackBios();
     }
 
     if (allLinks.length === 0) {

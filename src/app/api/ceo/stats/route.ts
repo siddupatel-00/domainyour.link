@@ -5,6 +5,11 @@ import { isCeoAuthenticated } from "@/lib/auth";
 import { desc, and, gte, lte } from "drizzle-orm";
 import { getLocalFallbackLinks, getLocalFallbackClickEvents } from "@/app/api/redirects/route";
 import { getLocalFallbackBios } from "@/app/api/bios/route";
+import {
+  isTursoEnabled,
+  tursoGetAllRedirects,
+  tursoGetAllBios,
+} from "@/lib/tursoDb";
 
 export const dynamic = "force-dynamic";
 
@@ -32,10 +37,28 @@ export async function GET(request: NextRequest) {
     let allRedirects: Redirect[] = [];
     let allBios: Bio[] = [];
 
-    try {
-      allRedirects = await db.select().from(redirects).orderBy(desc(redirects.clickCount));
-      allBios = await db.select().from(bios).orderBy(desc(bios.createdAt));
-    } catch {
+    // 1. Try Turso
+    if (isTursoEnabled) {
+      try {
+        allRedirects = await tursoGetAllRedirects();
+        allBios = await tursoGetAllBios();
+      } catch (err) {
+        console.warn("Turso stats error:", err);
+      }
+    }
+
+    // 2. Try PostgreSQL
+    if (allRedirects.length === 0 && db) {
+      try {
+        allRedirects = await db.select().from(redirects).orderBy(desc(redirects.clickCount));
+        allBios = await db.select().from(bios).orderBy(desc(bios.createdAt));
+      } catch {
+        allRedirects = getLocalFallbackLinks();
+        allBios = getLocalFallbackBios();
+      }
+    }
+
+    if (allRedirects.length === 0) {
       allRedirects = getLocalFallbackLinks();
       allBios = getLocalFallbackBios();
     }

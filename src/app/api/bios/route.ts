@@ -5,6 +5,7 @@ import { isAuthenticated, getSessionUser } from "@/lib/auth";
 import { sanitizeSlug } from "@/lib/utils";
 import { desc, and, eq } from "drizzle-orm";
 import { calculateExpiration } from "../redirects/route";
+import { isTursoEnabled, tursoGetBios, tursoFindBio, turso } from "@/lib/tursoDb";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -31,8 +32,17 @@ export async function GET() {
   }
 
   const session = await getSessionUser();
-  const username = session?.username || "siddu";
+  const username = session?.username || "creator";
 
+  // 1. Try Turso if enabled
+  if (isTursoEnabled) {
+    try {
+      const list = await tursoGetBios(username);
+      return NextResponse.json({ bios: list }, { headers: noCacheHeaders });
+    } catch {}
+  }
+
+  // 2. Try PostgreSQL / Neon
   try {
     const list = await db
       .select()
@@ -42,7 +52,7 @@ export async function GET() {
 
     return NextResponse.json({ bios: list }, { headers: noCacheHeaders });
   } catch (error) {
-    console.warn("Using local fallback for bios:", error);
+    // 3. Fallback memory store
     const userBios = localFallbackBios.filter((b) => b.username === username);
     return NextResponse.json({ bios: userBios }, { headers: noCacheHeaders });
   }
@@ -66,7 +76,7 @@ export async function POST(request: NextRequest) {
       expiresAt,
     } = body;
 
-    const username = session.username || "siddu";
+    const username = session.username || "creator";
 
     if (!bioname) {
       return NextResponse.json(
@@ -86,6 +96,51 @@ export async function POST(request: NextRequest) {
     const expirationDate = expiresAt ? new Date(expiresAt) : calculateExpiration(duration);
     const linkIdsJson = Array.isArray(linkIds) ? JSON.stringify(linkIds) : "[]";
 
+    // 1. Try Turso if enabled
+    if (isTursoEnabled) {
+      try {
+        const existing = await tursoFindBio(username, cleanBioname);
+        if (existing) {
+          return NextResponse.json(
+            { error: `A bio page for /${username}/b/${cleanBioname} already exists.` },
+            { status: 409, headers: noCacheHeaders }
+          );
+        }
+
+        const expiresStr = expirationDate ? expirationDate.toISOString() : null;
+        const result = await turso.execute({
+          sql: `INSERT INTO bios (username, bioname, title, description, link_ids, expires_at)
+                VALUES (?, ?, ?, ?, ?, ?) RETURNING *;`,
+          args: [
+            username.toLowerCase(),
+            cleanBioname.toLowerCase(),
+            title || null,
+            description || null,
+            linkIdsJson,
+            expiresStr,
+          ],
+        });
+
+        const row = result.rows[0];
+        const newBio: Bio = {
+          id: Number(row.id),
+          username: String(row.username),
+          bioname: String(row.bioname),
+          title: row.title ? String(row.title) : null,
+          description: row.description ? String(row.description) : null,
+          linkIds: String(row.link_ids || "[]"),
+          expiresAt: row.expires_at ? new Date(String(row.expires_at)) : null,
+          createdAt: new Date(String(row.created_at)),
+          updatedAt: new Date(String(row.updated_at)),
+        };
+
+        return NextResponse.json({ success: true, bio: newBio }, { status: 201, headers: noCacheHeaders });
+      } catch (err: any) {
+        console.error("Turso create bio error:", err);
+      }
+    }
+
+    // 2. Try PostgreSQL / Neon
     try {
       const existing = await db
         .select({ id: bios.id })
@@ -100,7 +155,9 @@ export async function POST(request: NextRequest) {
 
       if (existing.length > 0) {
         return NextResponse.json(
-          { error: `A bio page named "${cleanBioname}" already exists. Please choose a different name.` },
+          {
+            error: `A bio page for /${username}/b/${cleanBioname} already exists.`,
+          },
           { status: 409, headers: noCacheHeaders }
         );
       }
@@ -110,8 +167,8 @@ export async function POST(request: NextRequest) {
         .values({
           username,
           bioname: cleanBioname,
-          title: title?.trim() || cleanBioname,
-          description: description?.trim() || null,
+          title: title || null,
+          description: description || null,
           linkIds: linkIdsJson,
           expiresAt: expirationDate,
         })
@@ -119,13 +176,13 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({ success: true, bio: newRecord }, { status: 201, headers: noCacheHeaders });
     } catch {
-      // Fallback local memory insert
+      // 3. Fallback memory store
       const exists = localFallbackBios.some(
         (b) => b.username === username && b.bioname === cleanBioname
       );
       if (exists) {
         return NextResponse.json(
-          { error: `A bio page named "${cleanBioname}" already exists.` },
+          { error: `A bio page for /${username}/b/${cleanBioname} already exists.` },
           { status: 409, headers: noCacheHeaders }
         );
       }
@@ -134,8 +191,8 @@ export async function POST(request: NextRequest) {
         id: nextBioId++,
         username,
         bioname: cleanBioname,
-        title: title?.trim() || cleanBioname,
-        description: description?.trim() || null,
+        title: title || null,
+        description: description || null,
         linkIds: linkIdsJson,
         expiresAt: expirationDate,
         createdAt: new Date(),

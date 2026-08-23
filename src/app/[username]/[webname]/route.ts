@@ -3,6 +3,12 @@ import { db } from "@/lib/db";
 import { redirects, clickEvents } from "@/lib/db/schema";
 import { and, eq, sql } from "drizzle-orm";
 import { getLocalFallbackLinks, logLocalFallbackClick } from "@/app/api/redirects/route";
+import {
+  isTursoEnabled,
+  tursoFindRedirect,
+  tursoIncrementClick,
+  tursoIncrementExpiredClick,
+} from "@/lib/tursoDb";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -24,34 +30,50 @@ export async function GET(
   let destination = "";
   let recordId: number | null = null;
   let expiresAt: Date | null = null;
+  let isFromTurso = false;
   let fallbackMatch: any = null;
 
-  try {
-    const results = await db
-      .select({
-        id: redirects.id,
-        destinationUrl: redirects.destinationUrl,
-        redirectCode: redirects.redirectCode,
-        expiresAt: redirects.expiresAt,
-      })
-      .from(redirects)
-      .where(
-        and(
-          eq(redirects.username, cleanUsername),
-          eq(redirects.webname, cleanWebname)
-        )
-      )
-      .limit(1);
-
-    if (results && results.length > 0) {
-      destination = results[0].destinationUrl;
-      recordId = results[0].id;
-      expiresAt = results[0].expiresAt;
-    }
-  } catch {
-    // Fallback store check
+  // 1. Try Turso Database if configured
+  if (isTursoEnabled) {
+    try {
+      const tursoMatch = await tursoFindRedirect(cleanUsername, cleanWebname);
+      if (tursoMatch) {
+        destination = tursoMatch.destinationUrl;
+        recordId = tursoMatch.id;
+        expiresAt = tursoMatch.expiresAt;
+        isFromTurso = true;
+      }
+    } catch {}
   }
 
+  // 2. Try PostgreSQL / Neon Database
+  if (!destination) {
+    try {
+      const results = await db
+        .select({
+          id: redirects.id,
+          destinationUrl: redirects.destinationUrl,
+          redirectCode: redirects.redirectCode,
+          expiresAt: redirects.expiresAt,
+        })
+        .from(redirects)
+        .where(
+          and(
+            eq(redirects.username, cleanUsername),
+            eq(redirects.webname, cleanWebname)
+          )
+        )
+        .limit(1);
+
+      if (results && results.length > 0) {
+        destination = results[0].destinationUrl;
+        recordId = results[0].id;
+        expiresAt = results[0].expiresAt;
+      }
+    } catch {}
+  }
+
+  // 3. Try Local fallback store
   if (!destination) {
     const fallbackList = getLocalFallbackLinks();
     const match = fallbackList.find(
@@ -99,14 +121,19 @@ export async function GET(
 
   // Check if link has expired (410)
   if (expiresAt && new Date(expiresAt).getTime() <= Date.now()) {
-    // Immediately increment expired click count in database
     if (recordId) {
-      try {
-        await db
-          .update(redirects)
-          .set({ expiredClickCount: sql`${redirects.expiredClickCount} + 1` })
-          .where(eq(redirects.id, recordId));
-      } catch {}
+      if (isFromTurso) {
+        try {
+          await tursoIncrementExpiredClick(recordId);
+        } catch {}
+      } else {
+        try {
+          await db
+            .update(redirects)
+            .set({ expiredClickCount: sql`${redirects.expiredClickCount} + 1` })
+            .where(eq(redirects.id, recordId));
+        } catch {}
+      }
     }
 
     if (fallbackMatch) {
@@ -145,17 +172,23 @@ export async function GET(
     );
   }
 
-  // Active redirect: Immediately update real-time click count in database and record click event
+  // Active redirect: increment click counters
   if (recordId) {
-    try {
-      await Promise.all([
-        db
-          .update(redirects)
-          .set({ clickCount: sql`${redirects.clickCount} + 1` })
-          .where(eq(redirects.id, recordId)),
-        db.insert(clickEvents).values({ redirectId: recordId }),
-      ]);
-    } catch {}
+    if (isFromTurso) {
+      try {
+        await tursoIncrementClick(recordId);
+      } catch {}
+    } else {
+      try {
+        await Promise.all([
+          db
+            .update(redirects)
+            .set({ clickCount: sql`${redirects.clickCount} + 1` })
+            .where(eq(redirects.id, recordId)),
+          db.insert(clickEvents).values({ redirectId: recordId }),
+        ]);
+      } catch {}
+    }
   }
 
   if (fallbackMatch) {

@@ -1,0 +1,39 @@
+export const RESERVED_USERNAMES = new Set([
+  "admin",
+  "administrator",
+  "ceo",
+  "employee",
+  "staff",
+  "api",
+  "bio",
+  "bios",
+  "biopage",
+  "activelinks",
+  "analytics",
+  "expire",
+  "expired",
+  "login",
+  "join",
+  "signin",
+  "signup",
+  "register",
+  "auth",
+  "dashboard",
+  "settings",
+  "help",
+  "support",
+  "about",
+  "terms",
+  "privacy",
+  "root",
+  "system",
+  "official",
+  "domainyourlink",
+  "null",
+  "undefined",
+]);
+
+export function isReservedUsername(username: string): boolean {
+  const clean = username.trim().toLowerCase();
+  return RESERVED_USERNAMES.has(clean);
+}

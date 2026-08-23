@@ -2,6 +2,11 @@ import { db } from "./db";
 import { users, User, NewUser } from "./db/schema";
 import { eq, or } from "drizzle-orm";
 import crypto from "crypto";
+import {
+  isTursoEnabled,
+  tursoFindUser,
+  tursoCreateOrUpdateUser,
+} from "./tursoDb";
 
 export function hashPassword(password: string): string {
   return crypto.createHash("sha256").update(password).digest("hex");
@@ -27,6 +32,16 @@ let nextUserId = 1;
 
 export async function findUserByEmailOrUsername(identifier: string): Promise<User | null> {
   const clean = identifier.trim().toLowerCase();
+
+  // Try Turso first if configured
+  if (isTursoEnabled) {
+    try {
+      const tursoUser = await tursoFindUser(clean);
+      if (tursoUser) return tursoUser;
+    } catch {}
+  }
+
+  // Try PostgreSQL / Neon if configured
   try {
     if (db) {
       const records = await db
@@ -39,6 +54,7 @@ export async function findUserByEmailOrUsername(identifier: string): Promise<Use
     }
   } catch {}
 
+  // Fallback memory store
   const local = (global.fallbackUsersStore || []).find(
     (u) => u.email.toLowerCase() === clean || u.username.toLowerCase() === clean
   );
@@ -52,8 +68,16 @@ export async function createOrUpdateUser(
 ): Promise<User> {
   const cleanUsername = username.trim().toLowerCase();
   const cleanEmail = email.trim().toLowerCase();
-  const hashedPassword = plainPassword ? hashPassword(plainPassword) : null;
+  const hashedPassword = plainPassword ? hashPassword(plainPassword) : undefined;
 
+  // Try Turso first if configured
+  if (isTursoEnabled) {
+    try {
+      return await tursoCreateOrUpdateUser(cleanUsername, cleanEmail, hashedPassword);
+    } catch {}
+  }
+
+  // Try PostgreSQL / Neon if configured
   try {
     if (db) {
       const existing = await findUserByEmailOrUsername(cleanEmail);
@@ -102,7 +126,7 @@ export async function createOrUpdateUser(
       id: nextUserId++,
       username: cleanUsername,
       email: cleanEmail,
-      password: hashedPassword,
+      password: hashedPassword ?? null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };

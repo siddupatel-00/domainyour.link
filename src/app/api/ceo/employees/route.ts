@@ -8,6 +8,12 @@ import {
   addSharedEmployee,
   findSharedEmployeeByEmailOrUser,
 } from "@/lib/employeeStore";
+import {
+  isTursoEnabled,
+  tursoGetEmployees,
+  tursoFindEmployeeByEmailOrUsername,
+  tursoCreateEmployee,
+} from "@/lib/tursoDb";
 import { desc, eq } from "drizzle-orm";
 import crypto from "crypto";
 
@@ -28,11 +34,20 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized: CEO Master Access Required" }, { status: 401, headers: noCacheHeaders });
   }
 
+  // 1. Try Turso
+  if (isTursoEnabled) {
+    try {
+      const list = await tursoGetEmployees();
+      return NextResponse.json({ employees: list }, { headers: noCacheHeaders });
+    } catch {}
+  }
+
+  // 2. Try PostgreSQL / Neon
   try {
     const list = await db.select().from(employees).orderBy(desc(employees.createdAt));
     return NextResponse.json({ employees: list }, { headers: noCacheHeaders });
   } catch (error) {
-    console.warn("Using shared fallback for employees:", error);
+    // 3. Fallback memory store
     return NextResponse.json({ employees: getSharedEmployees() }, { headers: noCacheHeaders });
   }
 }
@@ -62,6 +77,40 @@ export async function POST(request: NextRequest) {
     const origin = request.nextUrl.origin || "http://localhost:3000";
     const inviteLink = `${origin}/employee/join?token=${inviteToken}`;
 
+    // 1. Try Turso
+    if (isTursoEnabled) {
+      try {
+        const existing = await tursoFindEmployeeByEmailOrUsername(cleanEmail);
+        if (existing) {
+          return NextResponse.json(
+            { error: `An employee with email "${cleanEmail}" is already added or invited.` },
+            { status: 409, headers: noCacheHeaders }
+          );
+        }
+
+        const newRecord = await tursoCreateEmployee({
+          email: cleanEmail,
+          role: employeeRole,
+          inviteToken,
+          permissions: JSON.stringify(["view_insights"]),
+        });
+
+        // Mirror to in-memory store
+        addSharedEmployee(newRecord);
+
+        // Send email invitation
+        await sendEmployeeInviteEmail(cleanEmail, employeeRole, inviteLink);
+
+        return NextResponse.json(
+          { success: true, employee: newRecord, inviteLink },
+          { status: 201, headers: noCacheHeaders }
+        );
+      } catch (err) {
+        console.error("Turso invite error:", err);
+      }
+    }
+
+    // 2. Try PostgreSQL / Neon
     try {
       const existing = await db
         .select({ id: employees.id, status: employees.status })
@@ -99,7 +148,7 @@ export async function POST(request: NextRequest) {
         { status: 201, headers: noCacheHeaders }
       );
     } catch {
-      // Fallback in-memory
+      // 3. Fallback in-memory
       const exists = findSharedEmployeeByEmailOrUser(cleanEmail);
       if (exists) {
         return NextResponse.json(

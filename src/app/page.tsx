@@ -17,6 +17,8 @@ import {
   AlertTriangle,
   KeyRound,
   CheckCircle2,
+  XCircle,
+  Loader2,
   Eye,
   EyeOff,
   Sparkles,
@@ -30,6 +32,8 @@ export default function HomePage() {
   const [authMethod, setAuthMethod] = useState<"code" | "password">("code");
   const [step, setStep] = useState<"input" | "verify" | "password">("input");
   const [username, setUsername] = useState("");
+  const [usernameStatus, setUsernameStatus] = useState<"idle" | "checking" | "available" | "taken" | "reserved" | "invalid">("idle");
+  const [usernameMessage, setUsernameMessage] = useState<string>("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -54,15 +58,79 @@ export default function HomePage() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
+  // Real-time live username availability check
+  useEffect(() => {
+    if (!isSignUp || !username.trim()) {
+      setUsernameStatus("idle");
+      setUsernameMessage("");
+      return;
+    }
+
+    const clean = sanitizeSlug(username);
+    if (clean.length < 3) {
+      setUsernameStatus("invalid");
+      setUsernameMessage("Username must be at least 3 characters");
+      return;
+    }
+
+    setUsernameStatus("checking");
+    setUsernameMessage("Checking availability...");
+
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/auth/check-username?username=${encodeURIComponent(clean)}`);
+        const data = await res.json();
+        if (data.available) {
+          setUsernameStatus("available");
+          setUsernameMessage(`@${clean} is available!`);
+        } else {
+          if (data.reason === "reserved") {
+            setUsernameStatus("reserved");
+            setUsernameMessage(data.message || `"${clean}" is a reserved name`);
+          } else if (data.reason === "length") {
+            setUsernameStatus("invalid");
+            setUsernameMessage(data.message || "Username must be at least 3 characters");
+          } else {
+            setUsernameStatus("taken");
+            setUsernameMessage(data.message || `@${clean} is already taken`);
+          }
+        }
+      } catch {
+        setUsernameStatus("idle");
+        setUsernameMessage("");
+      }
+    }, 280);
+
+    return () => clearTimeout(timer);
+  }, [username, isSignUp]);
+
   // Step 1: Send verification code to email or direct password login
   const handlePrimarySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setInfoMessage(null);
 
-    if (isSignUp && !cleanUsername) {
-      setError("Please enter a username");
-      return;
+    if (isSignUp) {
+      if (!cleanUsername) {
+        setError("Please enter a username");
+        return;
+      }
+      if (usernameStatus === "checking") {
+        setError("Please wait while we check username availability");
+        return;
+      }
+      if (usernameStatus === "taken") {
+        setError(`@${cleanUsername} is already taken. Please choose another.`);
+        return;
+      }
+      if (usernameStatus === "reserved") {
+        setError(`"${cleanUsername}" is reserved. Please choose another.`);
+        return;
+      }
+      if (usernameStatus === "invalid" || cleanUsername.length < 3) {
+        setError("Username must be at least 3 characters");
+        return;
+      }
     }
 
     if (!email.trim() || !email.includes("@")) {
@@ -216,6 +284,8 @@ export default function HomePage() {
     setStep("input");
     setCode("");
     setPassword("");
+    setUsernameStatus("idle");
+    setUsernameMessage("");
     setIsSignUp(signupMode);
     setAuthMethod(signupMode ? "code" : "password");
     setTimeout(() => {
@@ -348,7 +418,7 @@ export default function HomePage() {
                 )}
 
                 <form onSubmit={handlePrimarySubmit} className="space-y-3.5">
-                  {/* 1. Username (Sign Up only) */}
+                  {/* 1. Username with Live Availability Checking (Sign Up only) */}
                   {isSignUp && (
                     <div>
                       <div className="flex items-center justify-between mb-1">
@@ -356,7 +426,7 @@ export default function HomePage() {
                           Username
                         </label>
                         <span className="text-[10px] text-neutral-500 dark:text-neutral-400 flex items-center gap-1">
-                          <Lock className="w-2.5 h-2.5" /> Permanent
+                          <Lock className="w-2.5 h-2.5" /> Unique & Permanent
                         </span>
                       </div>
                       <div className="relative">
@@ -370,21 +440,54 @@ export default function HomePage() {
                           onBlur={() => setIsUsernameFocused(false)}
                           placeholder="Choose a username (e.g. siddu)"
                           required={isSignUp}
-                          className={`w-full pl-10 pr-4 py-2.5 text-sm bg-white dark:bg-neutral-950 border rounded-xl text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-600 focus:outline-none transition ${
-                            isUsernameFocused || username
+                          className={`w-full pl-10 pr-10 py-2.5 text-sm bg-white dark:bg-neutral-950 border rounded-xl text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-600 focus:outline-none transition ${
+                            usernameStatus === "available"
+                              ? "border-emerald-500/80 dark:border-emerald-500/80 focus:ring-1 focus:ring-emerald-500"
+                              : usernameStatus === "taken" || usernameStatus === "reserved" || usernameStatus === "invalid"
+                              ? "border-rose-500/80 dark:border-rose-500/80 focus:ring-1 focus:ring-rose-500"
+                              : isUsernameFocused || username
                               ? "border-black dark:border-white ring-1 ring-black dark:ring-white"
                               : "border-neutral-300 dark:border-neutral-800"
                           }`}
                         />
+
+                        {/* Live Availability Status Icon */}
+                        <div className="absolute right-3.5 top-1/2 -translate-y-1/2 flex items-center">
+                          {usernameStatus === "checking" && (
+                            <Loader2 className="w-4 h-4 text-neutral-400 animate-spin" />
+                          )}
+                          {usernameStatus === "available" && (
+                            <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                          )}
+                          {(usernameStatus === "taken" || usernameStatus === "reserved" || usernameStatus === "invalid") && (
+                            <XCircle className="w-4 h-4 text-rose-500" />
+                          )}
+                        </div>
                       </div>
 
-                      {/* Live Permanent Username Notice */}
-                      <div className="mt-1.5 p-2 rounded-lg bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200 dark:border-neutral-700 flex items-start gap-1.5 text-[11px] text-neutral-600 dark:text-neutral-400 leading-snug">
-                        <AlertTriangle className="w-3.5 h-3.5 text-neutral-800 dark:text-neutral-200 flex-shrink-0 mt-0.5" />
-                        <span>
-                          <strong className="text-neutral-900 dark:text-white font-semibold">Note:</strong> Your username cannot be changed later.
-                        </span>
-                      </div>
+                      {/* Live Feedback / Warning Banner */}
+                      {usernameStatus === "available" && (
+                        <div className="mt-1.5 p-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/60 flex items-center gap-1.5 text-[11px] text-emerald-700 dark:text-emerald-300 font-medium animate-in fade-in duration-150">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
+                          <span>{usernameMessage}</span>
+                        </div>
+                      )}
+
+                      {(usernameStatus === "taken" || usernameStatus === "reserved" || usernameStatus === "invalid") && (
+                        <div className="mt-1.5 p-2 rounded-lg bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 flex items-center gap-1.5 text-[11px] text-rose-700 dark:text-rose-300 font-medium animate-in fade-in duration-150">
+                          <AlertCircle className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400 flex-shrink-0" />
+                          <span>{usernameMessage}</span>
+                        </div>
+                      )}
+
+                      {usernameStatus === "idle" && (
+                        <div className="mt-1.5 p-2 rounded-lg bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200 dark:border-neutral-700 flex items-start gap-1.5 text-[11px] text-neutral-600 dark:text-neutral-400 leading-snug">
+                          <AlertTriangle className="w-3.5 h-3.5 text-neutral-800 dark:text-neutral-200 flex-shrink-0 mt-0.5" />
+                          <span>
+                            <strong className="text-neutral-900 dark:text-white font-semibold">Note:</strong> Your username cannot be changed later.
+                          </span>
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -452,7 +555,7 @@ export default function HomePage() {
                   {/* Primary Submit Button */}
                   <button
                     type="submit"
-                    disabled={loading}
+                    disabled={loading || (isSignUp && (usernameStatus === "taken" || usernameStatus === "reserved" || usernameStatus === "invalid" || usernameStatus === "checking"))}
                     className="w-full mt-2 py-3 bg-black dark:bg-white hover:bg-neutral-800 dark:hover:bg-neutral-200 text-white dark:text-black rounded-xl text-sm font-semibold transition disabled:opacity-50 shadow-sm flex items-center justify-center gap-2 cursor-pointer"
                   >
                     {loading ? (

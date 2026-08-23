@@ -7,6 +7,11 @@ import {
   findSharedEmployeeByToken,
   updateSharedEmployee,
 } from "@/lib/employeeStore";
+import {
+  isTursoEnabled,
+  tursoFindEmployeeByToken,
+  tursoUpdateEmployee,
+} from "@/lib/tursoDb";
 import { eq } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
@@ -22,7 +27,17 @@ export async function GET(request: NextRequest) {
   try {
     let employee: Employee | null = null;
 
-    if (db) {
+    // 1. Try Turso
+    if (isTursoEnabled) {
+      try {
+        employee = await tursoFindEmployeeByToken(token);
+      } catch (err) {
+        console.warn("Turso query error in join GET:", err);
+      }
+    }
+
+    // 2. Try PostgreSQL / Neon
+    if (!employee && db) {
       try {
         const found = await db
           .select()
@@ -37,6 +52,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // 3. Try In-Memory Store
     if (!employee) {
       employee = findSharedEmployeeByToken(token) || null;
     }
@@ -75,7 +91,18 @@ export async function POST(request: NextRequest) {
     const cleanUsername = sanitizeSlug(username);
 
     let employee: Employee | null = null;
-    if (db) {
+
+    // 1. Try Turso
+    if (isTursoEnabled) {
+      try {
+        employee = await tursoFindEmployeeByToken(token);
+      } catch (err) {
+        console.warn("Turso query error in join POST:", err);
+      }
+    }
+
+    // 2. Try PostgreSQL / Neon
+    if (!employee && db) {
       try {
         const found = await db
           .select()
@@ -90,6 +117,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // 3. Try In-Memory Store
     if (!employee) {
       employee = findSharedEmployeeByToken(token) || null;
     }
@@ -101,7 +129,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Update employee status to active and save profile
+    // Update in Turso
+    if (isTursoEnabled) {
+      try {
+        await tursoUpdateEmployee(employee.id, {
+          name: cleanName,
+          username: cleanUsername,
+          password: password,
+          status: "active",
+          inviteToken: undefined,
+        });
+      } catch (err) {
+        console.warn("Turso update error in join POST:", err);
+      }
+    }
+
+    // Update in PostgreSQL
     if (db) {
       try {
         await db
@@ -116,7 +159,7 @@ export async function POST(request: NextRequest) {
           })
           .where(eq(employees.id, employee.id));
       } catch (dbErr) {
-        console.warn("DB update error in join POST (falling back to memory):", dbErr);
+        console.warn("DB update error in join POST:", dbErr);
       }
     }
 

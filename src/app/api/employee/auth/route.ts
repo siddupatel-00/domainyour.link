@@ -9,8 +9,11 @@ import { db } from "@/lib/db";
 import { employees, Employee } from "@/lib/db/schema";
 import {
   findSharedEmployeeByEmailOrUser,
-  updateSharedEmployee,
 } from "@/lib/employeeStore";
+import {
+  isTursoEnabled,
+  tursoFindEmployeeByEmailOrUsername,
+} from "@/lib/tursoDb";
 import { eq, or } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
@@ -47,7 +50,18 @@ export async function POST(request: NextRequest) {
       }
 
       let targetEmployee: Employee | null = null;
-      if (db) {
+
+      // 1. Try Turso
+      if (isTursoEnabled) {
+        try {
+          targetEmployee = await tursoFindEmployeeByEmailOrUsername(cleanIdent);
+        } catch (err) {
+          console.warn("Turso query error in employee auth:", err);
+        }
+      }
+
+      // 2. Try PostgreSQL / Neon
+      if (!targetEmployee && db) {
         try {
           const found = await db
             .select()
@@ -60,6 +74,7 @@ export async function POST(request: NextRequest) {
         } catch {}
       }
 
+      // 3. Try In-Memory Store
       if (!targetEmployee) {
         targetEmployee = findSharedEmployeeByEmailOrUser(cleanIdent) || null;
       }
@@ -125,7 +140,14 @@ export async function POST(request: NextRequest) {
     const cleanEmail = email.trim().toLowerCase();
 
     let targetEmployee: Employee | null = null;
-    if (db) {
+
+    if (isTursoEnabled) {
+      try {
+        targetEmployee = await tursoFindEmployeeByEmailOrUsername(cleanEmail);
+      } catch {}
+    }
+
+    if (!targetEmployee && db) {
       try {
         const found = await db
           .select()

@@ -4,11 +4,17 @@ import { redirects, Redirect, clickEvents } from "@/lib/db/schema";
 import { isAuthenticated, getSessionUser } from "@/lib/auth";
 import { sanitizeSlug, isValidUrl } from "@/lib/utils";
 import { desc, and, eq, gte, lte } from "drizzle-orm";
+import {
+  isTursoEnabled,
+  tursoGetRedirects,
+  tursoFindRedirect,
+  tursoCreateRedirect,
+} from "@/lib/tursoDb";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-// In-memory fallback store for local development when Postgres is not yet connected
+// In-memory fallback store for local development
 const localFallbackLinks: Redirect[] = [];
 const localFallbackClickEvents: { redirectId: number; createdAt: Date }[] = [];
 let nextId = 1;
@@ -54,130 +60,34 @@ export function calculateExpiration(duration?: string | null): Date | null {
   }
 }
 
-// GET /api/redirects - List all redirects with real-time freshness
+// GET /api/redirects - List all redirects
 export async function GET(request: NextRequest) {
   const authed = await isAuthenticated();
   if (!authed) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: noCacheHeaders });
   }
 
-  const { searchParams } = new URL(request.url);
-  const timeframe = searchParams.get("timeframe");
-  const customStart = searchParams.get("startDate");
-  const customEnd = searchParams.get("endDate");
+  const session = await getSessionUser();
+  const username = session?.username || "creator";
 
+  // 1. Try Turso if enabled
+  if (isTursoEnabled) {
+    try {
+      const list = await tursoGetRedirects(username);
+      return NextResponse.json({ redirects: list }, { headers: noCacheHeaders });
+    } catch {}
+  }
+
+  // 2. Try PostgreSQL / Neon
   try {
     const list = await db
       .select()
       .from(redirects)
       .orderBy(desc(redirects.createdAt));
 
-    // If timeframe filtering is requested, calculate clicks in that range
-    if (timeframe) {
-      const now = new Date();
-      let startDate: Date;
-      let endDate: Date = now;
-
-      switch (timeframe) {
-        case "24h":
-          startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-          break;
-        case "7d":
-          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-          break;
-        case "14d":
-          startDate = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
-          break;
-        case "this_month":
-          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-          break;
-        case "last_month":
-          startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-          endDate = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
-          break;
-        case "custom":
-          startDate = customStart ? new Date(customStart) : new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-          if (customEnd) endDate = new Date(new Date(customEnd).setHours(23, 59, 59, 999));
-          break;
-        default:
-          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      }
-
-      // Query click events in range
-      const events = await db
-        .select()
-        .from(clickEvents)
-        .where(
-          and(
-            gte(clickEvents.createdAt, startDate),
-            lte(clickEvents.createdAt, endDate)
-          )
-        );
-
-      const countsMap: Record<number, number> = {};
-      events.forEach((ev) => {
-        countsMap[ev.redirectId] = (countsMap[ev.redirectId] || 0) + 1;
-      });
-
-      const enrichedList = list.map((r) => ({
-        ...r,
-        clickCount: countsMap[r.id] ?? r.clickCount,
-      }));
-
-      return NextResponse.json({ redirects: enrichedList }, { headers: noCacheHeaders });
-    }
-
     return NextResponse.json({ redirects: list }, { headers: noCacheHeaders });
-  } catch (error) {
-    console.warn("Using local fallback store:", error);
-    
-    // In local fallback, if click events exist filter them, else return list
-    if (timeframe && localFallbackClickEvents.length > 0) {
-      const now = new Date();
-      let startDate: Date;
-      let endDate: Date = now;
-
-      switch (timeframe) {
-        case "24h":
-          startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-          break;
-        case "7d":
-          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-          break;
-        case "14d":
-          startDate = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
-          break;
-        case "this_month":
-          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-          break;
-        case "last_month":
-          startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-          endDate = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
-          break;
-        case "custom":
-          startDate = customStart ? new Date(customStart) : new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-          if (customEnd) endDate = new Date(new Date(customEnd).setHours(23, 59, 59, 999));
-          break;
-        default:
-          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      }
-
-      const filteredEvents = localFallbackClickEvents.filter(
-        (e) => e.createdAt >= startDate && e.createdAt <= endDate
-      );
-      const countsMap: Record<number, number> = {};
-      filteredEvents.forEach((ev) => {
-        countsMap[ev.redirectId] = (countsMap[ev.redirectId] || 0) + 1;
-      });
-
-      const enrichedList = localFallbackLinks.map((r) => ({
-        ...r,
-        clickCount: countsMap[r.id] ?? r.clickCount,
-      }));
-
-      return NextResponse.json({ redirects: enrichedList }, { headers: noCacheHeaders });
-    }
-
+  } catch {
+    // 3. Fallback memory store
     return NextResponse.json({ redirects: localFallbackLinks }, { headers: noCacheHeaders });
   }
 }
@@ -201,7 +111,7 @@ export async function POST(request: NextRequest) {
       showOnProfile,
     } = body;
 
-    const finalUsername = bodyUsername || session.username || "siddu";
+    const finalUsername = bodyUsername || session.username || "creator";
 
     if (!webname || !destinationUrl) {
       return NextResponse.json(
@@ -245,6 +155,33 @@ export async function POST(request: NextRequest) {
     const expirationDate = expiresAt ? new Date(expiresAt) : calculateExpiration(duration);
     const profileVisibility = showOnProfile !== undefined ? Boolean(showOnProfile) : true;
 
+    // 1. Try Turso if enabled
+    if (isTursoEnabled) {
+      try {
+        const existing = await tursoFindRedirect(cleanUsername, cleanWebname);
+        if (existing) {
+          return NextResponse.json(
+            { error: `A link for /${cleanUsername}/${cleanWebname} already exists.` },
+            { status: 409, headers: noCacheHeaders }
+          );
+        }
+
+        const newRecord = await tursoCreateRedirect({
+          username: cleanUsername,
+          webname: cleanWebname,
+          destinationUrl: formattedDestination,
+          expiresAt: expirationDate,
+          parentId: parentId ? Number(parentId) : null,
+          showOnProfile: profileVisibility,
+        });
+
+        return NextResponse.json({ success: true, redirect: newRecord }, { status: 201, headers: noCacheHeaders });
+      } catch (err: any) {
+        console.error("Turso create redirect error:", err);
+      }
+    }
+
+    // 2. Try PostgreSQL / Neon
     try {
       const existing = await db
         .select({ id: redirects.id })
@@ -283,7 +220,7 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({ success: true, redirect: newRecord }, { status: 201, headers: noCacheHeaders });
     } catch {
-      // Fallback local memory insert
+      // 3. Fallback memory store
       const exists = localFallbackLinks.some(
         (l) => l.username === cleanUsername && l.webname === cleanWebname
       );

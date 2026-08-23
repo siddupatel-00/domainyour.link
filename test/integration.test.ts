@@ -10,6 +10,7 @@ import {
 } from "../src/lib/auth";
 import { generateOtp, storeOtp, verifyOtp } from "../src/lib/email";
 import { hashPassword, verifyPasswordHash, createOrUpdateUser, findUserByEmailOrUsername } from "../src/lib/userStore";
+import { isReservedUsername } from "../src/lib/reservedUsernames";
 
 async function runTests() {
   console.log("🧪 Running domainyourlink Unit & Integration Tests...\n");
@@ -82,8 +83,16 @@ async function runTests() {
   assert(foundUser !== null && foundUser.username === "alex", "Finds user by email");
   assert(verifyPasswordHash("AlexPass123!", foundUser?.password), "Validates stored user password");
 
-  // 6. CEO Master Authentication & Security Tests
-  console.log("\n6. CEO Master Authentication & Security Tests");
+  // 6. Unique Username & Reserved Names Tests
+  console.log("\n6. Unique Username & Reserved Names Tests");
+  assert(isReservedUsername("admin") === true, "Flags 'admin' as reserved");
+  assert(isReservedUsername("ceo") === true, "Flags 'ceo' as reserved");
+  assert(isReservedUsername("employee") === true, "Flags 'employee' as reserved");
+  assert(isReservedUsername("api") === true, "Flags 'api' as reserved");
+  assert(isReservedUsername("siddu") === false, "Allows normal username 'siddu'");
+
+  // 7. CEO Master Authentication & Security Tests
+  console.log("\n7. CEO Master Authentication & Security Tests");
   assert(verifyCeoPassword("ceo123456"), "Validates correct CEO master password");
   assert(!verifyCeoPassword("random123"), "Rejects invalid CEO password");
 
@@ -93,8 +102,8 @@ async function runTests() {
   assert(verifyCeoSessionToken(token) === false, "Prevents regular user session token from unlocking CEO portal");
   assert(verifyCeoSessionToken("tampered.ceo.token") === false, "Rejects tampered CEO token");
 
-  // 7. Employee Session Authentication & Security Tests
-  console.log("\n7. Employee Session Authentication & Security Tests");
+  // 8. Employee Session Authentication & Security Tests
+  console.log("\n8. Employee Session Authentication & Security Tests");
   const empToken = createEmployeeSessionToken({
     id: 1,
     name: "Alex Vance",

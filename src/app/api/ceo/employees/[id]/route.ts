@@ -2,7 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { employees } from "@/lib/db/schema";
 import { isCeoAuthenticated } from "@/lib/auth";
-import { updateSharedEmployee, deleteSharedEmployee, getSharedEmployees } from "@/lib/employeeStore";
+import { updateSharedEmployee, deleteSharedEmployee } from "@/lib/employeeStore";
+import {
+  isTursoEnabled,
+  tursoUpdateEmployee,
+  tursoDeleteEmployee,
+} from "@/lib/tursoDb";
 import { eq } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
@@ -33,13 +38,7 @@ export async function PATCH(
     const body = await request.json();
     const { name, role, status, permissions } = body;
 
-    const updateFields: {
-      name?: string;
-      role?: string;
-      status?: string;
-      permissions?: string;
-      updatedAt: Date;
-    } = {
+    const updateFields: any = {
       updatedAt: new Date(),
     };
 
@@ -52,6 +51,20 @@ export async function PATCH(
         : String(permissions);
     }
 
+    // 1. Try Turso
+    if (isTursoEnabled) {
+      try {
+        const updated = await tursoUpdateEmployee(numericId, updateFields);
+        if (updated) {
+          updateSharedEmployee(numericId, updated);
+          return NextResponse.json({ success: true, employee: updated }, { headers: noCacheHeaders });
+        }
+      } catch (err) {
+        console.error("Turso update employee error:", err);
+      }
+    }
+
+    // 2. Try PostgreSQL / Neon
     try {
       const [updatedRecord] = await db
         .update(employees)
@@ -63,10 +76,9 @@ export async function PATCH(
         updateSharedEmployee(numericId, updatedRecord);
         return NextResponse.json({ success: true, employee: updatedRecord }, { headers: noCacheHeaders });
       }
-    } catch {
-      // Fallback
-    }
+    } catch {}
 
+    // 3. Fallback in-memory
     const updated = updateSharedEmployee(numericId, updateFields);
     if (updated) {
       return NextResponse.json({ success: true, employee: updated }, { headers: noCacheHeaders });
@@ -96,6 +108,20 @@ export async function DELETE(
       return NextResponse.json({ error: "Invalid ID" }, { status: 400, headers: noCacheHeaders });
     }
 
+    // 1. Try Turso
+    if (isTursoEnabled) {
+      try {
+        const ok = await tursoDeleteEmployee(numericId);
+        if (ok) {
+          deleteSharedEmployee(numericId);
+          return NextResponse.json({ success: true, message: "Employee removed" }, { headers: noCacheHeaders });
+        }
+      } catch (err) {
+        console.error("Turso delete employee error:", err);
+      }
+    }
+
+    // 2. Try PostgreSQL / Neon
     try {
       const [deletedRecord] = await db
         .delete(employees)
@@ -106,10 +132,9 @@ export async function DELETE(
         deleteSharedEmployee(numericId);
         return NextResponse.json({ success: true, message: "Employee removed" }, { headers: noCacheHeaders });
       }
-    } catch {
-      // Fallback
-    }
+    } catch {}
 
+    // 3. Fallback in-memory
     const deleted = deleteSharedEmployee(numericId);
     if (deleted) {
       return NextResponse.json({ success: true, message: "Employee removed" }, { headers: noCacheHeaders });
