@@ -58,14 +58,14 @@ export default function EmployeeLoginPage() {
   };
 
   return (
-    <main className="min-h-screen bg-neutral-950 text-white font-sans flex flex-col justify-between p-6 sm:p-10 selection:bg-white selection:text-black">
+    <main className="min-h-screen bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-white font-sans flex flex-col justify-between p-6 sm:p-10 selection:bg-black dark:selection:bg-white selection:text-white dark:selection:text-black transition-colors duration-200">
       {/* Top Header */}
       <header className="max-w-5xl w-full mx-auto flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-white text-black flex items-center justify-center font-bold">
+          <div className="w-8 h-8 rounded-xl bg-black dark:bg-white text-white dark:text-black flex items-center justify-center font-bold">
             <ShieldCheck className="w-5 h-5 stroke-[2.2]" />
           </div>
-          <span className="font-bold text-base text-white tracking-tight">
+          <span className="font-bold text-base text-neutral-900 dark:text-white tracking-tight">
             PermanentLink Staff
           </span>
         </div>
@@ -74,7 +74,7 @@ export default function EmployeeLoginPage() {
           <ThemeToggle />
           <a
             href="/"
-            className="text-xs text-neutral-400 hover:text-white transition"
+            className="text-xs text-neutral-500 hover:text-black dark:text-neutral-400 dark:hover:text-white transition"
           >
             ← Return to App
           </a>
@@ -82,33 +82,33 @@ export default function EmployeeLoginPage() {
       </header>
 
       {/* Main Card */}
-      <div className="max-w-md w-full mx-auto my-auto p-8 sm:p-10 rounded-3xl border border-neutral-800 bg-neutral-900 shadow-2xl space-y-6">
+      <div className="max-w-md w-full mx-auto my-auto p-8 sm:p-10 rounded-3xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-xl space-y-6">
         <div className="text-center space-y-2">
-          <div className="w-12 h-12 rounded-2xl bg-neutral-800 border border-neutral-700 text-white flex items-center justify-center mx-auto shadow-md">
+          <div className="w-12 h-12 rounded-2xl bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-neutral-800 dark:text-white flex items-center justify-center mx-auto shadow-sm">
             <Lock className="w-6 h-6" />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-white">
+          <h1 className="text-2xl font-bold tracking-tight text-neutral-900 dark:text-white">
             Staff Portal Login
           </h1>
-          <p className="text-xs text-neutral-400">
+          <p className="text-xs text-neutral-500 dark:text-neutral-400">
             Sign in with your username and password
           </p>
         </div>
 
         {error && (
-          <div className="p-3.5 rounded-xl border border-red-900/50 bg-red-950/40 text-red-300 text-xs flex items-center gap-2.5">
-            <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
+          <div className="p-3.5 rounded-xl border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 text-xs flex items-center gap-2.5">
+            <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400 flex-shrink-0" />
             <span>{error}</span>
           </div>
         )}
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-neutral-300 mb-1.5">
+            <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1.5">
               Username or Work Email
             </label>
             <div className="relative">
-              <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500" />
+              <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 dark:text-neutral-500" />
               <input
                 type="text"
                 value={identifier}
@@ -116,29 +116,29 @@ export default function EmployeeLoginPage() {
                 placeholder="alex or alex@company.com"
                 autoFocus
                 required
-                className="w-full pl-10 pr-4 py-2.5 text-xs bg-neutral-950 border border-neutral-800 rounded-xl text-white placeholder-neutral-500 focus:outline-none focus:border-white transition"
+                className="w-full pl-10 pr-4 py-2.5 text-xs bg-white dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-800 rounded-xl text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:border-black dark:focus:border-white transition"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-neutral-300 mb-1.5">
+            <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1.5">
               Password
             </label>
             <div className="relative">
-              <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500" />
+              <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 dark:text-neutral-500" />
               <input
                 type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 required
-                className="w-full pl-10 pr-10 py-2.5 text-xs bg-neutral-950 border border-neutral-800 rounded-xl text-white placeholder-neutral-500 focus:outline-none focus:border-white transition"
+                className="w-full pl-10 pr-10 py-2.5 text-xs bg-white dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-800 rounded-xl text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:border-black dark:focus:border-white transition"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-neutral-300 transition p-0.5 cursor-pointer"
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-300 transition p-0.5 cursor-pointer"
               >
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
@@ -148,7 +148,7 @@ export default function EmployeeLoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 bg-white hover:bg-neutral-200 text-black rounded-xl text-xs font-semibold transition disabled:opacity-50 shadow-sm flex items-center justify-center gap-2 cursor-pointer mt-2"
+            className="w-full py-3 bg-black dark:bg-white hover:bg-neutral-800 dark:hover:bg-neutral-200 text-white dark:text-black rounded-xl text-xs font-semibold transition disabled:opacity-50 shadow-sm flex items-center justify-center gap-2 cursor-pointer mt-2"
           >
             {loading ? (
               "Signing In..."
@@ -163,7 +163,7 @@ export default function EmployeeLoginPage() {
       </div>
 
       {/* Footer */}
-      <footer className="text-center text-xs text-neutral-500">
+      <footer className="text-center text-xs text-neutral-400 dark:text-neutral-500">
         PermanentLink Staff & Operations Portal
       </footer>
     </main>
