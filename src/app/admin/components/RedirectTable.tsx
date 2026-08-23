@@ -18,7 +18,6 @@ import {
   Eye,
   EyeOff,
   MousePointerClick,
-  Plus,
 } from "lucide-react";
 
 interface RedirectTableProps {
@@ -47,17 +46,30 @@ export function RedirectTable({
   const [searchTerm, setSearchTerm] = useState("");
   const [copiedId, setCopiedId] = useState<number | null>(null);
   const [openMenuId, setOpenMenuId] = useState<number | null>(null);
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
-  // Close dropdown on click outside
+  // Close dropdown on click outside or scroll/resize
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setOpenMenuId(null);
+        setMenuPos(null);
       }
     };
+    const handleClose = () => {
+      setOpenMenuId(null);
+      setMenuPos(null);
+    };
+
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    window.addEventListener("scroll", handleClose, true);
+    window.addEventListener("resize", handleClose);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      window.removeEventListener("scroll", handleClose, true);
+      window.removeEventListener("resize", handleClose);
+    };
   }, []);
 
   const handleCopy = (id: number, path: string) => {
@@ -319,123 +331,153 @@ export function RedirectTable({
                     </>
                   )}
 
-                  {/* 3 Dots Menu Button & Dropdown */}
-                  <td className="py-4 px-5 text-right relative whitespace-nowrap">
-                    <div className="inline-block text-left" ref={isMenuOpen ? menuRef : null}>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setOpenMenuId(isMenuOpen ? null : r.id);
+                  {/* 3 Dots Menu Button */}
+                  <td className="py-4 px-5 text-right whitespace-nowrap">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (openMenuId === r.id) {
+                          setOpenMenuId(null);
+                          setMenuPos(null);
+                        } else {
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          const dropdownHeight = 260;
+                          const dropdownWidth = 212;
+                          const fitsBelow = rect.bottom + dropdownHeight <= window.innerHeight - 12;
+
+                          setMenuPos({
+                            top: fitsBelow ? rect.bottom + 6 : Math.max(12, rect.top - dropdownHeight - 6),
+                            left: Math.max(12, Math.min(window.innerWidth - dropdownWidth - 12, rect.right - dropdownWidth)),
+                          });
+                          setOpenMenuId(r.id);
+                        }
+                      }}
+                      className="p-1.5 rounded-lg text-neutral-400 hover:text-black dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition cursor-pointer"
+                      title="More options"
+                    >
+                      <MoreVertical className="w-4 h-4" />
+                    </button>
+
+                    {/* Unclipped Fixed 3-Dots Dropdown Menu */}
+                    {isMenuOpen && menuPos && (
+                      <div
+                        ref={menuRef}
+                        style={{
+                          position: "fixed",
+                          top: `${menuPos.top}px`,
+                          left: `${menuPos.left}px`,
+                          zIndex: 9999,
                         }}
-                        className="p-1.5 rounded-lg text-neutral-400 hover:text-black dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition cursor-pointer"
-                        title="More options"
+                        className="w-52 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-1.5 shadow-2xl animate-in fade-in zoom-in-95 duration-150 text-left"
+                        onClick={(e) => e.stopPropagation()}
                       >
-                        <MoreVertical className="w-4 h-4" />
-                      </button>
-
-                      {/* 3-Dots Dropdown Menu */}
-                      {isMenuOpen && (
-                        <div className="absolute right-4 top-12 z-50 w-52 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-1.5 shadow-xl animate-in fade-in zoom-in-95 duration-150 text-left">
-                          {/* Add Sublink option */}
-                          {onCreateSublink && !isExpiredView && (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setOpenMenuId(null);
-                                  onCreateSublink(r);
-                                }}
-                                className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-black dark:text-white hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl transition text-left cursor-pointer"
-                              >
-                                <GitFork className="w-3.5 h-3.5 text-black dark:text-white" />
-                                <span>Add Sub-link</span>
-                              </button>
-                              <div className="h-px bg-neutral-100 dark:bg-neutral-800 my-1" />
-                            </>
-                          )}
-
-                          {/* Toggle Bio Visibility */}
-                          {onToggleProfileVisibility && !isExpiredView && (
+                        {/* Add Sublink option */}
+                        {onCreateSublink && !isExpiredView && (
+                          <>
                             <button
                               type="button"
                               onClick={() => {
                                 setOpenMenuId(null);
-                                onToggleProfileVisibility(r, !isShownOnProfile);
+                                setMenuPos(null);
+                                onCreateSublink(r);
                               }}
-                              className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl transition text-left cursor-pointer"
+                              className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-black dark:text-white hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl transition text-left cursor-pointer"
                             >
-                              {isShownOnProfile ? (
-                                <>
-                                  <EyeOff className="w-3.5 h-3.5 text-neutral-500" />
-                                  <span>Hide from Bio Page</span>
-                                </>
-                              ) : (
-                                <>
-                                  <Sparkles className="w-3.5 h-3.5 text-neutral-500" />
-                                  <span>Show on Bio Page</span>
-                                </>
-                              )}
+                              <GitFork className="w-3.5 h-3.5 text-black dark:text-white" />
+                              <span>Add Sub-link</span>
                             </button>
-                          )}
+                            <div className="h-px bg-neutral-100 dark:bg-neutral-800 my-1" />
+                          </>
+                        )}
 
-                          {/* Edit Destination */}
+                        {/* Toggle Bio Visibility */}
+                        {onToggleProfileVisibility && !isExpiredView && (
                           <button
                             type="button"
                             onClick={() => {
                               setOpenMenuId(null);
-                              onEdit(r);
+                              setMenuPos(null);
+                              onToggleProfileVisibility(r, !isShownOnProfile);
                             }}
                             className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl transition text-left cursor-pointer"
                           >
-                            <Edit2 className="w-3.5 h-3.5 text-neutral-500" />
-                            <span>Edit Destination</span>
+                            {isShownOnProfile ? (
+                              <>
+                                <EyeOff className="w-3.5 h-3.5 text-neutral-500" />
+                                <span>Hide from Bio Page</span>
+                              </>
+                            ) : (
+                              <>
+                                <Sparkles className="w-3.5 h-3.5 text-neutral-500" />
+                                <span>Show on Bio Page</span>
+                              </>
+                            )}
                           </button>
+                        )}
 
-                          {/* Expire Link now */}
-                          {onExpireLink && !isExpiredView && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setOpenMenuId(null);
-                                onExpireLink(r);
-                              }}
-                              className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 rounded-xl transition text-left cursor-pointer"
-                            >
-                              <Clock className="w-3.5 h-3.5 text-amber-500" />
-                              <span>Expire Link Now</span>
-                            </button>
-                          )}
+                        {/* Edit Destination */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setOpenMenuId(null);
+                            setMenuPos(null);
+                            onEdit(r);
+                          }}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl transition text-left cursor-pointer"
+                        >
+                          <Edit2 className="w-3.5 h-3.5 text-neutral-500" />
+                          <span>Edit Destination</span>
+                        </button>
 
-                          {/* Test Link in New Tab */}
-                          <a
-                            href={path}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={() => setOpenMenuId(null)}
-                            className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl transition text-left cursor-pointer"
-                          >
-                            <ExternalLink className="w-3.5 h-3.5 text-neutral-500" />
-                            <span>Visit Link</span>
-                          </a>
-
-                          <div className="h-px bg-neutral-100 dark:bg-neutral-800 my-1" />
-
-                          {/* Delete Link */}
+                        {/* Expire Link now */}
+                        {onExpireLink && !isExpiredView && (
                           <button
                             type="button"
                             onClick={() => {
                               setOpenMenuId(null);
-                              onDelete(r);
+                              setMenuPos(null);
+                              onExpireLink(r);
                             }}
-                            className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-xl transition text-left cursor-pointer"
+                            className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 rounded-xl transition text-left cursor-pointer"
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
-                            <span>Delete Link</span>
+                            <Clock className="w-3.5 h-3.5 text-amber-500" />
+                            <span>Expire Link Now</span>
                           </button>
-                        </div>
-                      )}
-                    </div>
+                        )}
+
+                        {/* Test Link in New Tab */}
+                        <a
+                          href={path}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={() => {
+                            setOpenMenuId(null);
+                            setMenuPos(null);
+                          }}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl transition text-left cursor-pointer"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5 text-neutral-500" />
+                          <span>Visit Link</span>
+                        </a>
+
+                        <div className="h-px bg-neutral-100 dark:bg-neutral-800 my-1" />
+
+                        {/* Delete Link */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setOpenMenuId(null);
+                            setMenuPos(null);
+                            onDelete(r);
+                          }}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-xl transition text-left cursor-pointer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Delete Link</span>
+                        </button>
+                      </div>
+                    )}
                   </td>
                 </tr>
               );

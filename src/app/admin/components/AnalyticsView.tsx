@@ -37,8 +37,32 @@ export function AnalyticsView({
   const [loading, setLoading] = useState(false);
 
   const [openMenuId, setOpenMenuId] = useState<number | null>(null);
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
   const [copiedId, setCopiedId] = useState<number | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
+
+  // Close dropdown on click outside or scroll/resize
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setOpenMenuId(null);
+        setMenuPos(null);
+      }
+    };
+    const handleClose = () => {
+      setOpenMenuId(null);
+      setMenuPos(null);
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    window.addEventListener("scroll", handleClose, true);
+    window.addEventListener("resize", handleClose);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      window.removeEventListener("scroll", handleClose, true);
+      window.removeEventListener("resize", handleClose);
+    };
+  }, []);
 
   // Set default custom dates (start 7 days ago, end today)
   useEffect(() => {
@@ -275,12 +299,26 @@ export function AnalyticsView({
                       </div>
 
                       {/* 3 Dots Button */}
-                      <div className="relative" ref={isMenuOpen ? menuRef : null}>
+                      <div className="relative">
                         <button
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            setOpenMenuId(isMenuOpen ? null : r.id);
+                            if (openMenuId === r.id) {
+                              setOpenMenuId(null);
+                              setMenuPos(null);
+                            } else {
+                              const rect = e.currentTarget.getBoundingClientRect();
+                              const dropdownHeight = 210;
+                              const dropdownWidth = 196;
+                              const fitsBelow = rect.bottom + dropdownHeight <= window.innerHeight - 12;
+
+                              setMenuPos({
+                                top: fitsBelow ? rect.bottom + 6 : Math.max(12, rect.top - dropdownHeight - 6),
+                                left: Math.max(12, Math.min(window.innerWidth - dropdownWidth - 12, rect.right - dropdownWidth)),
+                              });
+                              setOpenMenuId(r.id);
+                            }
                           }}
                           className="p-1.5 rounded-lg text-neutral-400 hover:text-black dark:hover:text-white hover:bg-neutral-200/60 dark:hover:bg-neutral-700 transition cursor-pointer"
                           title="More options"
@@ -288,15 +326,26 @@ export function AnalyticsView({
                           <MoreVertical className="w-4 h-4" />
                         </button>
 
-                        {/* 3-Dots Dropdown Menu */}
-                        {isMenuOpen && (
-                          <div className="absolute right-0 top-9 z-50 w-48 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-1.5 shadow-xl animate-in fade-in zoom-in-95 duration-150 text-left">
+                        {/* Unclipped Fixed 3-Dots Dropdown Menu */}
+                        {isMenuOpen && menuPos && (
+                          <div
+                            ref={menuRef}
+                            style={{
+                              position: "fixed",
+                              top: `${menuPos.top}px`,
+                              left: `${menuPos.left}px`,
+                              zIndex: 9999,
+                            }}
+                            className="w-48 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-1.5 shadow-2xl animate-in fade-in zoom-in-95 duration-150 text-left"
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             {onCreateSublink && (
                               <>
                                 <button
                                   type="button"
                                   onClick={() => {
                                     setOpenMenuId(null);
+                                    setMenuPos(null);
                                     onCreateSublink(r);
                                   }}
                                   className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-black dark:text-white hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl transition text-left cursor-pointer"
@@ -313,6 +362,7 @@ export function AnalyticsView({
                                 type="button"
                                 onClick={() => {
                                   setOpenMenuId(null);
+                                  setMenuPos(null);
                                   onEdit(r);
                                 }}
                                 className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:text-black dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl transition text-left cursor-pointer"
@@ -324,7 +374,11 @@ export function AnalyticsView({
 
                             <button
                               type="button"
-                              onClick={() => handleCopy(r.id, path)}
+                              onClick={() => {
+                                setOpenMenuId(null);
+                                setMenuPos(null);
+                                handleCopy(r.id, path);
+                              }}
                               className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:text-black dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl transition text-left cursor-pointer"
                             >
                               <Copy className="w-3.5 h-3.5 text-neutral-500" />
@@ -335,7 +389,10 @@ export function AnalyticsView({
                               href={path}
                               target="_blank"
                               rel="noopener noreferrer"
-                              onClick={() => setOpenMenuId(null)}
+                              onClick={() => {
+                                setOpenMenuId(null);
+                                setMenuPos(null);
+                              }}
                               className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:text-black dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl transition text-left"
                             >
                               <ExternalLink className="w-3.5 h-3.5 text-neutral-500" />
@@ -349,11 +406,12 @@ export function AnalyticsView({
                                   type="button"
                                   onClick={() => {
                                     setOpenMenuId(null);
+                                    setMenuPos(null);
                                     onDelete(r);
                                   }}
-                                  className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:text-black dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl transition text-left cursor-pointer"
+                                  className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-xl transition text-left cursor-pointer"
                                 >
-                                  <Trash2 className="w-3.5 h-3.5 text-neutral-500" />
+                                  <Trash2 className="w-3.5 h-3.5" />
                                   <span>Delete link</span>
                                 </button>
                               </>

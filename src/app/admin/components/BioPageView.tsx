@@ -34,20 +34,33 @@ export function BioPageView({
   const [loading, setLoading] = useState(true);
   const [copiedId, setCopiedId] = useState<number | string | null>(null);
   const [openMenuId, setOpenMenuId] = useState<number | string | null>(null);
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditMainOpen, setIsEditMainOpen] = useState(false);
   const [editingBio, setEditingBio] = useState<Bio | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
-  // Close dropdown on click outside
+  // Close dropdown on click outside or scroll/resize
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setOpenMenuId(null);
+        setMenuPos(null);
       }
     };
+    const handleClose = () => {
+      setOpenMenuId(null);
+      setMenuPos(null);
+    };
+
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    window.addEventListener("scroll", handleClose, true);
+    window.addEventListener("resize", handleClose);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      window.removeEventListener("scroll", handleClose, true);
+      window.removeEventListener("resize", handleClose);
+    };
   }, []);
 
   const fetchBios = useCallback(async () => {
@@ -212,56 +225,86 @@ export function BioPageView({
               </td>
 
               {/* 3-Dots Settings Menu for Main Bio */}
-              <td className="py-4 px-5 text-right relative">
-                <div className="inline-block text-left" ref={openMenuId === "main" ? menuRef : null}>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setOpenMenuId(openMenuId === "main" ? null : "main");
+              <td className="py-4 px-5 text-right whitespace-nowrap">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (openMenuId === "main") {
+                      setOpenMenuId(null);
+                      setMenuPos(null);
+                    } else {
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      const dropdownHeight = 150;
+                      const dropdownWidth = 196;
+                      const fitsBelow = rect.bottom + dropdownHeight <= window.innerHeight - 12;
+
+                      setMenuPos({
+                        top: fitsBelow ? rect.bottom + 6 : Math.max(12, rect.top - dropdownHeight - 6),
+                        left: Math.max(12, Math.min(window.innerWidth - dropdownWidth - 12, rect.right - dropdownWidth)),
+                      });
+                      setOpenMenuId("main");
+                    }
+                  }}
+                  className="p-1.5 rounded-lg text-neutral-400 hover:text-black dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition cursor-pointer"
+                  title="More options"
+                >
+                  <MoreVertical className="w-4 h-4" />
+                </button>
+
+                {openMenuId === "main" && menuPos && (
+                  <div
+                    ref={menuRef}
+                    style={{
+                      position: "fixed",
+                      top: `${menuPos.top}px`,
+                      left: `${menuPos.left}px`,
+                      zIndex: 9999,
                     }}
-                    className="p-1.5 rounded-lg text-neutral-400 hover:text-black dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition cursor-pointer"
-                    title="More options"
+                    className="w-48 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-1.5 shadow-2xl animate-in fade-in zoom-in-95 duration-150 text-left"
+                    onClick={(e) => e.stopPropagation()}
                   >
-                    <MoreVertical className="w-4 h-4" />
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setOpenMenuId(null);
+                        setMenuPos(null);
+                        setIsEditMainOpen(true);
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:text-black dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl transition text-left cursor-pointer"
+                    >
+                      <Edit2 className="w-3.5 h-3.5 text-neutral-500" />
+                      <span>Edit links to show</span>
+                    </button>
 
-                  {openMenuId === "main" && (
-                    <div className="absolute right-4 top-12 z-50 w-48 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-1.5 shadow-xl animate-in fade-in zoom-in-95 duration-150 text-left">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setOpenMenuId(null);
-                          setIsEditMainOpen(true);
-                        }}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:text-black dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl transition text-left cursor-pointer"
-                      >
-                        <Edit2 className="w-3.5 h-3.5 text-neutral-500" />
-                        <span>Edit links to show</span>
-                      </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setOpenMenuId(null);
+                        setMenuPos(null);
+                        handleCopy("main", `/${currentUser}`);
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:text-black dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl transition text-left cursor-pointer"
+                    >
+                      <Copy className="w-3.5 h-3.5 text-neutral-500" />
+                      <span>Copy bio link</span>
+                    </button>
 
-                      <button
-                        type="button"
-                        onClick={() => handleCopy("main", `/${currentUser}`)}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:text-black dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl transition text-left cursor-pointer"
-                      >
-                        <Copy className="w-3.5 h-3.5 text-neutral-500" />
-                        <span>Copy bio link</span>
-                      </button>
-
-                      <a
-                        href={`/${currentUser}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={() => setOpenMenuId(null)}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:text-black dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl transition text-left"
-                      >
-                        <ExternalLink className="w-3.5 h-3.5 text-neutral-500" />
-                        <span>Open page</span>
-                      </a>
-                    </div>
-                  )}
-                </div>
+                    <a
+                      href={`/${currentUser}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => {
+                        setOpenMenuId(null);
+                        setMenuPos(null);
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:text-black dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl transition text-left"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5 text-neutral-500" />
+                      <span>Open page</span>
+                    </a>
+                  </div>
+                )}
               </td>
             </tr>
 
@@ -315,71 +358,102 @@ export function BioPageView({
                     </span>
                   </td>
 
-                  <td className="py-4 px-5 text-right relative">
-                    <div className="inline-block text-left" ref={isMenuOpen ? menuRef : null}>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setOpenMenuId(isMenuOpen ? null : b.id);
+                  <td className="py-4 px-5 text-right whitespace-nowrap">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (openMenuId === b.id) {
+                          setOpenMenuId(null);
+                          setMenuPos(null);
+                        } else {
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          const dropdownHeight = 180;
+                          const dropdownWidth = 196;
+                          const fitsBelow = rect.bottom + dropdownHeight <= window.innerHeight - 12;
+
+                          setMenuPos({
+                            top: fitsBelow ? rect.bottom + 6 : Math.max(12, rect.top - dropdownHeight - 6),
+                            left: Math.max(12, Math.min(window.innerWidth - dropdownWidth - 12, rect.right - dropdownWidth)),
+                          });
+                          setOpenMenuId(b.id);
+                        }
+                      }}
+                      className="p-1.5 rounded-lg text-neutral-400 hover:text-black dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition cursor-pointer"
+                      title="More options"
+                    >
+                      <MoreVertical className="w-4 h-4" />
+                    </button>
+
+                    {/* 3-Dots Dropdown Menu */}
+                    {isMenuOpen && menuPos && (
+                      <div
+                        ref={menuRef}
+                        style={{
+                          position: "fixed",
+                          top: `${menuPos.top}px`,
+                          left: `${menuPos.left}px`,
+                          zIndex: 9999,
                         }}
-                        className="p-1.5 rounded-lg text-neutral-400 hover:text-black dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition cursor-pointer"
-                        title="More options"
+                        className="w-48 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-1.5 shadow-2xl animate-in fade-in zoom-in-95 duration-150 text-left"
+                        onClick={(e) => e.stopPropagation()}
                       >
-                        <MoreVertical className="w-4 h-4" />
-                      </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setOpenMenuId(null);
+                            setMenuPos(null);
+                            setEditingBio(b);
+                          }}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:text-black dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl transition text-left cursor-pointer"
+                        >
+                          <Edit2 className="w-3.5 h-3.5 text-neutral-500" />
+                          <span>Edit links & duration</span>
+                        </button>
 
-                      {/* 3-Dots Dropdown Menu */}
-                      {isMenuOpen && (
-                        <div className="absolute right-4 top-12 z-50 w-48 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-1.5 shadow-xl animate-in fade-in zoom-in-95 duration-150 text-left">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setOpenMenuId(null);
-                              setEditingBio(b);
-                            }}
-                            className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:text-black dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl transition text-left cursor-pointer"
-                          >
-                            <Edit2 className="w-3.5 h-3.5 text-neutral-500" />
-                            <span>Edit links & duration</span>
-                          </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setOpenMenuId(null);
+                            setMenuPos(null);
+                            handleCopy(b.id, path);
+                          }}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:text-black dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl transition text-left cursor-pointer"
+                        >
+                          <Copy className="w-3.5 h-3.5 text-neutral-500" />
+                          <span>Copy bio link</span>
+                        </button>
 
-                          <button
-                            type="button"
-                            onClick={() => handleCopy(b.id, path)}
-                            className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:text-black dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl transition text-left cursor-pointer"
-                          >
-                            <Copy className="w-3.5 h-3.5 text-neutral-500" />
-                            <span>Copy bio link</span>
-                          </button>
+                        <a
+                          href={path}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={() => {
+                            setOpenMenuId(null);
+                            setMenuPos(null);
+                          }}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:text-black dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl transition text-left"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5 text-neutral-500" />
+                          <span>Open page</span>
+                        </a>
 
-                          <a
-                            href={path}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={() => setOpenMenuId(null)}
-                            className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:text-black dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl transition text-left"
-                          >
-                            <ExternalLink className="w-3.5 h-3.5 text-neutral-500" />
-                            <span>Open page</span>
-                          </a>
+                        <div className="h-px bg-neutral-100 dark:bg-neutral-800 my-1" />
 
-                          <div className="h-px bg-neutral-100 dark:bg-neutral-800 my-1" />
-
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setOpenMenuId(null);
-                              handleDeleteBio(b.id);
-                            }}
-                            className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:text-black dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl transition text-left cursor-pointer"
-                          >
-                            <Trash2 className="w-3.5 h-3.5 text-neutral-500" />
-                            <span>Delete bio</span>
-                          </button>
-                        </div>
-                      )}
-                    </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setOpenMenuId(null);
+                            setMenuPos(null);
+                            handleDeleteBio(b.id);
+                          }}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:text-black dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl transition text-left cursor-pointer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5 text-neutral-500" />
+                          <span>Delete bio</span>
+                        </button>
+                      </div>
+                    )}
                   </td>
                 </tr>
               );
