@@ -2,7 +2,6 @@ import { sanitizeSlug, isValidUrl } from "../src/lib/utils";
 import {
   createSessionToken,
   verifySessionToken,
-  verifyAdminPassword,
   verifyCeoPassword,
   createCeoSessionToken,
   verifyCeoSessionToken,
@@ -12,7 +11,7 @@ import {
 import { generateOtp, storeOtp, verifyOtp } from "../src/lib/email";
 
 async function runTests() {
-  console.log("🧪 Running PermanentLink Unit & Integration Tests...\n");
+  console.log("🧪 Running domainyourlink Unit & Integration Tests...\n");
 
   let passed = 0;
   let failed = 0;
@@ -41,11 +40,8 @@ async function runTests() {
   assert(!isValidUrl("not-a-url"), "Rejects invalid string");
   assert(!isValidUrl("javascript:alert(1)"), "Rejects javascript: scheme");
 
-  // 3. Admin Authentication tests
-  console.log("\n3. Admin Auth & JWT Token Verification Tests");
-  assert(verifyAdminPassword("admin123"), "Validates default admin password");
-  assert(!verifyAdminPassword("wrong-password"), "Rejects incorrect password");
-
+  // 3. Creator Session Token Tests
+  console.log("\n3. Creator Session & JWT Token Verification Tests");
   const token = createSessionToken({ username: "siddu", email: "siddu@gmail.com" });
   assert(typeof token === "string" && token.length > 20, "Creates signed JWT session token");
 
@@ -74,7 +70,6 @@ async function runTests() {
   // 5. CEO Master Authentication & Security Tests
   console.log("\n5. CEO Master Authentication & Security Tests");
   assert(verifyCeoPassword("ceo123456"), "Validates correct CEO master password");
-  assert(!verifyCeoPassword("admin123"), "Rejects regular admin password for CEO access");
   assert(!verifyCeoPassword("random123"), "Rejects invalid CEO password");
 
   const ceoToken = createCeoSessionToken();
@@ -89,8 +84,8 @@ async function runTests() {
     id: 1,
     name: "Alex Vance",
     email: "alex@company.com",
-    role: "Support Moderator",
-    permissions: ["view_links", "manage_support"],
+    role: "Insights Viewer",
+    permissions: ["view_insights"],
   });
   assert(typeof empToken === "string" && empToken.length > 20, "Generates signed employee session token");
 
@@ -98,21 +93,18 @@ async function runTests() {
   assert(
     empSession !== null &&
     empSession.email === "alex@company.com" &&
-    empSession.role === "Support Moderator" &&
-    empSession.permissions.includes("manage_support"),
+    empSession.role === "Insights Viewer",
     "Successfully verifies employee session with assigned permissions"
   );
   assert(verifyEmployeeSessionToken(token) === null, "Rejects regular user session token for employee portal");
   assert(verifyEmployeeSessionToken(ceoToken) === null, "Rejects CEO master token for employee portal");
-  assert(verifyEmployeeSessionToken("tampered.emp.token") === null, "Rejects tampered employee token");
+  assert(verifyEmployeeSessionToken("tampered.token") === null, "Rejects tampered employee token");
 
-  console.log(`\n========================================`);
+  console.log("\n========================================");
   console.log(`Summary: ${passed} passed, ${failed} failed`);
-  console.log(`========================================\n`);
+  console.log("========================================\n");
 
-  if (failed > 0) {
-    process.exit(1);
-  }
+  if (failed > 0) process.exit(1);
 }
 
 runTests();

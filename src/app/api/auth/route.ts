@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-  checkAdminPassword,
   setAdminSession,
   clearAdminSession,
   getSessionUser,
@@ -21,13 +20,13 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { action, email, code, username, password } = body;
+    const { action, email, code, username } = body;
 
-    // Action 1: Send verification code to email
+    // Action 1: Send 6-digit verification code to email
     if (action === "send_code") {
       if (!email || !email.includes("@")) {
         return NextResponse.json(
-          { error: "Please enter a valid Gmail / Email address" },
+          { error: "Please enter a valid email address" },
           { status: 400 }
         );
       }
@@ -42,11 +41,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: true,
         message: `Verification code sent to ${cleanEmail}`,
-        devCode: emailResult.devCode, // Included for seamless testing if SMTP is not yet set
+        devCode: emailResult.devCode,
       });
     }
 
-    // Action 2: Verify code & sign in
+    // Action 2: Verify 6-digit code & log in
     if (action === "verify_code" || (code && email)) {
       if (!email || !code) {
         return NextResponse.json(
@@ -65,32 +64,12 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const finalUsername = verification.username || sanitizeSlug(username || "admin");
+      const finalUsername = verification.username || sanitizeSlug(username || "creator");
       await setAdminSession(finalUsername, cleanEmail);
 
       return NextResponse.json({
         success: true,
         user: { username: finalUsername, email: cleanEmail },
-      });
-    }
-
-    // Fallback: Direct password login if provided
-    if (password) {
-      const isValid = checkAdminPassword(password);
-      if (!isValid) {
-        return NextResponse.json(
-          { error: "Invalid password" },
-          { status: 401 }
-        );
-      }
-
-      const cleanUsername = username ? sanitizeSlug(username) : "admin";
-      const cleanEmail = email ? String(email).trim().toLowerCase() : "";
-
-      await setAdminSession(cleanUsername, cleanEmail);
-      return NextResponse.json({
-        success: true,
-        user: { username: cleanUsername, email: cleanEmail },
       });
     }
 
