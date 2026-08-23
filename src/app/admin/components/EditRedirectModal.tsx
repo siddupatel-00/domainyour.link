@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { Redirect } from "@/lib/db/schema";
-import { X, Edit2, AlertCircle, ArrowRight, Clock, ShieldCheck, Calendar, GitFork } from "lucide-react";
-import { isValidUrl, sanitizePathSlug } from "@/lib/utils";
+import { X, Edit2, AlertCircle, ArrowRight, Clock, ShieldCheck, Calendar } from "lucide-react";
+import { isValidUrl } from "@/lib/utils";
 
 interface EditRedirectModalProps {
   redirect: Redirect | null;
@@ -21,7 +21,6 @@ export function EditRedirectModal({
   baseUrl,
 }: EditRedirectModalProps) {
   const [destinationUrl, setDestinationUrl] = useState("");
-  const [webname, setWebname] = useState("");
   const [linkType, setLinkType] = useState<"permanent" | "temporary">("permanent");
   const [duration, setDuration] = useState<string>("24h");
   const [customDate, setCustomDate] = useState<string>("");
@@ -29,12 +28,9 @@ export function EditRedirectModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const isSublink = !!redirect?.parentId || (redirect?.webname.includes("/") ?? false);
-
   useEffect(() => {
     if (redirect && isOpen) {
       setDestinationUrl(redirect.destinationUrl);
-      setWebname(redirect.webname);
       const isExp = redirect.expiresAt && new Date(redirect.expiresAt).getTime() <= Date.now();
       if (redirect.expiresAt && !isExp) {
         setLinkType("temporary");
@@ -64,8 +60,7 @@ export function EditRedirectModal({
   if (!isOpen || !redirect) return null;
 
   const minDate = new Date().toISOString().slice(0, 10);
-  const cleanCurrentWebname = sanitizePathSlug(webname || redirect.webname);
-  const path = `/${redirect.username}/${cleanCurrentWebname}`;
+  const path = `/${redirect.username}/${redirect.webname}`;
   const fullUrl = `${baseUrl}${path}`;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -87,11 +82,6 @@ export function EditRedirectModal({
       return;
     }
 
-    if (!cleanCurrentWebname) {
-      setError("Please enter a valid path name");
-      return;
-    }
-
     let customTimestamp: Date | null = null;
     if (linkType === "temporary" && duration === "custom") {
       if (!customDate || !customTime) {
@@ -107,18 +97,9 @@ export function EditRedirectModal({
 
     setLoading(true);
     try {
-      const payload: {
-        destinationUrl: string;
-        webname?: string;
-        duration?: string;
-        expiresAt?: string | null;
-      } = {
+      const payload: { destinationUrl: string; duration?: string; expiresAt?: string | null } = {
         destinationUrl: finalUrl,
       };
-
-      if (cleanCurrentWebname !== redirect.webname) {
-        payload.webname = cleanCurrentWebname;
-      }
 
       if (linkType === "temporary") {
         if (duration === "custom" && customTimestamp) {
@@ -165,12 +146,8 @@ export function EditRedirectModal({
               <Edit2 className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-neutral-900 dark:text-white">
-                {isSublink ? "Edit Sub-link" : "Edit Destination"}
-              </h2>
-              <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                Update path name and destination URL
-              </p>
+              <h2 className="text-base font-bold text-neutral-900 dark:text-white">Edit Destination</h2>
+              <p className="text-xs text-neutral-500 dark:text-neutral-400">Update where your permanent link points</p>
             </div>
           </div>
           <button
@@ -192,39 +169,11 @@ export function EditRedirectModal({
 
         <form onSubmit={handleSubmit} className="mt-5 space-y-4">
           <div className="p-3.5 rounded-2xl bg-neutral-50 dark:bg-neutral-800/50 border border-neutral-200 dark:border-neutral-800 text-xs space-y-1">
-            <span className="text-[10px] text-neutral-500 dark:text-neutral-400 uppercase tracking-wider font-semibold block flex items-center gap-1">
-              {isSublink ? (
-                <>
-                  <GitFork className="w-3 h-3 text-neutral-500" /> Sub-link Address
-                </>
-              ) : (
-                "Permanent Link (stays unchanged)"
-              )}
+            <span className="text-[10px] text-neutral-500 dark:text-neutral-400 uppercase tracking-wider font-semibold block">
+              Permanent Link (stays unchanged)
             </span>
             <div className="font-mono font-bold text-neutral-900 dark:text-white truncate">{fullUrl}</div>
           </div>
-
-          {/* Sub-link Path Editor */}
-          {isSublink && (
-            <div>
-              <label className="block text-xs font-semibold text-neutral-800 dark:text-neutral-200 mb-1.5">
-                Sub-link Path Name
-              </label>
-              <div className="flex items-center rounded-xl border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-950 px-3.5 py-2.5 focus-within:border-black dark:focus-within:border-white focus-within:ring-1 focus-within:ring-black dark:focus-within:ring-white transition">
-                <span className="text-xs text-neutral-400 font-mono select-none">
-                  /{redirect.username}/
-                </span>
-                <input
-                  type="text"
-                  value={webname}
-                  onChange={(e) => setWebname(e.target.value)}
-                  placeholder="e.g. x-twitter/promo"
-                  required
-                  className="w-full text-xs bg-transparent text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-600 focus:outline-none ml-1 font-mono font-medium"
-                />
-              </div>
-            </div>
-          )}
 
           <div>
             <label className="block text-xs font-semibold text-neutral-800 dark:text-neutral-200 mb-1.5">
@@ -362,7 +311,7 @@ export function EditRedirectModal({
               disabled={loading}
               className="px-5 py-2 text-xs font-semibold text-white dark:text-black bg-black dark:bg-white hover:bg-neutral-800 dark:hover:bg-neutral-200 rounded-xl transition disabled:opacity-50 shadow-sm cursor-pointer"
             >
-              {loading ? "Saving..." : "Save Changes"}
+              {loading ? "Saving..." : "Save Destination"}
             </button>
           </div>
         </form>

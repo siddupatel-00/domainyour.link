@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { redirects } from "@/lib/db/schema";
 import { isAuthenticated } from "@/lib/auth";
-import { isValidUrl, sanitizePathSlug } from "@/lib/utils";
+import { isValidUrl } from "@/lib/utils";
 import { eq } from "drizzle-orm";
 import { getLocalFallbackLinks, calculateExpiration } from "../route";
 import {
@@ -38,24 +38,16 @@ export async function PATCH(
     }
 
     const body = await request.json();
-    const { destinationUrl, duration, expiresAt, showOnProfile, webname } = body;
+    const { destinationUrl, duration, expiresAt, showOnProfile } = body;
 
     const updateFields: {
       destinationUrl?: string;
       expiresAt?: Date | null;
       showOnProfile?: boolean;
-      webname?: string;
       updatedAt: Date;
     } = {
       updatedAt: new Date(),
     };
-
-    if (webname !== undefined) {
-      const cleanW = sanitizePathSlug(webname);
-      if (cleanW) {
-        updateFields.webname = cleanW;
-      }
-    }
 
     if (destinationUrl !== undefined) {
       let formattedDestination = destinationUrl.trim();
@@ -119,7 +111,6 @@ export async function PATCH(
       if (updateFields.destinationUrl !== undefined) item.destinationUrl = updateFields.destinationUrl;
       if (updateFields.expiresAt !== undefined) item.expiresAt = updateFields.expiresAt;
       if (updateFields.showOnProfile !== undefined) item.showOnProfile = updateFields.showOnProfile;
-      if (updateFields.webname !== undefined) item.webname = updateFields.webname;
       item.updatedAt = new Date();
       return NextResponse.json({ success: true, redirect: item }, { headers: noCacheHeaders });
     }

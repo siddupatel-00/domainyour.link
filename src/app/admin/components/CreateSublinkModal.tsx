@@ -32,14 +32,14 @@ export function CreateSublinkModal({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && parentRedirect) {
       setSubWebname("");
-      setDestinationUrl("");
+      setDestinationUrl(parentRedirect.destinationUrl || "");
       setLinkType("permanent");
       setDuration("24h");
       setError(null);
     }
-  }, [isOpen]);
+  }, [isOpen, parentRedirect]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -68,16 +68,17 @@ export function CreateSublinkModal({
     setError(null);
 
     if (!cleanSubWebname) {
-      setError("Please enter a sub-link name (e.g. docs, post1, promo)");
+      setError("Please enter a sub-link path name (e.g. discord, youtube, reddit)");
       return;
     }
 
-    if (!destinationUrl.trim()) {
+    const targetUrl = destinationUrl.trim() || parentRedirect.destinationUrl;
+    if (!targetUrl) {
       setError("Please enter a destination URL");
       return;
     }
 
-    let finalUrl = destinationUrl.trim();
+    let finalUrl = targetUrl;
     if (!finalUrl.startsWith("http://") && !finalUrl.startsWith("https://")) {
       finalUrl = `https://${finalUrl}`;
     }
@@ -197,7 +198,7 @@ export function CreateSublinkModal({
                 type="text"
                 value={subWebname}
                 onChange={(e) => setSubWebname(e.target.value)}
-                placeholder="docs, post1, promo"
+                placeholder="e.g. discord, youtube, reddit"
                 autoFocus
                 required
                 className="w-full text-xs bg-transparent text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-600 focus:outline-none ml-1 font-mono font-medium"
@@ -206,14 +207,19 @@ export function CreateSublinkModal({
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-neutral-800 dark:text-neutral-200 mb-1.5">
-              Where Should It Go? (Destination URL)
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-semibold text-neutral-800 dark:text-neutral-200">
+                Destination URL
+              </label>
+              <span className="text-[10px] text-neutral-500 dark:text-neutral-400">
+                Same destination (or edit if needed)
+              </span>
+            </div>
             <input
               type="text"
               value={destinationUrl}
               onChange={(e) => setDestinationUrl(e.target.value)}
-              placeholder="https://..."
+              placeholder={parentRedirect.destinationUrl || "https://..."}
               required
               className="w-full px-3.5 py-2.5 text-xs bg-white dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 rounded-xl text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-600 focus:outline-none focus:border-black dark:focus:border-white focus:ring-1 focus:ring-black dark:focus:ring-white transition font-mono font-medium"
             />
@@ -326,11 +332,14 @@ export function CreateSublinkModal({
             </div>
           )}
 
-          <div className="p-3.5 rounded-xl bg-neutral-50 dark:bg-neutral-800/50 border border-neutral-200 dark:border-neutral-800 text-xs">
-            <span className="text-[10px] text-neutral-500 dark:text-neutral-400 uppercase tracking-wider font-semibold block mb-1">
-              Your Shareable Sub-link
+          {/* Shareable Link Preview Card */}
+          <div className="p-3.5 rounded-2xl bg-neutral-50 dark:bg-neutral-800/50 border border-neutral-200 dark:border-neutral-800 text-xs space-y-1">
+            <span className="text-[10px] text-neutral-500 dark:text-neutral-400 uppercase tracking-wider font-semibold block">
+              Your Shareable Sub-Link
             </span>
-            <div className="font-mono font-bold text-neutral-900 dark:text-white truncate">{previewPath}</div>
+            <div className="font-mono font-bold text-neutral-900 dark:text-white truncate">
+              {previewPath}
+            </div>
           </div>
 
           <div className="flex items-center justify-end gap-2 pt-4 border-t border-neutral-100 dark:border-neutral-800">
@@ -344,7 +353,7 @@ export function CreateSublinkModal({
             </button>
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !cleanSubWebname}
               className="px-5 py-2 text-xs font-semibold text-white dark:text-black bg-black dark:bg-white hover:bg-neutral-800 dark:hover:bg-neutral-200 rounded-xl transition disabled:opacity-50 shadow-sm cursor-pointer"
             >
               {loading ? "Creating..." : "Create Sub-link"}
