@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   ShieldCheck,
@@ -11,9 +11,9 @@ import {
   Clock,
   LogOut,
   RotateCw,
-  Sparkles,
   Lock,
   Compass,
+  Radio,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
@@ -29,6 +29,7 @@ interface PlatformInsights {
   activeLinksCount: number;
   expiredOrDeletedCount: number;
   totalClicksWorldwide: number;
+  timeframeClicks?: number;
   totalBiosCreated: number;
   topDomains: Array<{ domain: string; clicks: number }>;
 }
@@ -38,12 +39,14 @@ export default function EmployeeInsightsDashboard() {
   const [insights, setInsights] = useState<PlatformInsights | null>(null);
   const [timeframe, setTimeframe] = useState<string>("7d");
   const [loading, setLoading] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
 
   const router = useRouter();
+  const pollTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const fetchInsights = useCallback(async () => {
+  const fetchInsights = useCallback(async (isBackground = false) => {
     try {
-      setLoading(true);
+      if (!isBackground) setLoading(true);
 
       const authRes = await fetch("/api/employee/auth", {
         cache: "no-store",
@@ -63,16 +66,26 @@ export default function EmployeeInsightsDashboard() {
       if (dataRes.ok) {
         const d = await dataRes.json();
         setInsights(d.insights);
+        setLastUpdated(new Date());
       }
     } catch (err) {
       console.error("Fetch employee insights error:", err);
     } finally {
-      setLoading(false);
+      if (!isBackground) setLoading(false);
     }
   }, [router, timeframe]);
 
+  // Initial fetch and auto-polling every 4 seconds for real-time live data
   useEffect(() => {
     fetchInsights();
+
+    pollTimerRef.current = setInterval(() => {
+      fetchInsights(true);
+    }, 4000);
+
+    return () => {
+      if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+    };
   }, [fetchInsights]);
 
   const handleLogout = async () => {
@@ -100,8 +113,9 @@ export default function EmployeeInsightsDashboard() {
                 <span className="font-bold text-sm text-white tracking-tight">
                   PermanentLink Staff
                 </span>
-                <span className="text-[10px] px-2 py-0.5 rounded-md bg-neutral-800 text-neutral-300 font-mono font-semibold">
-                  Insights & Views
+                <span className="text-[10px] px-2 py-0.5 rounded-md bg-neutral-800 text-neutral-300 font-mono font-semibold flex items-center gap-1">
+                  <Radio className="w-2.5 h-2.5 text-emerald-400 animate-pulse" />
+                  <span>Real-Time Insights</span>
                 </span>
               </div>
             </div>
@@ -116,7 +130,7 @@ export default function EmployeeInsightsDashboard() {
             <ThemeToggle />
 
             <button
-              onClick={() => fetchInsights()}
+              onClick={() => fetchInsights(false)}
               title="Refresh Insights"
               className="p-2 rounded-xl text-neutral-400 hover:text-white hover:bg-neutral-900 border border-neutral-800 transition cursor-pointer"
             >
@@ -137,8 +151,8 @@ export default function EmployeeInsightsDashboard() {
 
       {/* Main Container */}
       <div className="max-w-6xl mx-auto px-6 sm:px-12 py-8 sm:py-10 space-y-8">
-        {/* Privacy Shield Banner */}
-        <div className="p-4 rounded-2xl border border-neutral-800 bg-neutral-900/60 flex items-center justify-between gap-3 text-xs">
+        {/* Privacy Shield Banner with Live Sync Indicator */}
+        <div className="p-4 rounded-2xl border border-neutral-800 bg-neutral-900/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
           <div className="flex items-center gap-2.5">
             <div className="w-7 h-7 rounded-lg bg-neutral-800 text-neutral-300 flex items-center justify-center flex-shrink-0">
               <Lock className="w-4 h-4" />
@@ -146,13 +160,14 @@ export default function EmployeeInsightsDashboard() {
             <div>
               <span className="font-semibold text-white">Anonymized Platform Insights Mode</span>
               <p className="text-[11px] text-neutral-400">
-                You have view access to platform totals, click volume, and traffic trends. Creator names and private accounts are hidden.
+                Live view of platform totals, click volume, and traffic trends. Creator names and private accounts are hidden.
               </p>
             </div>
           </div>
 
-          <div className="hidden sm:block text-[11px] font-mono text-neutral-500">
-            Read-Only Analytics
+          <div className="flex items-center gap-2 text-[11px] font-mono text-neutral-400">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+            <span>Live Sync Active</span>
           </div>
         </div>
 
@@ -186,7 +201,7 @@ export default function EmployeeInsightsDashboard() {
               {insights?.totalLinksCreated ?? 0}
             </h4>
             <p className="text-[11px] text-neutral-500 mt-1">
-              {insights?.activeLinksCount ?? 0} currently active
+              {insights?.activeLinksCount ?? 0} active • {insights?.totalBiosCreated ?? 0} bios
             </p>
           </div>
 

@@ -1,22 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getEmployeeSession } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { redirects, bios, Redirect, Bio } from "@/lib/db/schema";
-import { desc } from "drizzle-orm";
+import { redirects, bios, clickEvents, Redirect, Bio } from "@/lib/db/schema";
+import { desc, and, gte, lte } from "drizzle-orm";
+import { getLocalFallbackLinks, getLocalFallbackClickEvents } from "@/app/api/redirects/route";
+import { getLocalFallbackBios } from "@/app/api/bios/route";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
-declare global {
-  // eslint-disable-next-line no-var
-  var fallbackRedirectsStore: Redirect[] | undefined;
-  // eslint-disable-next-line no-var
-  var fallbackBiosStore: Bio[] | undefined;
-}
+const noCacheHeaders = {
+  "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+  Pragma: "no-cache",
+  Expires: "0",
+};
 
 export async function GET(request: NextRequest) {
   const employee = await getEmployeeSession();
   if (!employee) {
-    return NextResponse.json({ error: "Unauthorized employee session" }, { status: 401 });
+    return NextResponse.json({ error: "Unauthorized employee session" }, { status: 401, headers: noCacheHeaders });
   }
 
   try {
@@ -26,51 +28,98 @@ export async function GET(request: NextRequest) {
     let allLinks: Redirect[] = [];
     let allBios: Bio[] = [];
 
-    if (db) {
-      try {
+    try {
+      if (db) {
         allLinks = await db.select().from(redirects).orderBy(desc(redirects.createdAt));
         allBios = await db.select().from(bios).orderBy(desc(bios.createdAt));
-      } catch (err) {
-        console.error("DB error in employee data:", err);
+      }
+    } catch {
+      allLinks = getLocalFallbackLinks();
+      allBios = getLocalFallbackBios();
+    }
+
+    if (allLinks.length === 0) {
+      allLinks = getLocalFallbackLinks();
+    }
+    if (allBios.length === 0) {
+      allBios = getLocalFallbackBios();
+    }
+
+    // Timeframe range calculation for real-time clicks
+    const now = new Date();
+    let startDate: Date | null = null;
+    let endDate: Date = now;
+
+    if (timeframe) {
+      switch (timeframe) {
+        case "24h":
+          startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+          break;
+        case "7d":
+          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          break;
+        case "14d":
+          startDate = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+          break;
+        case "this_month":
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+          break;
+        case "last_month":
+          startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+          endDate = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+          break;
+        default:
+          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
       }
     }
 
-    if (allLinks.length === 0 && global.fallbackRedirectsStore) {
-      allLinks = global.fallbackRedirectsStore;
-    }
-    if (allBios.length === 0 && global.fallbackBiosStore) {
-      allBios = global.fallbackBiosStore;
+    // Calculate timeframe clicks map
+    const countsMap: Record<number, number> = {};
+    if (startDate) {
+      try {
+        if (db) {
+          const events = await db
+            .select()
+            .from(clickEvents)
+            .where(
+              and(
+                gte(clickEvents.createdAt, startDate),
+                lte(clickEvents.createdAt, endDate)
+              )
+            );
+
+          events.forEach((ev) => {
+            countsMap[ev.redirectId] = (countsMap[ev.redirectId] || 0) + 1;
+          });
+        }
+      } catch {
+        const localEvents = getLocalFallbackClickEvents();
+        const filtered = localEvents.filter(
+          (e) => e.createdAt >= (startDate as Date) && e.createdAt <= endDate
+        );
+        filtered.forEach((ev) => {
+          countsMap[ev.redirectId] = (countsMap[ev.redirectId] || 0) + 1;
+        });
+      }
     }
 
-    // Calculate aggregated metrics without revealing any user personal names
-    const uniqueUsernames = new Set(allLinks.map((l) => l.username));
-    const totalPeople = uniqueUsernames.size;
+    const isLinkExpired = (r: Redirect) => {
+      return r.expiresAt && new Date(r.expiresAt).getTime() <= Date.now();
+    };
+
+    const uniqueUsernames = new Set(allLinks.map((l) => l.username.toLowerCase()));
+    const totalPeople = uniqueUsernames.size || (allLinks.length > 0 ? 1 : 0);
     const totalLinksCreated = allLinks.length;
-    const activeCount = allLinks.filter(
-      (r) => !r.expiresAt || new Date(r.expiresAt).getTime() > Date.now()
-    ).length;
-    const expiredOrDeletedCount = allLinks.filter(
-      (r) => r.expiresAt && new Date(r.expiresAt).getTime() <= Date.now()
-    ).length;
+    const activeCount = allLinks.filter((r) => !isLinkExpired(r)).length;
+    const expiredOrDeletedCount = allLinks.filter((r) => isLinkExpired(r)).length;
     const totalClicksWorldwide = allLinks.reduce((acc, curr) => acc + (curr.clickCount || 0), 0);
+    const timeframeClicks = allLinks.reduce((acc, curr) => {
+      const pClicks = countsMap[curr.id] !== undefined ? countsMap[curr.id] : curr.clickCount;
+      return acc + (pClicks || 0);
+    }, 0);
     const totalBiosCreated = allBios.length;
 
-    // Timeframe click calculations
-    const now = Date.now();
-    let timeframeStart = now - 7 * 24 * 60 * 60 * 1000;
-    if (timeframe === "24h") {
-      timeframeStart = now - 24 * 60 * 60 * 1000;
-    } else if (timeframe === "14d") {
-      timeframeStart = now - 14 * 24 * 60 * 60 * 1000;
-    } else if (timeframe === "this_month") {
-      const d = new Date();
-      timeframeStart = new Date(d.getFullYear(), d.getMonth(), 1).getTime();
-    } else if (timeframe === "last_month") {
-      const d = new Date();
-      timeframeStart = new Date(d.getFullYear(), d.getMonth() - 1, 1).getTime();
-    }
-
-    // Domain breakdown (anonymized destinations like youtube.com, instagram.com, linkedin.com)
+    // Anonymized domain breakdown
     const domainCounts: Record<string, number> = {};
     for (const link of allLinks) {
       try {
@@ -80,9 +129,11 @@ export async function GET(request: NextRequest) {
         }
         const parsed = new URL(url);
         const host = parsed.hostname.replace(/^www\./, "");
-        domainCounts[host] = (domainCounts[host] || 0) + (link.clickCount || 0);
+        const clicks = countsMap[link.id] !== undefined ? countsMap[link.id] : (link.clickCount || 0);
+        domainCounts[host] = (domainCounts[host] || 0) + clicks;
       } catch {
-        domainCounts["direct-links"] = (domainCounts["direct-links"] || 0) + (link.clickCount || 0);
+        const clicks = countsMap[link.id] !== undefined ? countsMap[link.id] : (link.clickCount || 0);
+        domainCounts["direct-links"] = (domainCounts["direct-links"] || 0) + clicks;
       }
     }
 
@@ -104,19 +155,16 @@ export async function GET(request: NextRequest) {
           activeLinksCount: activeCount,
           expiredOrDeletedCount,
           totalClicksWorldwide,
+          timeframeClicks,
           totalBiosCreated,
           topDomains,
           timeframe,
         },
       },
-      {
-        headers: {
-          "Cache-Control": "no-store, no-cache, must-revalidate",
-        },
-      }
+      { headers: noCacheHeaders }
     );
   } catch (err) {
     console.error("Employee data error:", err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500, headers: noCacheHeaders });
   }
 }
