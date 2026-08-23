@@ -29,24 +29,20 @@ export default function UserProfilePage({ params }: UserProfilePageProps) {
     async function loadUserLinks() {
       try {
         setLoading(true);
-        const res = await fetch(`/api/redirects?t=${Date.now()}`, {
+        const res = await fetch(`/api/public/profile?username=${encodeURIComponent(cleanUsername)}&t=${Date.now()}`, {
           cache: "no-store",
           headers: { "Cache-Control": "no-cache" },
         });
 
         if (res.ok) {
           const data = await res.json();
-          const allRedirects: LinkItem[] = data.redirects || [];
-          const userActiveVisible = allRedirects.filter((r) => {
-            const isUser = r.username.toLowerCase() === cleanUsername;
-            const isNotExpired = !r.expiresAt || new Date(r.expiresAt).getTime() > Date.now();
-            const isVisible = r.showOnProfile !== false;
-            return isUser && isNotExpired && isVisible;
-          });
-          setLinks(userActiveVisible);
+          setLinks(data.links || []);
+        } else {
+          setLinks([]);
         }
       } catch (err) {
         console.error("Load user links error:", err);
+        setLinks([]);
       } finally {
         setLoading(false);
       }

@@ -43,55 +43,22 @@ export default function SubBioPage({ params }: SubBioPageProps) {
       try {
         setLoading(true);
 
-        const [biosRes, redirectsRes] = await Promise.all([
-          fetch(`/api/bios?t=${Date.now()}`, { cache: "no-store", headers: { "Cache-Control": "no-cache" } }),
-          fetch(`/api/redirects?t=${Date.now()}`, { cache: "no-store", headers: { "Cache-Control": "no-cache" } }),
-        ]);
+        const res = await fetch(
+          `/api/public/profile?username=${encodeURIComponent(cleanUsername)}&bioname=${encodeURIComponent(cleanBioname)}&t=${Date.now()}`,
+          { cache: "no-store", headers: { "Cache-Control": "no-cache" } }
+        );
 
-        let targetBio: BioData | null = null;
-        if (biosRes.ok) {
-          const biosData = await biosRes.json();
-          const allBios: BioData[] = biosData.bios || [];
-          targetBio = allBios.find(
-            (b) => b.username.toLowerCase() === cleanUsername && b.bioname.toLowerCase() === cleanBioname
-          ) || null;
-        }
-
-        let allRedirects: LinkItem[] = [];
-        if (redirectsRes.ok) {
-          const redData = await redirectsRes.json();
-          allRedirects = redData.redirects || [];
-        }
-
-        if (targetBio) {
-          setBio(targetBio);
-
-          if (targetBio.expiresAt && new Date(targetBio.expiresAt).getTime() <= Date.now()) {
-            setIsExpired(true);
-            return;
-          }
-
-          let selectedIds: number[] = [];
-          try {
-            selectedIds = JSON.parse(targetBio.linkIds);
-          } catch {}
-
-          const matchedLinks = allRedirects.filter((r) => {
-            const isUser = r.username.toLowerCase() === cleanUsername;
-            const isNotExpired = !r.expiresAt || new Date(r.expiresAt).getTime() > Date.now();
-            const isInBio = selectedIds.length === 0 || selectedIds.includes(r.id);
-            return isUser && isNotExpired && isInBio;
-          });
-
-          setLinks(matchedLinks);
+        if (res.ok) {
+          const data = await res.json();
+          setBio(data.bio || null);
+          setIsExpired(Boolean(data.isExpired));
+          setLinks(data.links || []);
         } else {
-          const userLinks = allRedirects.filter(
-            (r) => r.username.toLowerCase() === cleanUsername && (!r.expiresAt || new Date(r.expiresAt).getTime() > Date.now())
-          );
-          setLinks(userLinks);
+          setLinks([]);
         }
       } catch (err) {
         console.error("Load bio error:", err);
+        setLinks([]);
       } finally {
         setLoading(false);
       }
@@ -132,21 +99,24 @@ export default function SubBioPage({ params }: SubBioPageProps) {
       </div>
 
       <div className="w-full max-w-md mx-auto space-y-8 animate-in fade-in duration-300">
-        {/* Clean Avatar Header */}
+        {/* Clean Avatar & Header */}
         <div className="text-center space-y-3">
           <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-black dark:bg-white text-white dark:text-black flex items-center justify-center font-bold text-2xl sm:text-3xl shadow-xl mx-auto ring-4 ring-neutral-100 dark:ring-neutral-900">
             {initial}
           </div>
 
-          <div>
-            <h1 className="text-lg sm:text-xl font-bold text-neutral-900 dark:text-white tracking-tight">
-              @{cleanUsername}
+          <div className="space-y-1">
+            <h1 className="text-xl sm:text-2xl font-bold text-neutral-900 dark:text-white tracking-tight">
+              {bio?.title || `@${cleanUsername}`}
             </h1>
             {bio?.description && (
-              <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 max-w-xs mx-auto">
+              <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400 max-w-xs mx-auto leading-relaxed">
                 {bio.description}
               </p>
             )}
+            <div className="text-xs font-mono text-neutral-400 dark:text-neutral-500">
+              @{cleanUsername}/{cleanBioname}
+            </div>
           </div>
         </div>
 
@@ -160,7 +130,7 @@ export default function SubBioPage({ params }: SubBioPageProps) {
             <div className="text-center py-16 px-4 rounded-3xl border border-neutral-100 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/50 space-y-2">
               <Link2 className="w-8 h-8 text-neutral-400 dark:text-neutral-500 mx-auto stroke-[1.8]" />
               <p className="text-xs text-neutral-500 dark:text-neutral-400 max-w-xs mx-auto">
-                No links available right now.
+                No links attached to this bio.
               </p>
             </div>
           ) : (
