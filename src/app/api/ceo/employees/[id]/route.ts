@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { employees } from "@/lib/db/schema";
 import { isCeoAuthenticated } from "@/lib/auth";
+import { updateSharedEmployee, deleteSharedEmployee, getSharedEmployees } from "@/lib/employeeStore";
 import { eq } from "drizzle-orm";
-import { getLocalFallbackEmployees } from "../route";
 
 export const dynamic = "force-dynamic";
 
@@ -60,21 +60,16 @@ export async function PATCH(
         .returning();
 
       if (updatedRecord) {
+        updateSharedEmployee(numericId, updatedRecord);
         return NextResponse.json({ success: true, employee: updatedRecord }, { headers: noCacheHeaders });
       }
     } catch {
       // Fallback
     }
 
-    const fallbackList = getLocalFallbackEmployees();
-    const item = fallbackList.find((e) => e.id === numericId);
-    if (item) {
-      if (updateFields.name !== undefined) item.name = updateFields.name;
-      if (updateFields.role !== undefined) item.role = updateFields.role;
-      if (updateFields.status !== undefined) item.status = updateFields.status;
-      if (updateFields.permissions !== undefined) item.permissions = updateFields.permissions;
-      item.updatedAt = new Date();
-      return NextResponse.json({ success: true, employee: item }, { headers: noCacheHeaders });
+    const updated = updateSharedEmployee(numericId, updateFields);
+    if (updated) {
+      return NextResponse.json({ success: true, employee: updated }, { headers: noCacheHeaders });
     }
 
     return NextResponse.json({ error: "Employee not found" }, { status: 404, headers: noCacheHeaders });
@@ -108,16 +103,15 @@ export async function DELETE(
         .returning();
 
       if (deletedRecord) {
+        deleteSharedEmployee(numericId);
         return NextResponse.json({ success: true, message: "Employee removed" }, { headers: noCacheHeaders });
       }
     } catch {
       // Fallback
     }
 
-    const fallbackList = getLocalFallbackEmployees();
-    const index = fallbackList.findIndex((e) => e.id === numericId);
-    if (index !== -1) {
-      fallbackList.splice(index, 1);
+    const deleted = deleteSharedEmployee(numericId);
+    if (deleted) {
       return NextResponse.json({ success: true, message: "Employee removed" }, { headers: noCacheHeaders });
     }
 

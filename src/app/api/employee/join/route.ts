@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { employees } from "@/lib/db/schema";
+import { employees, Employee } from "@/lib/db/schema";
 import { setEmployeeSession } from "@/lib/auth";
 import { sanitizeSlug } from "@/lib/utils";
+import {
+  findSharedEmployeeByToken,
+  updateSharedEmployee,
+} from "@/lib/employeeStore";
 import { eq } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
@@ -16,20 +20,25 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    let employee = null;
+    let employee: Employee | null = null;
+
     if (db) {
-      const found = await db
-        .select()
-        .from(employees)
-        .where(eq(employees.inviteToken, token))
-        .limit(1);
-      if (found.length > 0) {
-        employee = found[0];
+      try {
+        const found = await db
+          .select()
+          .from(employees)
+          .where(eq(employees.inviteToken, token))
+          .limit(1);
+        if (found.length > 0) {
+          employee = found[0];
+        }
+      } catch (dbErr) {
+        console.warn("DB query error in join (falling back to memory):", dbErr);
       }
     }
 
-    if (!employee && global.fallbackEmployeesStore) {
-      employee = global.fallbackEmployeesStore.find((e) => e.inviteToken === token);
+    if (!employee) {
+      employee = findSharedEmployeeByToken(token) || null;
     }
 
     if (!employee) {
@@ -65,20 +74,24 @@ export async function POST(request: NextRequest) {
     const cleanName = name.trim();
     const cleanUsername = sanitizeSlug(username);
 
-    let employee = null;
+    let employee: Employee | null = null;
     if (db) {
-      const found = await db
-        .select()
-        .from(employees)
-        .where(eq(employees.inviteToken, token))
-        .limit(1);
-      if (found.length > 0) {
-        employee = found[0];
+      try {
+        const found = await db
+          .select()
+          .from(employees)
+          .where(eq(employees.inviteToken, token))
+          .limit(1);
+        if (found.length > 0) {
+          employee = found[0];
+        }
+      } catch (dbErr) {
+        console.warn("DB query error in join POST (falling back to memory):", dbErr);
       }
     }
 
-    if (!employee && global.fallbackEmployeesStore) {
-      employee = global.fallbackEmployeesStore.find((e) => e.inviteToken === token);
+    if (!employee) {
+      employee = findSharedEmployeeByToken(token) || null;
     }
 
     if (!employee) {
@@ -90,33 +103,31 @@ export async function POST(request: NextRequest) {
 
     // Update employee status to active and save profile
     if (db) {
-      await db
-        .update(employees)
-        .set({
-          name: cleanName,
-          username: cleanUsername,
-          password: password,
-          status: "active",
-          inviteToken: null,
-          updatedAt: new Date(),
-        })
-        .where(eq(employees.id, employee.id));
-    }
-
-    if (global.fallbackEmployeesStore) {
-      const idx = global.fallbackEmployeesStore.findIndex((e) => e.id === employee.id);
-      if (idx !== -1) {
-        global.fallbackEmployeesStore[idx] = {
-          ...global.fallbackEmployeesStore[idx],
-          name: cleanName,
-          username: cleanUsername,
-          password: password,
-          status: "active",
-          inviteToken: null,
-          updatedAt: new Date(),
-        };
+      try {
+        await db
+          .update(employees)
+          .set({
+            name: cleanName,
+            username: cleanUsername,
+            password: password,
+            status: "active",
+            inviteToken: null,
+            updatedAt: new Date(),
+          })
+          .where(eq(employees.id, employee.id));
+      } catch (dbErr) {
+        console.warn("DB update error in join POST (falling back to memory):", dbErr);
       }
     }
+
+    // Always update in shared store
+    updateSharedEmployee(employee.id, {
+      name: cleanName,
+      username: cleanUsername,
+      password: password,
+      status: "active",
+      inviteToken: null,
+    });
 
     const employeeSession = {
       id: employee.id,

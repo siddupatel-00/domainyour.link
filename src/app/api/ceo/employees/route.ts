@@ -3,39 +3,17 @@ import { db } from "@/lib/db";
 import { employees, Employee } from "@/lib/db/schema";
 import { isCeoAuthenticated } from "@/lib/auth";
 import { sendEmployeeInviteEmail } from "@/lib/email";
+import {
+  getSharedEmployees,
+  addSharedEmployee,
+  findSharedEmployeeByEmailOrUser,
+} from "@/lib/employeeStore";
 import { desc, eq } from "drizzle-orm";
 import crypto from "crypto";
 
 export const dynamic = "force-dynamic";
 
-// In-memory fallback store for local development
-const localFallbackEmployees: Employee[] = [
-  {
-    id: 1,
-    name: "Alex Vance",
-    email: "alex@company.com",
-    username: "alex",
-    password: null,
-    role: "Insights Viewer",
-    status: "active",
-    inviteToken: null,
-    permissions: "[\"view_insights\"]",
-    createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-    updatedAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-  },
-];
-let nextEmployeeId = 2;
-
-// Expose fallback store globally so other routes can share it
-declare global {
-  // eslint-disable-next-line no-var
-  var fallbackEmployeesStore: Employee[] | undefined;
-}
-global.fallbackEmployeesStore = localFallbackEmployees;
-
-export function getLocalFallbackEmployees() {
-  return localFallbackEmployees;
-}
+let nextEmployeeId = 100;
 
 const noCacheHeaders = {
   "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
@@ -54,8 +32,8 @@ export async function GET() {
     const list = await db.select().from(employees).orderBy(desc(employees.createdAt));
     return NextResponse.json({ employees: list }, { headers: noCacheHeaders });
   } catch (error) {
-    console.warn("Using local fallback for employees:", error);
-    return NextResponse.json({ employees: localFallbackEmployees }, { headers: noCacheHeaders });
+    console.warn("Using shared fallback for employees:", error);
+    return NextResponse.json({ employees: getSharedEmployees() }, { headers: noCacheHeaders });
   }
 }
 
@@ -110,6 +88,9 @@ export async function POST(request: NextRequest) {
         })
         .returning();
 
+      // Also mirror to shared in-memory store
+      addSharedEmployee(newRecord);
+
       // Send the email automatically
       await sendEmployeeInviteEmail(cleanEmail, employeeRole, inviteLink);
 
@@ -119,7 +100,7 @@ export async function POST(request: NextRequest) {
       );
     } catch {
       // Fallback in-memory
-      const exists = localFallbackEmployees.some((e) => e.email === cleanEmail);
+      const exists = findSharedEmployeeByEmailOrUser(cleanEmail);
       if (exists) {
         return NextResponse.json(
           { error: `An employee with email "${cleanEmail}" is already added or invited.` },
@@ -140,7 +121,7 @@ export async function POST(request: NextRequest) {
         createdAt: new Date(),
         updatedAt: new Date(),
       };
-      localFallbackEmployees.unshift(newRecord);
+      addSharedEmployee(newRecord);
 
       await sendEmployeeInviteEmail(cleanEmail, employeeRole, inviteLink);
 

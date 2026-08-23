@@ -7,14 +7,13 @@ import {
 import { generateOtp, storeOtp, verifyOtp, sendOtpEmail } from "@/lib/email";
 import { db } from "@/lib/db";
 import { employees, Employee } from "@/lib/db/schema";
+import {
+  findSharedEmployeeByEmailOrUser,
+  updateSharedEmployee,
+} from "@/lib/employeeStore";
 import { eq, or } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
-
-declare global {
-  // eslint-disable-next-line no-var
-  var fallbackEmployeesStore: Employee[] | undefined;
-}
 
 export async function GET() {
   const session = await getEmployeeSession();
@@ -36,20 +35,20 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { action, email, identifier, password, code } = body;
 
-    // Action A: Direct Password Login with Username or Work Email
+    // Action A: Password Login with Username or Work Email
     if (action === "password" || (identifier && password)) {
       const cleanIdent = (identifier || email || "").trim().toLowerCase();
 
       if (!cleanIdent || !password) {
         return NextResponse.json(
-          { error: "Please provide your username/email and password" },
+          { error: "Please enter your username/email and password" },
           { status: 400 }
         );
       }
 
       let targetEmployee: Employee | null = null;
-      try {
-        if (db) {
+      if (db) {
+        try {
           const found = await db
             .select()
             .from(employees)
@@ -58,20 +57,16 @@ export async function POST(request: NextRequest) {
           if (found.length > 0) {
             targetEmployee = found[0];
           }
-        }
-      } catch {}
+        } catch {}
+      }
 
-      if (!targetEmployee && global.fallbackEmployeesStore) {
-        targetEmployee = global.fallbackEmployeesStore.find(
-          (e) =>
-            e.email.toLowerCase() === cleanIdent ||
-            (e.username && e.username.toLowerCase() === cleanIdent)
-        ) || null;
+      if (!targetEmployee) {
+        targetEmployee = findSharedEmployeeByEmailOrUser(cleanIdent) || null;
       }
 
       if (!targetEmployee) {
         return NextResponse.json(
-          { error: "Invalid username/email or password" },
+          { error: "Invalid username or password" },
           { status: 401 }
         );
       }
@@ -83,9 +78,16 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      if (targetEmployee.status === "invited" && !targetEmployee.password) {
+        return NextResponse.json(
+          { error: "Account setup not completed. Please use the invitation link sent to your email to set your password." },
+          { status: 403 }
+        );
+      }
+
       if (!targetEmployee.password || targetEmployee.password !== password) {
         return NextResponse.json(
-          { error: "Incorrect password. You can also sign in using a 6-digit email code." },
+          { error: "Invalid username or password" },
           { status: 401 }
         );
       }
@@ -112,7 +114,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Action B: Email OTP Flow
+    // Action B: OTP fallback
     if (!email || !email.includes("@")) {
       return NextResponse.json(
         { error: "Please enter a valid work email address" },
@@ -122,10 +124,9 @@ export async function POST(request: NextRequest) {
 
     const cleanEmail = email.trim().toLowerCase();
 
-    // Look up employee in database or local fallback
     let targetEmployee: Employee | null = null;
-    try {
-      if (db) {
+    if (db) {
+      try {
         const found = await db
           .select()
           .from(employees)
@@ -134,13 +135,11 @@ export async function POST(request: NextRequest) {
         if (found.length > 0) {
           targetEmployee = found[0];
         }
-      }
-    } catch {}
+      } catch {}
+    }
 
-    if (!targetEmployee && global.fallbackEmployeesStore) {
-      targetEmployee = global.fallbackEmployeesStore.find(
-        (e) => e.email.toLowerCase() === cleanEmail
-      ) || null;
+    if (!targetEmployee) {
+      targetEmployee = findSharedEmployeeByEmailOrUser(cleanEmail) || null;
     }
 
     if (!targetEmployee) {
@@ -157,7 +156,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Send 6-digit OTP code
     if (action === "send_code") {
       const otp = generateOtp();
       storeOtp(cleanEmail, otp, targetEmployee.name || cleanEmail);
@@ -170,7 +168,6 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Verify code
     if (action === "verify_code" || code) {
       if (!code) {
         return NextResponse.json(
