@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getEmployeeSession } from "@/lib/auth";
+import { getEmployeeSession, clearEmployeeSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { redirects, bios, clickEvents, Redirect, Bio } from "@/lib/db/schema";
 import { desc, and, gte, lte } from "drizzle-orm";
@@ -25,7 +25,11 @@ const noCacheHeaders = {
 export async function GET(request: NextRequest) {
   const employee = await getEmployeeSession();
   if (!employee) {
-    return NextResponse.json({ error: "Unauthorized employee session" }, { status: 401, headers: noCacheHeaders });
+    await clearEmployeeSession();
+    return NextResponse.json(
+      { error: "Access revoked or suspended by CEO" },
+      { status: 401, headers: noCacheHeaders }
+    );
   }
 
   try {

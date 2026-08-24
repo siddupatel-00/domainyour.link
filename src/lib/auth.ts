@@ -1,5 +1,14 @@
 import { cookies } from "next/headers";
 import crypto from "crypto";
+import { db } from "@/lib/db";
+import { employees } from "@/lib/db/schema";
+import {
+  isTursoEnabled,
+  tursoFindEmployeeById,
+  tursoFindEmployeeByEmailOrUsername,
+} from "@/lib/tursoDb";
+import { findSharedEmployeeByEmailOrUser } from "@/lib/employeeStore";
+import { eq, or } from "drizzle-orm";
 
 const JWT_SECRET = process.env.JWT_SECRET || process.env.ADMIN_JWT_SECRET || "domainyourlink-super-secret-production-key-32chars!";
 const CEO_PASSWORD = process.env.CEO_PASSWORD || "ceo123456";
@@ -233,7 +242,71 @@ export async function getEmployeeSession(): Promise<EmployeeSessionPayload | nul
   const cookieStore = await cookies();
   const sessionCookie = cookieStore.get(EMPLOYEE_COOKIE_NAME);
   if (!sessionCookie?.value) return null;
-  return verifyEmployeeSessionToken(sessionCookie.value);
+
+  const rawSession = verifyEmployeeSessionToken(sessionCookie.value);
+  if (!rawSession) return null;
+
+  // Real-time live check: Query database to ensure employee is still valid and not suspended or revoked
+  try {
+    let liveEmployee: any = null;
+
+    // 1. Try Turso
+    if (isTursoEnabled) {
+      try {
+        if (rawSession.id) {
+          liveEmployee = await tursoFindEmployeeById(rawSession.id);
+        }
+        if (!liveEmployee && rawSession.email) {
+          liveEmployee = await tursoFindEmployeeByEmailOrUsername(rawSession.email);
+        }
+      } catch (err) {
+        console.warn("Turso live employee check error:", err);
+      }
+    }
+
+    // 2. Try PostgreSQL / Neon
+    if (!liveEmployee && db) {
+      try {
+        const found = await db
+          .select()
+          .from(employees)
+          .where(or(eq(employees.id, rawSession.id), eq(employees.email, rawSession.email)))
+          .limit(1);
+        if (found.length > 0) liveEmployee = found[0];
+      } catch {}
+    }
+
+    // 3. Try In-Memory Store
+    if (!liveEmployee) {
+      liveEmployee = findSharedEmployeeByEmailOrUser(rawSession.email) || null;
+    }
+
+    // If employee was deleted / revoked from the database, immediately reject
+    if (!liveEmployee) {
+      return null;
+    }
+
+    // If employee was suspended by CEO, immediately reject
+    if (liveEmployee.status === "suspended" || liveEmployee.status === "revoked") {
+      return null;
+    }
+
+    let perms: string[] = ["view_insights"];
+    try {
+      const parsed = JSON.parse(liveEmployee.permissions || "[]");
+      if (Array.isArray(parsed) && parsed.length > 0) perms = parsed;
+    } catch {}
+
+    return {
+      id: liveEmployee.id,
+      name: liveEmployee.name || liveEmployee.email.split("@")[0],
+      email: liveEmployee.email,
+      role: liveEmployee.role,
+      permissions: perms,
+    };
+  } catch {
+    return rawSession;
+  }
 }
 
 // User / Creator Cookie Session

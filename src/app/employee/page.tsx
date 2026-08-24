@@ -76,6 +76,10 @@ export default function EmployeeInsightsDashboard() {
         cache: "no-store",
         headers: { "Cache-Control": "no-cache" },
       });
+      if (dataRes.status === 401 || dataRes.status === 403) {
+        router.push("/employee/login");
+        return;
+      }
       if (dataRes.ok) {
         const d = await dataRes.json();
         setInsights(d.insights);

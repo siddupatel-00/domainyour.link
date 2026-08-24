@@ -9,17 +9,59 @@ import { db } from "@/lib/db";
 import { employees, Employee } from "@/lib/db/schema";
 import {
   findSharedEmployeeByEmailOrUser,
+  updateSharedEmployee,
 } from "@/lib/employeeStore";
 import {
   isTursoEnabled,
   tursoFindEmployeeByEmailOrUsername,
+  tursoUpdateEmployee,
 } from "@/lib/tursoDb";
 import { eq, or } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
 
+function maskEmail(email: string): string {
+  const [name, domain] = email.split("@");
+  if (!domain) return email;
+  const visible = name.slice(0, Math.min(3, name.length));
+  return `${visible}***@${domain}`;
+}
+
+async function findEmployee(identifier: string): Promise<Employee | null> {
+  const clean = identifier.trim().toLowerCase();
+  if (!clean) return null;
+
+  // 1. Try Turso
+  if (isTursoEnabled) {
+    try {
+      const emp = await tursoFindEmployeeByEmailOrUsername(clean);
+      if (emp) return emp;
+    } catch (err) {
+      console.warn("Turso query error in findEmployee:", err);
+    }
+  }
+
+  // 2. Try PostgreSQL / Neon
+  if (db) {
+    try {
+      const found = await db
+        .select()
+        .from(employees)
+        .where(or(eq(employees.email, clean), eq(employees.username, clean)))
+        .limit(1);
+      if (found.length > 0) return found[0];
+    } catch {}
+  }
+
+  // 3. Try In-Memory Store
+  return findSharedEmployeeByEmailOrUser(clean) || null;
+}
+
 export async function GET() {
   const session = await getEmployeeSession();
+  if (!session) {
+    await clearEmployeeSession();
+  }
   return NextResponse.json(
     {
       authenticated: session !== null,
@@ -38,6 +80,160 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { action, email, identifier, password, code } = body;
 
+    // Action 1: Forgot Password - Step 1: Send OTP Code
+    if (action === "forgot_send_code") {
+      const cleanIdent = (identifier || email || "").trim().toLowerCase();
+      if (!cleanIdent) {
+        return NextResponse.json(
+          { error: "Please enter your username or work email" },
+          { status: 400 }
+        );
+      }
+
+      const targetEmployee = await findEmployee(cleanIdent);
+      if (!targetEmployee) {
+        return NextResponse.json(
+          { error: "No staff account found with this username or work email." },
+          { status: 404 }
+        );
+      }
+
+      if (targetEmployee.status === "suspended") {
+        return NextResponse.json(
+          { error: "Your employee account has been suspended. Please contact your CEO." },
+          { status: 403 }
+        );
+      }
+
+      const otp = generateOtp();
+      storeOtp(targetEmployee.email, otp, targetEmployee.name || targetEmployee.email);
+      const emailResult = await sendOtpEmail(targetEmployee.email, otp);
+
+      return NextResponse.json({
+        success: true,
+        email: targetEmployee.email,
+        maskedEmail: maskEmail(targetEmployee.email),
+        message: `6-digit security code sent to ${maskEmail(targetEmployee.email)}`,
+        devCode: emailResult.devCode,
+      });
+    }
+
+    // Action 2: Forgot Password - Step 2: Verify Code
+    if (action === "forgot_verify_code") {
+      const cleanEmail = (email || identifier || "").trim().toLowerCase();
+      if (!cleanEmail || !code) {
+        return NextResponse.json(
+          { error: "Email and 6-digit security code are required" },
+          { status: 400 }
+        );
+      }
+
+      const verification = verifyOtp(cleanEmail, code);
+      if (!verification.valid) {
+        return NextResponse.json(
+          { error: verification.message || "Invalid or expired security code" },
+          { status: 400 }
+        );
+      }
+
+      return NextResponse.json({
+        success: true,
+        verified: true,
+      });
+    }
+
+    // Action 3: Forgot Password - Step 3: Reset Password
+    if (action === "forgot_reset_password") {
+      const cleanEmail = (email || identifier || "").trim().toLowerCase();
+      if (!cleanEmail || !password) {
+        return NextResponse.json(
+          { error: "Email and new password are required" },
+          { status: 400 }
+        );
+      }
+
+      if (password.length < 6) {
+        return NextResponse.json(
+          { error: "Password must be at least 6 characters long" },
+          { status: 400 }
+        );
+      }
+
+      // Verify OTP code
+      if (code) {
+        const verification = verifyOtp(cleanEmail, code);
+        if (!verification.valid) {
+          return NextResponse.json(
+            { error: verification.message || "Invalid or expired security code" },
+            { status: 400 }
+          );
+        }
+      }
+
+      const targetEmployee = await findEmployee(cleanEmail);
+      if (!targetEmployee) {
+        return NextResponse.json(
+          { error: "Employee account not found" },
+          { status: 404 }
+        );
+      }
+
+      // Update password in Turso
+      if (isTursoEnabled) {
+        try {
+          await tursoUpdateEmployee(targetEmployee.id, {
+            password,
+            status: targetEmployee.status === "invited" ? "active" : targetEmployee.status,
+          });
+        } catch (err) {
+          console.warn("Turso update employee password error:", err);
+        }
+      }
+
+      // Update in PostgreSQL if enabled
+      if (db) {
+        try {
+          await db
+            .update(employees)
+            .set({
+              password,
+              status: targetEmployee.status === "invited" ? "active" : targetEmployee.status,
+              updatedAt: new Date(),
+            })
+            .where(eq(employees.id, targetEmployee.id));
+        } catch {}
+      }
+
+      // Update in-memory store
+      updateSharedEmployee(targetEmployee.id, {
+        password,
+        status: targetEmployee.status === "invited" ? "active" : targetEmployee.status,
+      });
+
+      // Automatically sign in the employee
+      let perms: string[] = ["view_insights"];
+      try {
+        const parsed = JSON.parse(targetEmployee.permissions || "[]");
+        if (Array.isArray(parsed) && parsed.length > 0) perms = parsed;
+      } catch {}
+
+      const employeePayload = {
+        id: targetEmployee.id,
+        name: targetEmployee.name || targetEmployee.email.split("@")[0],
+        email: targetEmployee.email,
+        role: targetEmployee.role,
+        permissions: perms,
+      };
+
+      await setEmployeeSession(employeePayload);
+
+      return NextResponse.json({
+        success: true,
+        message: "Password reset successfully! Logged into staff workspace.",
+        employee: employeePayload,
+      });
+    }
+
     // Action A: Password Login with Username or Work Email
     if (action === "password" || (identifier && password)) {
       const cleanIdent = (identifier || email || "").trim().toLowerCase();
@@ -49,35 +245,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      let targetEmployee: Employee | null = null;
-
-      // 1. Try Turso
-      if (isTursoEnabled) {
-        try {
-          targetEmployee = await tursoFindEmployeeByEmailOrUsername(cleanIdent);
-        } catch (err) {
-          console.warn("Turso query error in employee auth:", err);
-        }
-      }
-
-      // 2. Try PostgreSQL / Neon
-      if (!targetEmployee && db) {
-        try {
-          const found = await db
-            .select()
-            .from(employees)
-            .where(or(eq(employees.email, cleanIdent), eq(employees.username, cleanIdent)))
-            .limit(1);
-          if (found.length > 0) {
-            targetEmployee = found[0];
-          }
-        } catch {}
-      }
-
-      // 3. Try In-Memory Store
-      if (!targetEmployee) {
-        targetEmployee = findSharedEmployeeByEmailOrUser(cleanIdent) || null;
-      }
+      const targetEmployee = await findEmployee(cleanIdent);
 
       if (!targetEmployee) {
         return NextResponse.json(
@@ -138,31 +306,7 @@ export async function POST(request: NextRequest) {
     }
 
     const cleanEmail = email.trim().toLowerCase();
-
-    let targetEmployee: Employee | null = null;
-
-    if (isTursoEnabled) {
-      try {
-        targetEmployee = await tursoFindEmployeeByEmailOrUsername(cleanEmail);
-      } catch {}
-    }
-
-    if (!targetEmployee && db) {
-      try {
-        const found = await db
-          .select()
-          .from(employees)
-          .where(eq(employees.email, cleanEmail))
-          .limit(1);
-        if (found.length > 0) {
-          targetEmployee = found[0];
-        }
-      } catch {}
-    }
-
-    if (!targetEmployee) {
-      targetEmployee = findSharedEmployeeByEmailOrUser(cleanEmail) || null;
-    }
+    const targetEmployee = await findEmployee(cleanEmail);
 
     if (!targetEmployee) {
       return NextResponse.json(

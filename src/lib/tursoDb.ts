@@ -599,6 +599,29 @@ export async function tursoFindEmployeeByEmailOrUsername(identifier: string): Pr
   };
 }
 
+export async function tursoFindEmployeeById(id: number): Promise<Employee | null> {
+  const result = await turso.execute({
+    sql: `SELECT * FROM employees WHERE id = ? LIMIT 1;`,
+    args: [id],
+  });
+
+  if (result.rows.length === 0) return null;
+  const row = result.rows[0];
+  return {
+    id: Number(row.id),
+    name: row.name ? String(row.name) : "",
+    email: String(row.email),
+    username: row.username ? String(row.username) : null,
+    password: row.password ? String(row.password) : null,
+    role: String(row.role || "Insights Viewer"),
+    status: String(row.status || "invited"),
+    inviteToken: row.invite_token ? String(row.invite_token) : null,
+    permissions: String(row.permissions || "[\"view_insights\"]"),
+    createdAt: new Date(String(row.created_at)),
+    updatedAt: new Date(String(row.updated_at)),
+  };
+}
+
 export async function tursoFindEmployeeByToken(token: string): Promise<Employee | null> {
   const result = await turso.execute({
     sql: `SELECT * FROM employees WHERE invite_token = ? LIMIT 1;`,

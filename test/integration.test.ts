@@ -11,6 +11,12 @@ import {
 import { generateOtp, storeOtp, verifyOtp, createOtpChallenge, verifyOtpChallenge } from "../src/lib/email";
 import { hashPassword, verifyPasswordHash, createOrUpdateUser, findUserByEmailOrUsername } from "../src/lib/userStore";
 import { isReservedUsername } from "../src/lib/reservedUsernames";
+import {
+  findSharedEmployeeByEmailOrUser,
+  updateSharedEmployee,
+  addSharedEmployee,
+  deleteSharedEmployee,
+} from "../src/lib/employeeStore";
 
 async function runTests() {
   console.log("🧪 Running domainyourlink Unit & Integration Tests...\n");
@@ -130,6 +136,58 @@ async function runTests() {
   assert(verifyEmployeeSessionToken(token) === null, "Rejects regular user session token for employee portal");
   assert(verifyEmployeeSessionToken(ceoToken) === null, "Rejects CEO master token for employee portal");
   assert(verifyEmployeeSessionToken("tampered.token") === null, "Rejects tampered employee token");
+
+  // 9. Employee Password Reset & OTP Tests
+  console.log("\n9. Employee Password Reset & OTP Tests");
+  const empUser = findSharedEmployeeByEmailOrUser("alex");
+  assert(empUser !== undefined && empUser.email === "alex@company.com", "Finds employee by username 'alex'");
+
+  const empOtp = generateOtp();
+  storeOtp(empUser!.email, empOtp, empUser!.name || undefined);
+  assert(verifyOtp(empUser!.email, empOtp).valid === true, "Verifies employee OTP code for password reset");
+  assert(verifyOtp(empUser!.email, "000000").valid === false, "Rejects incorrect OTP code");
+
+  updateSharedEmployee(empUser!.id, { password: "newSecurePassword123" });
+  const updatedEmp = findSharedEmployeeByEmailOrUser("alex");
+  assert(updatedEmp !== undefined && updatedEmp.password === "newSecurePassword123", "Updates employee password after reset");
+
+  // 10. Real-Time Employee Access Revocation & Suspension Tests
+  console.log("\n10. Real-Time Employee Access Revocation & Suspension Tests");
+  // Add a test employee
+  const testEmp = {
+    id: 999,
+    name: "Revoke Test",
+    email: "revoketest@company.com",
+    username: "revoketest",
+    password: "password123",
+    role: "Insights Viewer",
+    status: "active",
+    inviteToken: null,
+    permissions: "[\"view_insights\"]",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+  addSharedEmployee(testEmp);
+
+  // Generate valid session token
+  const testToken = createEmployeeSessionToken({
+    id: 999,
+    name: "Revoke Test",
+    email: "revoketest@company.com",
+    role: "Insights Viewer",
+    permissions: ["view_insights"],
+  });
+  assert(verifyEmployeeSessionToken(testToken) !== null, "Generates active token for test employee");
+
+  // Case A: CEO Suspends Employee
+  updateSharedEmployee(999, { status: "suspended" });
+  const suspendedEmp = findSharedEmployeeByEmailOrUser("revoketest@company.com");
+  assert(suspendedEmp !== undefined && suspendedEmp.status === "suspended", "Marks employee status as suspended");
+
+  // Case B: CEO Deletes / Revokes Employee Access
+  const deleted = deleteSharedEmployee(999);
+  assert(deleted === true, "Successfully deletes employee from store when CEO clicks revoke");
+  assert(findSharedEmployeeByEmailOrUser("revoketest@company.com") === undefined, "Employee is no longer found in store after revocation");
 
   console.log("\n========================================");
   console.log(`Summary: ${passed} passed, ${failed} failed`);
