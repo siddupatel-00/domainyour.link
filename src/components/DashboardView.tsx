@@ -1,11 +1,15 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { Redirect } from "@/lib/db/schema";
+import { Redirect, LinkGroup } from "@/lib/db/schema";
 import { RedirectTable } from "@/app/admin/components/RedirectTable";
 import { AnalyticsView } from "@/app/admin/components/AnalyticsView";
 import { BioPageView } from "@/app/admin/components/BioPageView";
+import { GroupFilterBar } from "@/app/admin/components/GroupFilterBar";
+import { ManageGroupModal } from "@/app/admin/components/ManageGroupModal";
+import { EmailRecapModal } from "@/app/admin/components/EmailRecapModal";
+import { ResetClicksModal } from "@/app/admin/components/ResetClicksModal";
 import { CreateRedirectModal } from "@/app/admin/components/CreateRedirectModal";
 import { CreateSublinkModal } from "@/app/admin/components/CreateSublinkModal";
 import { EditRedirectModal } from "@/app/admin/components/EditRedirectModal";
@@ -16,12 +20,14 @@ import {
   Plus,
   LogOut,
   Check,
-  CheckCircle2,
   TrendingUp,
   Clock,
   RotateCw,
   ExternalLink,
   Sparkles,
+  Mail,
+  Folder,
+  MoreVertical,
 } from "lucide-react";
 
 export type DashboardTab = "links" | "expired" | "analytics" | "bio";
@@ -33,6 +39,8 @@ interface DashboardViewProps {
 export function DashboardView({ initialTab = "links" }: DashboardViewProps) {
   const [activeTab, setActiveTab] = useState<DashboardTab>(initialTab);
   const [redirects, setRedirects] = useState<Redirect[]>([]);
+  const [groups, setGroups] = useState<LinkGroup[]>([]);
+  const [selectedGroupId, setSelectedGroupId] = useState<number | "all">("all");
   const [loading, setLoading] = useState(true);
   const [baseUrl, setBaseUrl] = useState("");
   const [currentUser, setCurrentUser] = useState("siddu");
@@ -42,7 +50,37 @@ export function DashboardView({ initialTab = "links" }: DashboardViewProps) {
   const [sublinkParent, setSublinkParent] = useState<Redirect | null>(null);
   const [editingRedirect, setEditingRedirect] = useState<Redirect | null>(null);
   const [deletingRedirect, setDeletingRedirect] = useState<Redirect | null>(null);
+  const [isManageGroupOpen, setIsManageGroupOpen] = useState(false);
+  const [groupToEdit, setGroupToEdit] = useState<LinkGroup | null>(null);
+  const [isEmailRecapOpen, setIsEmailRecapOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [userMenuPos, setUserMenuPos] = useState<{ top: number; left: number } | null>(null);
+  const userMenuRef = useRef<HTMLDivElement | null>(null);
+  const [resetClicksTarget, setResetClicksTarget] = useState<{ redirect: Redirect | null; isOpen: boolean } | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Close user dropdown on outside click or scroll
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setIsUserMenuOpen(false);
+        setUserMenuPos(null);
+      }
+    };
+    const handleClose = () => {
+      setIsUserMenuOpen(false);
+      setUserMenuPos(null);
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    window.addEventListener("scroll", handleClose, true);
+    window.addEventListener("resize", handleClose);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      window.removeEventListener("scroll", handleClose, true);
+      window.removeEventListener("resize", handleClose);
+    };
+  }, []);
 
   const router = useRouter();
   const pathname = usePathname();
@@ -83,9 +121,55 @@ export function DashboardView({ initialTab = "links" }: DashboardViewProps) {
   const expiredLinks = redirects.filter((r) => isLinkExpired(r));
   const totalClicks = redirects.reduce((acc, curr) => acc + (curr.clickCount || 0), 0);
 
+  // Filter links by selected group
+  const displayedActiveLinks = selectedGroupId === "all"
+    ? activeLinks
+    : activeLinks.filter((r) => {
+        const selectedGroup = groups.find((g) => g.id === selectedGroupId);
+        if (!selectedGroup) return true;
+        try {
+          const parsed = JSON.parse(selectedGroup.linkIds || "[]");
+          return Array.isArray(parsed) && parsed.includes(r.id);
+        } catch {
+          return true;
+        }
+      });
+
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  // Fetch groups
+  const fetchGroups = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/groups?t=${Date.now()}`, {
+        cache: "no-store",
+        headers: { "Cache-Control": "no-cache" },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setGroups(data.groups || []);
+      }
+    } catch (err) {
+      console.warn("Fetch groups error:", err);
+    }
+  }, []);
+
+  // Reorder groups and persist order
+  const handleReorderGroups = async (reorderedGroups: LinkGroup[]) => {
+    setGroups(reorderedGroups);
+    try {
+      await fetch("/api/groups", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orderedIds: reorderedGroups.map((g) => g.id),
+        }),
+      });
+    } catch (err) {
+      console.warn("Failed to persist group order:", err);
+    }
   };
 
   // Real-time fresh data fetch (no-store)
@@ -132,7 +216,8 @@ export function DashboardView({ initialTab = "links" }: DashboardViewProps) {
   useEffect(() => {
     setBaseUrl(window.location.origin);
     fetchRedirects();
-  }, [fetchRedirects]);
+    fetchGroups();
+  }, [fetchRedirects, fetchGroups]);
 
   const handleLogout = async () => {
     try {
@@ -177,6 +262,82 @@ export function DashboardView({ initialTab = "links" }: DashboardViewProps) {
     }
   };
 
+  const handleResetClicks = (redirect: Redirect) => {
+    setResetClicksTarget({ redirect, isOpen: true });
+  };
+
+  const handleResetAllAnalytics = () => {
+    setResetClicksTarget({ redirect: null, isOpen: true });
+  };
+
+  const handleConfirmResetClicks = async () => {
+    if (!resetClicksTarget) return;
+    try {
+      if (resetClicksTarget.redirect) {
+        const r = resetClicksTarget.redirect;
+        const res = await fetch(`/api/redirects/${r.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "reset_analytics" }),
+        });
+        if (res.ok) {
+          showToast(`Reset clicks for /${r.username}/${r.webname} to 0`);
+          fetchRedirects();
+        }
+      } else {
+        const res = await fetch("/api/redirects", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "reset_all_analytics" }),
+        });
+        if (res.ok) {
+          showToast("All link analytics reset to 0 clicks");
+          fetchRedirects();
+        }
+      }
+    } catch (err) {
+      console.error("Reset clicks error:", err);
+    }
+  };
+
+  const handleSaveGroup = async (groupData: {
+    id?: number;
+    name: string;
+    color: string;
+    linkIds: number[];
+  }) => {
+    const isEdit = !!groupData.id;
+    const url = isEdit ? `/api/groups/${groupData.id}` : "/api/groups";
+    const method = isEdit ? "PATCH" : "POST";
+
+    const res = await fetch(url, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: groupData.name,
+        color: groupData.color,
+        linkIds: groupData.linkIds,
+      }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Failed to save group");
+
+    showToast(isEdit ? "Group updated!" : "Group box created!");
+    fetchGroups();
+  };
+
+  const handleDeleteGroup = async (id: number) => {
+    const res = await fetch(`/api/groups/${id}`, { method: "DELETE" });
+    if (!res.ok) throw new Error("Failed to delete group");
+
+    if (selectedGroupId === id) {
+      setSelectedGroupId("all");
+    }
+    showToast("Group box deleted");
+    fetchGroups();
+  };
+
   return (
     <main className="min-h-screen bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 font-sans selection:bg-black dark:selection:bg-white selection:text-white dark:selection:text-black transition-colors duration-200">
       {/* Toast Notification */}
@@ -198,23 +359,14 @@ export function DashboardView({ initialTab = "links" }: DashboardViewProps) {
           </a>
 
           <div className="flex items-center gap-2.5">
-            {/* View Bio Page Shortcut Button */}
-            <a
-              href={`/${currentUser}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hidden sm:flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-neutral-200 dark:border-neutral-800 hover:border-black dark:hover:border-white text-xs font-semibold text-neutral-800 dark:text-neutral-200 bg-white dark:bg-neutral-900 transition shadow-2xs"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-black dark:text-white" />
-              <span>/{currentUser} (Bio Page)</span>
-              <ExternalLink className="w-3 h-3 text-neutral-400" />
-            </a>
-
             {/* Theme Toggle */}
             <ThemeToggle />
 
             <button
-              onClick={() => fetchRedirects()}
+              onClick={() => {
+                fetchRedirects();
+                fetchGroups();
+              }}
               title="Refresh real-time data"
               className="p-2 rounded-xl text-neutral-400 hover:text-black dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 transition cursor-pointer"
             >
@@ -228,13 +380,77 @@ export function DashboardView({ initialTab = "links" }: DashboardViewProps) {
               <Plus className="w-4 h-4" />
               <span>Create Link</span>
             </button>
-            <button
-              onClick={handleLogout}
-              title="Sign Out"
-              className="p-2 rounded-xl text-neutral-400 hover:text-black dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 transition cursor-pointer"
-            >
-              <LogOut className="w-4 h-4" />
-            </button>
+
+            {/* 3-Dots Account Menu Button */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (isUserMenuOpen) {
+                    setIsUserMenuOpen(false);
+                    setUserMenuPos(null);
+                  } else {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const dropdownWidth = 190;
+                    setUserMenuPos({
+                      top: rect.bottom + 6,
+                      left: Math.max(12, rect.right - dropdownWidth),
+                    });
+                    setIsUserMenuOpen(true);
+                  }
+                }}
+                title="Account options"
+                className="p-2 rounded-xl text-neutral-500 hover:text-black dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 transition cursor-pointer"
+              >
+                <MoreVertical className="w-4 h-4" />
+              </button>
+
+              {/* Unclipped 3-Dots Dropdown */}
+              {isUserMenuOpen && userMenuPos && (
+                <div
+                  ref={userMenuRef}
+                  style={{
+                    position: "fixed",
+                    top: `${userMenuPos.top}px`,
+                    left: `${userMenuPos.left}px`,
+                    zIndex: 9999,
+                  }}
+                  className="w-48 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-1.5 shadow-2xl animate-in fade-in zoom-in-95 duration-150 text-left font-sans"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {/* Email Recap */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsUserMenuOpen(false);
+                      setUserMenuPos(null);
+                      setIsEmailRecapOpen(true);
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800 hover:text-black dark:hover:text-white rounded-xl transition text-left cursor-pointer"
+                  >
+                    <Mail className="w-3.5 h-3.5 text-neutral-500" />
+                    <span>Email Recap</span>
+                  </button>
+
+                  <div className="h-px bg-neutral-100 dark:bg-neutral-800 my-1" />
+
+                  {/* Sign Out */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsUserMenuOpen(false);
+                      setUserMenuPos(null);
+                      handleLogout();
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-xl transition text-left cursor-pointer"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                    <span>Sign Out</span>
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </header>
@@ -260,22 +476,20 @@ export function DashboardView({ initialTab = "links" }: DashboardViewProps) {
             </div>
           </div>
 
-          {/* 2. Working Links Box */}
+          {/* 2. Expired Links Box */}
           <div
-            onClick={() => switchTab("links")}
+            onClick={() => switchTab("expired")}
             className="cursor-pointer text-left p-5 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/70 hover:border-neutral-300 dark:hover:border-neutral-700 transition shadow-sm flex items-center justify-between"
           >
             <div>
-              <p className="text-xs text-neutral-500 dark:text-neutral-400 font-medium">Working Links</p>
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 font-medium">Expired Links</p>
               <h4 className="text-2xl font-bold text-neutral-900 dark:text-white mt-1 font-mono">
-                {activeLinks.length}
+                {expiredLinks.length}
               </h4>
-              <p className="text-[11px] text-neutral-400 dark:text-neutral-500 mt-0.5">
-                {expiredLinks.length > 0 ? `${expiredLinks.length} expired` : "100% active & fast"}
-              </p>
+              <p className="text-[11px] text-neutral-400 dark:text-neutral-500 mt-0.5">Ended temporary links</p>
             </div>
             <div className="w-10 h-10 rounded-xl bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center text-black dark:text-white">
-              <CheckCircle2 className="w-5 h-5 stroke-[2]" />
+              <Clock className="w-5 h-5 stroke-[2]" />
             </div>
           </div>
 
@@ -299,6 +513,13 @@ export function DashboardView({ initialTab = "links" }: DashboardViewProps) {
 
         {/* Tab Selection Switcher */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-neutral-100 dark:border-neutral-800/80 pb-4 gap-3">
+          <div className="text-xs text-neutral-400 dark:text-neutral-500 font-mono">
+            {activeTab === "links" && `${activeLinks.length} active`}
+            {activeTab === "expired" && `${expiredLinks.length} expired`}
+            {activeTab === "analytics" && `${totalClicks} total clicks`}
+            {activeTab === "bio" && `/${currentUser}`}
+          </div>
+
           <div className="flex flex-wrap items-center gap-1.5 bg-neutral-100 dark:bg-neutral-900 p-1 rounded-xl border border-transparent dark:border-neutral-800">
             {/* 1. Active Links Tab */}
             <button
@@ -371,13 +592,6 @@ export function DashboardView({ initialTab = "links" }: DashboardViewProps) {
               <span>Bio Page (/{currentUser})</span>
             </button>
           </div>
-
-          <div className="text-xs text-neutral-400 dark:text-neutral-500 font-mono">
-            {activeTab === "links" && `${activeLinks.length} active`}
-            {activeTab === "expired" && `${expiredLinks.length} expired`}
-            {activeTab === "analytics" && `${totalClicks} total clicks`}
-            {activeTab === "bio" && `/${currentUser}`}
-          </div>
         </div>
 
         {/* View Section */}
@@ -386,17 +600,49 @@ export function DashboardView({ initialTab = "links" }: DashboardViewProps) {
             Loading...
           </div>
         ) : activeTab === "links" ? (
-          <RedirectTable
-            redirects={activeLinks}
-            baseUrl={baseUrl}
-            onEdit={(r) => setEditingRedirect(r)}
-            onDelete={(r) => setDeletingRedirect(r)}
-            onCreateOpen={() => setIsCreateOpen(true)}
-            onCreateSublink={(r) => setSublinkParent(r)}
-            onToggleProfileVisibility={handleToggleProfileVisibility}
-            onExpireLink={handleExpireLink}
-            isExpiredView={false}
-          />
+          <div className="space-y-6">
+            {/* Group Organizer Filter Bar */}
+            <GroupFilterBar
+              groups={groups}
+              selectedGroupId={selectedGroupId}
+              onSelectGroup={(gId) => setSelectedGroupId(gId)}
+              totalLinksCount={activeLinks.length}
+              onOpenCreateGroup={() => {
+                setGroupToEdit(null);
+                setIsManageGroupOpen(true);
+              }}
+              onOpenEditGroup={(group) => {
+                setGroupToEdit(group);
+                setIsManageGroupOpen(true);
+              }}
+              onReorderGroups={handleReorderGroups}
+            />
+
+            {/* Active Links Table */}
+            <RedirectTable
+              redirects={displayedActiveLinks}
+              baseUrl={baseUrl}
+              onEdit={(r) => setEditingRedirect(r)}
+              onDelete={(r) => setDeletingRedirect(r)}
+              onCreateOpen={() => setIsCreateOpen(true)}
+              onCreateSublink={(r) => setSublinkParent(r)}
+              onToggleProfileVisibility={handleToggleProfileVisibility}
+              onExpireLink={handleExpireLink}
+              onResetClicks={handleResetClicks}
+              onOpenImportFromAllLinks={
+                selectedGroupId !== "all" && activeLinks.length > 0
+                  ? () => {
+                      const grp = groups.find((g) => g.id === selectedGroupId);
+                      if (grp) {
+                        setGroupToEdit(grp);
+                        setIsManageGroupOpen(true);
+                      }
+                    }
+                  : undefined
+              }
+              isExpiredView={false}
+            />
+          </div>
         ) : activeTab === "expired" ? (
           <RedirectTable
             redirects={expiredLinks}
@@ -406,6 +652,7 @@ export function DashboardView({ initialTab = "links" }: DashboardViewProps) {
             onCreateOpen={() => setIsCreateOpen(true)}
             onCreateSublink={(r) => setSublinkParent(r)}
             onToggleProfileVisibility={handleToggleProfileVisibility}
+            onResetClicks={handleResetClicks}
             isExpiredView={true}
           />
         ) : activeTab === "analytics" ? (
@@ -415,6 +662,8 @@ export function DashboardView({ initialTab = "links" }: DashboardViewProps) {
             onEdit={(r) => setEditingRedirect(r)}
             onDelete={(r) => setDeletingRedirect(r)}
             onCreateSublink={(r) => setSublinkParent(r)}
+            onResetClicks={handleResetClicks}
+            onResetAllAnalytics={handleResetAllAnalytics}
           />
         ) : (
           <BioPageView
@@ -439,9 +688,9 @@ export function DashboardView({ initialTab = "links" }: DashboardViewProps) {
       />
 
       <CreateSublinkModal
-        parentRedirect={sublinkParent}
         isOpen={!!sublinkParent}
         onClose={() => setSublinkParent(null)}
+        parentRedirect={sublinkParent}
         baseUrl={baseUrl}
         currentUser={currentUser}
         onCreated={() => {
@@ -451,25 +700,50 @@ export function DashboardView({ initialTab = "links" }: DashboardViewProps) {
       />
 
       <EditRedirectModal
-        redirect={editingRedirect}
         isOpen={!!editingRedirect}
         onClose={() => setEditingRedirect(null)}
+        redirect={editingRedirect}
         baseUrl={baseUrl}
         onUpdated={() => {
           fetchRedirects();
-          showToast("Link updated!");
+          showToast("Destination updated!");
         }}
       />
 
       <DeleteRedirectModal
-        redirect={deletingRedirect}
         isOpen={!!deletingRedirect}
         onClose={() => setDeletingRedirect(null)}
+        redirect={deletingRedirect}
         baseUrl={baseUrl}
         onDeleted={() => {
           fetchRedirects();
           showToast("Link deleted");
         }}
+      />
+
+      <ManageGroupModal
+        isOpen={isManageGroupOpen}
+        onClose={() => {
+          setIsManageGroupOpen(false);
+          setGroupToEdit(null);
+        }}
+        groupToEdit={groupToEdit}
+        allRedirects={activeLinks}
+        onSaveGroup={handleSaveGroup}
+        onDeleteGroup={handleDeleteGroup}
+      />
+
+      <EmailRecapModal
+        isOpen={isEmailRecapOpen}
+        onClose={() => setIsEmailRecapOpen(false)}
+        currentUser={currentUser}
+      />
+
+      <ResetClicksModal
+        isOpen={!!resetClicksTarget?.isOpen}
+        onClose={() => setResetClicksTarget(null)}
+        targetRedirect={resetClicksTarget?.redirect ?? null}
+        onConfirm={handleConfirmResetClicks}
       />
     </main>
   );

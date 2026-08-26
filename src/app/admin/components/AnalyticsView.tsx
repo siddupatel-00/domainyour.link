@@ -13,6 +13,8 @@ import {
   Check,
   GitFork,
   Calendar,
+  RotateCcw,
+  Mail,
 } from "lucide-react";
 
 interface AnalyticsViewProps {
@@ -21,6 +23,8 @@ interface AnalyticsViewProps {
   onEdit?: (redirect: Redirect) => void;
   onDelete?: (redirect: Redirect) => void;
   onCreateSublink?: (parentRedirect: Redirect) => void;
+  onResetClicks?: (redirect: Redirect) => void;
+  onResetAllAnalytics?: () => void;
 }
 
 export function AnalyticsView({
@@ -29,6 +33,8 @@ export function AnalyticsView({
   onEdit,
   onDelete,
   onCreateSublink,
+  onResetClicks,
+  onResetAllAnalytics,
 }: AnalyticsViewProps) {
   const [timeframe, setTimeframe] = useState<string>("7d");
   const [customStart, setCustomStart] = useState<string>("");
@@ -100,82 +106,124 @@ export function AnalyticsView({
     fetchTimeframeData();
   }, [fetchTimeframeData]);
 
-  // Close dropdown on click outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setOpenMenuId(null);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  const totalClicks = filteredRedirects.reduce((acc, curr) => acc + (curr.clickCount || 0), 0);
-
-  // Sort redirects by clicks descending
-  const sortedRedirects = [...filteredRedirects].sort(
-    (a, b) => (b.clickCount || 0) - (a.clickCount || 0)
-  );
-
   const handleCopy = (id: number, path: string) => {
     const fullUrl = `${baseUrl}${path}`;
     navigator.clipboard.writeText(fullUrl);
     setCopiedId(id);
-    setOpenMenuId(null);
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  if (initialRedirects.length === 0) {
-    return (
-      <div className="text-center py-24 rounded-3xl border border-neutral-100 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/50 font-sans">
-        <div className="w-12 h-12 mx-auto mb-3 rounded-2xl bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center text-black dark:text-white shadow-sm">
-          <BarChart2 className="w-6 h-6 stroke-[2]" />
-        </div>
-        <h3 className="text-base font-bold text-neutral-900 dark:text-white">No data yet</h3>
-        <p className="text-xs text-neutral-500 dark:text-neutral-400 max-w-xs mx-auto mt-1">
-          Create and share your permanent links to see click analytics here.
-        </p>
-      </div>
-    );
-  }
+  const totalClicks = filteredRedirects.reduce((acc, curr) => acc + (curr.clickCount || 0), 0);
+
+  // Sort by clicks descending
+  const sortedRedirects = [...filteredRedirects].sort(
+    (a, b) => (b.clickCount || 0) - (a.clickCount || 0)
+  );
+
+  const topLink = sortedRedirects[0];
+  const activeLinksCount = filteredRedirects.filter(
+    (r) => !r.expiresAt || new Date(r.expiresAt).getTime() > Date.now()
+  ).length;
 
   const timeframeOptions = [
-    { label: "24 Hours", val: "24h" },
-    { label: "Past 7 Days", val: "7d" },
-    { label: "Past 14 Days", val: "14d" },
-    { label: "This Month", val: "this_month" },
-    { label: "Last Month", val: "last_month" },
-    { label: "Custom", val: "custom" },
+    { value: "24h", label: "24h" },
+    { value: "7d", label: "7 Days" },
+    { value: "14d", label: "14 Days" },
+    { value: "this_month", label: "This Month" },
+    { value: "last_month", label: "Last Month" },
+    { value: "all", label: "All Time" },
+    { value: "custom", label: "Custom" },
   ];
 
   return (
     <div className="space-y-6 font-sans">
-      {/* Traffic Breakdown Card with Timeframe Filter */}
-      <div className="rounded-3xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-6 sm:p-8 shadow-sm">
-        {/* Header & Timeframe Buttons */}
-        <div className="space-y-4 mb-6 pb-6 border-b border-neutral-100 dark:border-neutral-800">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <div>
-              <h3 className="text-base font-bold text-neutral-900 dark:text-white">Traffic Breakdown by Source</h3>
-              <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                Track how many visitors clicked each link during the selected timeframe
+      {/* Top Metrics Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {/* Metric 1: Total Clicks in Timeframe */}
+        <div className="p-5 rounded-3xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm space-y-1">
+          <p className="text-[11px] font-semibold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider">
+            Total Visits
+          </p>
+          <div className="text-3xl font-extrabold text-neutral-900 dark:text-white font-mono tracking-tight">
+            {totalClicks}
+          </div>
+          <p className="text-xs text-neutral-500 dark:text-neutral-400">
+            {timeframe === "all" ? "All-time worldwide clicks" : `Total clicks in selected timeframe`}
+          </p>
+        </div>
+
+        {/* Metric 2: Active Permanent Links */}
+        <div className="p-5 rounded-3xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm space-y-1">
+          <p className="text-[11px] font-semibold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider">
+            Active Links
+          </p>
+          <div className="text-3xl font-extrabold text-neutral-900 dark:text-white font-mono tracking-tight">
+            {activeLinksCount}
+          </div>
+          <p className="text-xs text-neutral-500 dark:text-neutral-400">
+            Currently active & routing
+          </p>
+        </div>
+
+        {/* Metric 3: Top Performer */}
+        <div className="p-5 rounded-3xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm space-y-1 min-w-0">
+          <p className="text-[11px] font-semibold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider">
+            Top Performer
+          </p>
+          {topLink && (topLink.clickCount || 0) > 0 ? (
+            <div className="min-w-0">
+              <div className="text-lg font-bold font-mono text-neutral-900 dark:text-white truncate">
+                /{topLink.username}/{topLink.webname}
+              </div>
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 font-mono">
+                {topLink.clickCount} clicks ({totalClicks > 0 ? Math.round(((topLink.clickCount || 0) / totalClicks) * 100) : 0}%)
               </p>
             </div>
-            <span className="text-xs font-mono text-neutral-400 dark:text-neutral-500">
-              {sortedRedirects.length} links ranked
-            </span>
+          ) : (
+            <div className="text-sm font-medium text-neutral-400 dark:text-neutral-500 py-1">
+              No visits yet
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Main Performance Section */}
+      <div className="p-6 rounded-3xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm space-y-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h3 className="text-base font-bold text-neutral-900 dark:text-white flex items-center gap-2">
+              <BarChart2 className="w-5 h-5 text-neutral-700 dark:text-neutral-300" />
+              <span>Link Performance Breakdown</span>
+            </h3>
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+              Traffic distribution across all active and permanent paths
+            </p>
           </div>
 
-          {/* Timeframe Buttons Bar */}
-          <div className="flex flex-wrap items-center gap-1.5 pt-1">
+          {/* Action Tools: Reset All */}
+          <div className="flex items-center gap-2">
+            {onResetAllAnalytics && totalClicks > 0 && (
+              <button
+                type="button"
+                onClick={() => onResetAllAnalytics()}
+                className="px-3 py-1.5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-xs font-semibold text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/40 transition cursor-pointer flex items-center gap-1.5 shadow-sm"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Reset All to 0</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Timeframe Selector Buttons */}
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center gap-1.5">
             {timeframeOptions.map((opt) => (
               <button
-                key={opt.val}
-                type="button"
-                onClick={() => setTimeframe(opt.val)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition cursor-pointer ${
-                  timeframe === opt.val
+                key={opt.value}
+                onClick={() => setTimeframe(opt.value)}
+                className={`px-3.5 py-1.5 text-xs font-semibold rounded-xl border transition cursor-pointer ${
+                  timeframe === opt.value
                     ? "bg-black dark:bg-white text-white dark:text-black border-black dark:border-white shadow-sm"
                     : "bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 border-neutral-200 dark:border-neutral-700 hover:border-neutral-400 dark:hover:border-neutral-500 hover:text-black dark:hover:text-white"
                 }`}
@@ -259,38 +307,38 @@ export function AnalyticsView({
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
                           {isSublink && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-neutral-200 dark:bg-neutral-700 text-neutral-800 dark:text-neutral-200 font-sans font-medium flex items-center gap-1">
-                              <GitFork className="w-2.5 h-2.5" /> sub-link
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-neutral-200 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-300 font-sans font-medium flex-shrink-0 inline-flex items-center gap-1">
+                              <GitFork className="w-2.5 h-2.5" />
+                              <span>sub</span>
                             </span>
                           )}
-                          <span className="font-mono font-bold text-sm text-neutral-900 dark:text-white truncate">
+                          <span className="font-mono font-bold text-xs text-neutral-900 dark:text-white truncate">
                             {path}
                           </span>
                           <button
-                            type="button"
                             onClick={() => handleCopy(r.id, path)}
                             title="Copy link"
-                            className="p-1 rounded-lg text-neutral-400 hover:text-black dark:hover:text-white hover:bg-neutral-200/60 dark:hover:bg-neutral-700 transition flex-shrink-0 cursor-pointer"
+                            className="p-1 rounded-lg text-neutral-400 hover:text-black dark:hover:text-white hover:bg-neutral-200/60 dark:hover:bg-neutral-700 transition cursor-pointer flex-shrink-0"
                           >
                             {isCopied ? (
-                              <Check className="w-3.5 h-3.5 text-black dark:text-white" />
+                              <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
                             ) : (
-                              <Copy className="w-3.5 h-3.5" />
+                              <Copy className="w-3 h-3" />
                             )}
                           </button>
                         </div>
-                        <div className="flex items-center gap-1 text-xs text-neutral-500 dark:text-neutral-400 mt-0.5 truncate">
-                          <ArrowRight className="w-3 h-3 text-neutral-400 flex-shrink-0" />
-                          <span className="truncate max-w-xs sm:max-w-md">{r.destinationUrl}</span>
+                        <div className="flex items-center gap-1.5 text-neutral-400 dark:text-neutral-500 text-[11px] font-mono mt-0.5">
+                          <ArrowRight className="w-3 h-3 flex-shrink-0" />
+                          <span className="truncate max-w-xs md:max-w-md">{r.destinationUrl}</span>
                         </div>
                       </div>
                     </div>
 
-                    {/* Right: Clicks, Traffic Share & 3 Dots Button */}
-                    <div className="flex items-center gap-3 sm:gap-5 flex-shrink-0">
+                    {/* Right: Clicks, Percentage & 3-Dots Button */}
+                    <div className="flex items-center gap-4 flex-shrink-0">
                       <div className="text-right">
-                        <div className="font-mono font-bold text-sm sm:text-base text-neutral-900 dark:text-white">
-                          {r.clickCount || 0}{" "}
+                        <div className="text-sm font-bold font-mono text-neutral-900 dark:text-white flex items-center justify-end gap-1">
+                          <span>{r.clickCount || 0}</span>
                           <span className="text-xs font-normal text-neutral-500 dark:text-neutral-400">clicks</span>
                         </div>
                         <div className="text-[11px] font-mono text-neutral-400 dark:text-neutral-500">
@@ -309,7 +357,7 @@ export function AnalyticsView({
                               setMenuPos(null);
                             } else {
                               const rect = e.currentTarget.getBoundingClientRect();
-                              const dropdownHeight = 210;
+                              const dropdownHeight = 230;
                               const dropdownWidth = 196;
                               const fitsBelow = rect.bottom + dropdownHeight <= window.innerHeight - 12;
 
@@ -372,6 +420,21 @@ export function AnalyticsView({
                               </button>
                             )}
 
+                            {onResetClicks && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOpenMenuId(null);
+                                  setMenuPos(null);
+                                  onResetClicks(r);
+                                }}
+                                className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:text-black dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl transition text-left cursor-pointer"
+                              >
+                                <RotateCcw className="w-3.5 h-3.5 text-neutral-500" />
+                                <span>Reset Clicks to 0</span>
+                              </button>
+                            )}
+
                             <button
                               type="button"
                               onClick={() => {
@@ -422,11 +485,11 @@ export function AnalyticsView({
                     </div>
                   </div>
 
-                  {/* Minimalist Progress Bar */}
-                  <div className="w-full bg-neutral-200 dark:bg-neutral-800 h-2 rounded-full overflow-hidden">
+                  {/* Progress / Traffic Distribution Bar */}
+                  <div className="w-full h-1.5 bg-neutral-200 dark:bg-neutral-700 rounded-full overflow-hidden">
                     <div
-                      className="bg-black dark:bg-white h-full rounded-full transition-all duration-500"
-                      style={{ width: `${Math.max(percentage, 2)}%` }}
+                      className="h-full bg-black dark:bg-white rounded-full transition-all duration-500"
+                      style={{ width: `${percentage}%` }}
                     />
                   </div>
                 </div>

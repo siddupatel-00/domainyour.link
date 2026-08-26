@@ -301,3 +301,59 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+// PATCH /api/redirects - Bulk actions like reset_all_analytics
+export async function PATCH(request: NextRequest) {
+  const authed = await isAuthenticated();
+  if (!authed) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: noCacheHeaders });
+  }
+
+  const user = await getSessionUser();
+  const username = user?.username || "creator";
+
+  try {
+    const body = await request.json();
+    if (body.action === "reset_all_analytics") {
+      if (isTursoEnabled) {
+        const { tursoResetAllUserClicks } = await import("@/lib/tursoDb");
+        await tursoResetAllUserClicks(username);
+      }
+      if (db) {
+        try {
+          const userLinks = await db
+            .select()
+            .from(redirects)
+            .where(eq(redirects.username, username));
+          const linkIds = userLinks.map((l) => l.id);
+          await db
+            .update(redirects)
+            .set({ clickCount: 0, expiredClickCount: 0, updatedAt: new Date() })
+            .where(eq(redirects.username, username));
+          for (const lId of linkIds) {
+            await db.delete(clickEvents).where(eq(clickEvents.redirectId, lId));
+          }
+        } catch {}
+      }
+
+      // Memory fallback
+      localFallbackLinks
+        .filter((l) => l.username.toLowerCase() === username.toLowerCase())
+        .forEach((l) => {
+          l.clickCount = 0;
+          l.expiredClickCount = 0;
+        });
+
+      return NextResponse.json(
+        { success: true, message: "All analytics reset to 0" },
+        { headers: noCacheHeaders }
+      );
+    }
+
+    return NextResponse.json({ error: "Invalid action" }, { status: 400, headers: noCacheHeaders });
+  } catch (err) {
+    console.error("Bulk redirects action error:", err);
+    return NextResponse.json({ error: "Server error" }, { status: 500, headers: noCacheHeaders });
+  }
+}
+

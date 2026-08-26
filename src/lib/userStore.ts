@@ -127,6 +127,8 @@ export async function createOrUpdateUser(
       username: cleanUsername,
       email: cleanEmail,
       password: hashedPassword ?? null,
+      recapPreference: "off",
+      lastRecapSentAt: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };

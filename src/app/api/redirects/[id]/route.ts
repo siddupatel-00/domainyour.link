@@ -38,7 +38,34 @@ export async function PATCH(
     }
 
     const body = await request.json();
-    const { destinationUrl, duration, expiresAt, showOnProfile } = body;
+    const { destinationUrl, duration, expiresAt, showOnProfile, action, resetAnalytics } = body;
+
+    // Reset analytics to 0
+    if (action === "reset_analytics" || resetAnalytics === true) {
+      if (isTursoEnabled) {
+        const { tursoResetRedirectClicks } = await import("@/lib/tursoDb");
+        await tursoResetRedirectClicks(numericId);
+      }
+      if (db) {
+        try {
+          const { clickEvents } = await import("@/lib/db/schema");
+          await db
+            .update(redirects)
+            .set({ clickCount: 0, expiredClickCount: 0, updatedAt: new Date() })
+            .where(eq(redirects.id, numericId));
+          await db.delete(clickEvents).where(eq(clickEvents.redirectId, numericId));
+        } catch {}
+      }
+      const fallback = getLocalFallbackLinks().find((l) => l.id === numericId);
+      if (fallback) {
+        fallback.clickCount = 0;
+        fallback.expiredClickCount = 0;
+      }
+      return NextResponse.json(
+        { success: true, message: "Analytics reset to 0" },
+        { headers: noCacheHeaders }
+      );
+    }
 
     const updateFields: {
       destinationUrl?: string;

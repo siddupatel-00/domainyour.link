@@ -251,3 +251,124 @@ export async function sendEmployeeInviteEmail(
 
   return { success: true, inviteLink };
 }
+
+// Send Weekly / Monthly Analytics Digest Email
+export async function sendAnalyticsRecapEmail(data: {
+  toEmail: string;
+  username: string;
+  frequency: "weekly" | "monthly";
+  totalClicks: number;
+  activeLinksCount: number;
+  topLinks: Array<{ path: string; destinationUrl: string; clicks: number }>;
+}): Promise<{ success: boolean; error?: string }> {
+  const { toEmail, username, frequency, totalClicks, activeLinksCount, topLinks } = data;
+  const timeframeLabel = frequency === "monthly" ? "Monthly" : "Weekly";
+  const periodLabel = frequency === "monthly" ? "Past 30 Days" : "Past 7 Days";
+
+  const gmailUser = process.env.GMAIL_USER || process.env.SMTP_GMAIL_USER || "";
+  const gmailAppPassword = (
+    process.env.GMAIL_APP_PASSWORD ||
+    process.env.SMTP_GMAIL_APP_PASSWORD ||
+    process.env.GMAIL_16_DIGIT_CODE ||
+    ""
+  ).replace(/\s+/g, "");
+
+  const topLinksHtml = topLinks.length > 0
+    ? topLinks
+        .map(
+          (l, i) => `
+          <tr style="border-bottom: 1px solid #f0f0f0;">
+            <td style="padding: 12px 8px; font-family: monospace; font-size: 13px; font-weight: 600; color: #111827;">
+              #${i + 1} ${l.path}
+            </td>
+            <td style="padding: 12px 8px; text-align: right; font-family: monospace; font-size: 13px; font-weight: 700; color: #111827;">
+              ${l.clicks} clicks
+            </td>
+          </tr>
+        `
+        )
+        .join("")
+    : `<tr><td colspan="2" style="padding: 12px 8px; text-align: center; color: #6b7280; font-size: 13px;">No clicks recorded in this period.</td></tr>`;
+
+  if (gmailUser && gmailAppPassword) {
+    try {
+      const transporter = nodemailer.createTransport({
+        service: "gmail",
+        auth: {
+          user: gmailUser,
+          pass: gmailAppPassword,
+        },
+      });
+
+      const mailOptions = {
+        from: `"domainyourlink" <${gmailUser}>`,
+        to: toEmail,
+        subject: `📊 Your ${timeframeLabel} Link Analytics Summary — @${username}`,
+        html: `
+          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 520px; margin: 0 auto; padding: 36px 28px; background: #ffffff; border: 1px solid #e5e5e5; border-radius: 20px;">
+            <div style="margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between;">
+              <span style="font-size: 18px; font-weight: 700; color: #000000; letter-spacing: -0.5px;">🔗 domainyourlink</span>
+              <span style="font-size: 11px; font-weight: 600; text-transform: uppercase; background: #f3f4f6; color: #374151; padding: 4px 10px; border-radius: 9999px;">${timeframeLabel} Recap</span>
+            </div>
+
+            <h2 style="font-size: 22px; font-weight: 700; color: #000000; margin: 0 0 8px 0;">
+              Here is your ${timeframeLabel.toLowerCase()} link activity, @${username}
+            </h2>
+            <p style="font-size: 13px; color: #6b7280; margin: 0 0 24px 0;">
+              Summary of visitor traffic over the ${periodLabel.toLowerCase()}.
+            </p>
+
+            <div style="display: flex; gap: 12px; margin-bottom: 24px;">
+              <div style="flex: 1; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 14px; padding: 16px; text-align: center;">
+                <div style="font-size: 26px; font-weight: 800; color: #111827; font-family: monospace;">${totalClicks}</div>
+                <div style="font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; margin-top: 4px;">Total Clicks</div>
+              </div>
+              <div style="flex: 1; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 14px; padding: 16px; text-align: center;">
+                <div style="font-size: 26px; font-weight: 800; color: #111827; font-family: monospace;">${activeLinksCount}</div>
+                <div style="font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; margin-top: 4px;">Active Links</div>
+              </div>
+            </div>
+
+            <div style="margin-bottom: 28px;">
+              <h3 style="font-size: 14px; font-weight: 700; color: #111827; margin: 0 0 12px 0;">
+                🔥 Top Performing Links (${periodLabel})
+              </h3>
+              <table style="width: 100%; border-collapse: collapse;">
+                <tbody>
+                  ${topLinksHtml}
+                </tbody>
+              </table>
+            </div>
+
+            <div style="text-align: center; margin-bottom: 24px;">
+              <a href="https://domainyourlink.vercel.app/admin" style="display: inline-block; background: #000000; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 12px; font-weight: 600; font-size: 13px;">
+                Open Admin Dashboard →
+              </a>
+            </div>
+
+            <p style="font-size: 11px; color: #9ca3af; text-align: center; margin: 0;">
+              You received this email because email recaps are enabled on your account. You can turn this off anytime in your dashboard settings.
+            </p>
+          </div>
+        `,
+      };
+
+      await transporter.sendMail(mailOptions);
+      console.log(`✅ Analytics recap email sent to ${toEmail}`);
+      return { success: true };
+    } catch (err: unknown) {
+      console.error("❌ Gmail SMTP recap send failed:", err);
+      return {
+        success: false,
+        error: err instanceof Error ? err.message : "SMTP send failed",
+      };
+    }
+  }
+
+  console.log(`\n📊 [DEV ANALYTICS RECAP] for ${toEmail} (@${username}): Total Clicks: ${totalClicks}, Active Links: ${activeLinksCount}\n`);
+  return {
+    success: false,
+    error: "Gmail SMTP credentials (GMAIL_USER & GMAIL_APP_PASSWORD) are missing in .env.local. Please provide your Gmail address and 16-digit Google App Password.",
+  };
+}
+

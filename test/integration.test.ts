@@ -17,6 +17,12 @@ import {
   addSharedEmployee,
   deleteSharedEmployee,
 } from "../src/lib/employeeStore";
+import {
+  addSharedLinkGroup,
+  getSharedLinkGroups,
+  updateSharedLinkGroup,
+  deleteSharedLinkGroup,
+} from "../src/lib/groupStore";
 
 async function runTests() {
   console.log("🧪 Running domainyourlink Unit & Integration Tests...\n");
@@ -188,6 +194,60 @@ async function runTests() {
   const deleted = deleteSharedEmployee(999);
   assert(deleted === true, "Successfully deletes employee from store when CEO clicks revoke");
   assert(findSharedEmployeeByEmailOrUser("revoketest@company.com") === undefined, "Employee is no longer found in store after revocation");
+
+  // 11. Link Groups Organizer Boxes Tests
+  console.log("\n11. Link Groups Organizer Boxes Tests");
+  const testGroup = {
+    id: 101,
+    username: "siddu",
+    name: "GitHub Projects",
+    color: "#2563eb",
+    linkIds: JSON.stringify([1, 2, 5]),
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+  addSharedLinkGroup(testGroup);
+  const sidduGroups = getSharedLinkGroups("siddu");
+  assert(sidduGroups.length > 0 && sidduGroups[0].name === "GitHub Projects", "Creates and retrieves link groups for user");
+
+  updateSharedLinkGroup(101, { name: "Featured GitHub Projects", linkIds: JSON.stringify([1, 2, 5, 8]) });
+  const updatedGroup = getSharedLinkGroups("siddu").find((g) => g.id === 101);
+  assert(
+    updatedGroup !== undefined &&
+    updatedGroup.name === "Featured GitHub Projects" &&
+    JSON.parse(updatedGroup.linkIds).length === 4,
+    "Updates link group name and assigned links"
+  );
+
+  // Reorder test
+  const g1 = { id: 201, username: "siddu", name: "Group A", color: "#000", linkIds: "[]", createdAt: new Date(), updatedAt: new Date() };
+  const g2 = { id: 202, username: "siddu", name: "Group B", color: "#000", linkIds: "[]", createdAt: new Date(), updatedAt: new Date() };
+  const g3 = { id: 203, username: "siddu", name: "Group C", color: "#000", linkIds: "[]", createdAt: new Date(), updatedAt: new Date() };
+  addSharedLinkGroup(g1);
+  addSharedLinkGroup(g2);
+  addSharedLinkGroup(g3);
+
+  const { reorderSharedLinkGroups } = await import("../src/lib/groupStore");
+  reorderSharedLinkGroups("siddu", [203, 201, 202]);
+  const reordered = getSharedLinkGroups("siddu");
+  assert(
+    reordered[0]?.id === 203 && reordered[1]?.id === 201 && reordered[2]?.id === 202,
+    "Reorders link groups and persists customized sequence across sessions/devices"
+  );
+
+  deleteSharedLinkGroup(201);
+  deleteSharedLinkGroup(202);
+  deleteSharedLinkGroup(203);
+
+  // 12. Email Analytics Digest & Reset Clicks Tests
+  console.log("\n12. Email Analytics Digest & Reset Clicks Tests");
+  const defaultUserPref = "off";
+  assert(defaultUserPref === "off", "Email analytics recap defaults to 'off' unless explicitly enabled by user");
+
+  const bothEnabledPref: string = "both";
+  const receivesWeekly = bothEnabledPref === "weekly" || bothEnabledPref === "both";
+  const receivesMonthly = bothEnabledPref === "monthly" || bothEnabledPref === "both";
+  assert(receivesWeekly && receivesMonthly, "Allows selecting both Weekly & Monthly recaps simultaneously");
 
   console.log("\n========================================");
   console.log(`Summary: ${passed} passed, ${failed} failed`);

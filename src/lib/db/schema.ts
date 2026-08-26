@@ -18,6 +18,8 @@ export const users = pgTable(
     username: varchar("username", { length: 64 }).notNull(),
     email: varchar("email", { length: 255 }).notNull(),
     password: text("password"), // Hashed password
+    recapPreference: varchar("recap_preference", { length: 32 }).default("off").notNull(), // "off" | "weekly" | "monthly"
+    lastRecapSentAt: timestamp("last_recap_sent_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
@@ -66,6 +68,22 @@ export const bios = pgTable(
   ]
 );
 
+export const linkGroups = pgTable(
+  "link_groups",
+  {
+    id: serial("id").primaryKey(),
+    username: varchar("username", { length: 64 }).notNull(),
+    name: varchar("name", { length: 128 }).notNull(), // e.g. "GitHub Projects", "Socials"
+    color: varchar("color", { length: 32 }).default("#000000"), // Optional badge color
+    linkIds: text("link_ids").notNull().default("[]"), // JSON stringified array of redirect IDs e.g. "[1, 4, 8]"
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("link_groups_username_idx").on(table.username),
+  ]
+);
+
 export const clickEvents = pgTable(
   "click_events",
   {
@@ -106,6 +124,9 @@ export type Redirect = InferSelectModel<typeof redirects>;
 export type NewRedirect = InferInsertModel<typeof redirects>;
 export type Bio = InferSelectModel<typeof bios>;
 export type NewBio = InferInsertModel<typeof bios>;
+export type LinkGroup = InferSelectModel<typeof linkGroups>;
+export type NewLinkGroup = InferInsertModel<typeof linkGroups>;
 export type ClickEvent = InferSelectModel<typeof clickEvents>;
+export type NewClickEvent = InferInsertModel<typeof clickEvents>;
 export type Employee = InferSelectModel<typeof employees>;
 export type NewEmployee = InferInsertModel<typeof employees>;

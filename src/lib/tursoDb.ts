@@ -1,5 +1,5 @@
 import { createClient } from "@libsql/client";
-import { Redirect, Bio, Employee, User } from "./db/schema";
+import { Redirect, Bio, Employee, User, LinkGroup } from "./db/schema";
 
 const tursoUrl =
   process.env.TURSO_DATABASE_URL ||
@@ -508,6 +508,8 @@ export async function tursoFindUser(identifier: string): Promise<User | null> {
     username: String(row.username),
     email: String(row.email),
     password: row.password ? String(row.password) : null,
+    recapPreference: String(row.recap_preference || "off"),
+    lastRecapSentAt: row.last_recap_sent_at ? new Date(String(row.last_recap_sent_at)) : null,
     createdAt: new Date(String(row.created_at)),
     updatedAt: new Date(String(row.updated_at)),
   };
@@ -530,6 +532,8 @@ export async function tursoCreateOrUpdateUser(username: string, email: string, h
       username: String(row.username),
       email: String(row.email),
       password: row.password ? String(row.password) : null,
+      recapPreference: String(row.recap_preference || "off"),
+      lastRecapSentAt: row.last_recap_sent_at ? new Date(String(row.last_recap_sent_at)) : null,
       createdAt: new Date(String(row.created_at)),
       updatedAt: new Date(String(row.updated_at)),
     };
@@ -544,6 +548,8 @@ export async function tursoCreateOrUpdateUser(username: string, email: string, h
       username: String(row.username),
       email: String(row.email),
       password: row.password ? String(row.password) : null,
+      recapPreference: String(row.recap_preference || "off"),
+      lastRecapSentAt: row.last_recap_sent_at ? new Date(String(row.last_recap_sent_at)) : null,
       createdAt: new Date(String(row.created_at)),
       updatedAt: new Date(String(row.updated_at)),
     };
@@ -747,3 +753,280 @@ export async function tursoDeleteEmployee(id: number): Promise<boolean> {
   });
   return result.rowsAffected > 0;
 }
+
+// ==========================================
+// 4. RESET ANALYTICS (SET CLICKS TO 0)
+// ==========================================
+
+export async function tursoResetRedirectClicks(id: number): Promise<boolean> {
+  try {
+    await turso.execute({
+      sql: `UPDATE redirects SET click_count = 0, expired_click_count = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?;`,
+      args: [id],
+    });
+    await turso.execute({
+      sql: `DELETE FROM click_events WHERE redirect_id = ?;`,
+      args: [id],
+    });
+    return true;
+  } catch (err) {
+    console.error("Turso reset redirect clicks error:", err);
+    return false;
+  }
+}
+
+export async function tursoResetAllUserClicks(username: string): Promise<boolean> {
+  try {
+    const userLinks = await tursoGetRedirects(username);
+    const linkIds = userLinks.map((l) => l.id);
+    if (linkIds.length === 0) return true;
+
+    await turso.execute({
+      sql: `UPDATE redirects SET click_count = 0, expired_click_count = 0, updated_at = CURRENT_TIMESTAMP WHERE LOWER(username) = LOWER(?);`,
+      args: [username],
+    });
+
+    const placeholders = linkIds.map(() => "?").join(",");
+    await turso.execute({
+      sql: `DELETE FROM click_events WHERE redirect_id IN (${placeholders});`,
+      args: linkIds,
+    });
+    return true;
+  } catch (err) {
+    console.error("Turso reset all user clicks error:", err);
+    return false;
+  }
+}
+
+// ==========================================
+// 5. LINK GROUPS (ORGANIZER BOXES)
+// ==========================================
+
+let linkGroupsTableInitialized = false;
+export async function ensureLinkGroupsTable() {
+  if (linkGroupsTableInitialized || !isTursoEnabled) return;
+  try {
+    await turso.execute(`
+      CREATE TABLE IF NOT EXISTS link_groups (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT NOT NULL,
+        name TEXT NOT NULL,
+        color TEXT DEFAULT '#000000',
+        link_ids TEXT NOT NULL DEFAULT '[]',
+        sort_order INTEGER DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    await turso.execute(`
+      CREATE INDEX IF NOT EXISTS link_groups_username_idx ON link_groups (username);
+    `);
+    try {
+      await turso.execute(`ALTER TABLE link_groups ADD COLUMN sort_order INTEGER DEFAULT 0;`);
+    } catch {}
+    linkGroupsTableInitialized = true;
+  } catch (err) {
+    console.warn("Error initializing link_groups table in Turso:", err);
+  }
+}
+
+export async function tursoGetLinkGroups(username: string): Promise<LinkGroup[]> {
+  await ensureLinkGroupsTable();
+  const result = await turso.execute({
+    sql: `SELECT * FROM link_groups WHERE LOWER(username) = LOWER(?) ORDER BY COALESCE(sort_order, 0) ASC, id ASC;`,
+    args: [username],
+  });
+
+  return result.rows.map((row) => ({
+    id: Number(row.id),
+    username: String(row.username),
+    name: String(row.name),
+    color: row.color ? String(row.color) : "#000000",
+    linkIds: String(row.link_ids || "[]"),
+    createdAt: new Date(String(row.created_at || Date.now())),
+    updatedAt: new Date(String(row.updated_at || Date.now())),
+  }));
+}
+
+export async function tursoCreateLinkGroup(data: {
+  username: string;
+  name: string;
+  color?: string;
+  linkIds?: string;
+}): Promise<LinkGroup> {
+  await ensureLinkGroupsTable();
+  const result = await turso.execute({
+    sql: `INSERT INTO link_groups (username, name, color, link_ids) VALUES (?, ?, ?, ?) RETURNING *;`,
+    args: [
+      data.username,
+      data.name,
+      data.color || "#000000",
+      data.linkIds || "[]",
+    ],
+  });
+
+  const row = result.rows[0];
+  return {
+    id: Number(row.id),
+    username: String(row.username),
+    name: String(row.name),
+    color: row.color ? String(row.color) : "#000000",
+    linkIds: String(row.link_ids || "[]"),
+    createdAt: new Date(String(row.created_at)),
+    updatedAt: new Date(String(row.updated_at)),
+  };
+}
+
+export async function tursoUpdateLinkGroup(
+  id: number,
+  data: Partial<LinkGroup>
+): Promise<LinkGroup | null> {
+  await ensureLinkGroupsTable();
+  const sets: string[] = [];
+  const args: any[] = [];
+
+  if (data.name !== undefined) {
+    sets.push("name = ?");
+    args.push(data.name);
+  }
+  if (data.color !== undefined) {
+    sets.push("color = ?");
+    args.push(data.color);
+  }
+  if (data.linkIds !== undefined) {
+    sets.push("link_ids = ?");
+    args.push(data.linkIds);
+  }
+
+  sets.push("updated_at = CURRENT_TIMESTAMP");
+  args.push(id);
+
+  const result = await turso.execute({
+    sql: `UPDATE link_groups SET ${sets.join(", ")} WHERE id = ? RETURNING *;`,
+    args,
+  });
+
+  if (result.rows.length === 0) return null;
+  const row = result.rows[0];
+  return {
+    id: Number(row.id),
+    username: String(row.username),
+    name: String(row.name),
+    color: row.color ? String(row.color) : "#000000",
+    linkIds: String(row.link_ids || "[]"),
+    createdAt: new Date(String(row.created_at)),
+    updatedAt: new Date(String(row.updated_at)),
+  };
+}
+
+export async function tursoDeleteLinkGroup(id: number): Promise<boolean> {
+  await ensureLinkGroupsTable();
+  const result = await turso.execute({
+    sql: `DELETE FROM link_groups WHERE id = ?;`,
+    args: [id],
+  });
+  return result.rowsAffected > 0;
+}
+
+export async function tursoReorderLinkGroups(
+  username: string,
+  orderedIds: number[]
+): Promise<boolean> {
+  await ensureLinkGroupsTable();
+  try {
+    for (let i = 0; i < orderedIds.length; i++) {
+      await turso.execute({
+        sql: `UPDATE link_groups SET sort_order = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND LOWER(username) = LOWER(?);`,
+        args: [i, orderedIds[i], username],
+      });
+    }
+    return true;
+  } catch (err) {
+    console.error("Turso reorder link groups error:", err);
+    return false;
+  }
+}
+
+// ==========================================
+// 6. USER RECAP PREFERENCES & DIGESTS
+// ==========================================
+
+let userRecapColumnInitialized = false;
+export async function ensureUserRecapColumns() {
+  if (userRecapColumnInitialized || !isTursoEnabled) return;
+  try {
+    await turso.execute(`
+      ALTER TABLE users ADD COLUMN recap_preference TEXT DEFAULT 'off';
+    `);
+  } catch {}
+  try {
+    await turso.execute(`
+      ALTER TABLE users ADD COLUMN last_recap_sent_at DATETIME;
+    `);
+  } catch {}
+  userRecapColumnInitialized = true;
+}
+
+export async function tursoUpdateUserRecapPreference(
+  username: string,
+  preference: "off" | "weekly" | "monthly" | "both"
+): Promise<boolean> {
+  await ensureUserRecapColumns();
+  try {
+    await turso.execute({
+      sql: `UPDATE users SET recap_preference = ?, updated_at = CURRENT_TIMESTAMP WHERE LOWER(username) = LOWER(?);`,
+      args: [preference, username],
+    });
+    return true;
+  } catch (err) {
+    console.error("Turso update recap preference error:", err);
+    return false;
+  }
+}
+
+export async function tursoGetUserRecapPreference(
+  username: string
+): Promise<{ preference: "off" | "weekly" | "monthly" | "both"; email: string } | null> {
+  await ensureUserRecapColumns();
+  try {
+    const result = await turso.execute({
+      sql: `SELECT email, recap_preference FROM users WHERE LOWER(username) = LOWER(?) LIMIT 1;`,
+      args: [username],
+    });
+    if (result.rows.length === 0) return null;
+    const row = result.rows[0];
+    const rawPref = String(row.recap_preference || "off").toLowerCase();
+    const preference = ["off", "weekly", "monthly", "both"].includes(rawPref)
+      ? (rawPref as "off" | "weekly" | "monthly" | "both")
+      : "off";
+
+    return {
+      email: String(row.email),
+      preference,
+    };
+  } catch (err) {
+    console.error("Turso get recap preference error:", err);
+    return null;
+  }
+}
+
+export async function tursoGetUsersWithRecapEnabled(
+  frequency: "weekly" | "monthly"
+): Promise<Array<{ username: string; email: string; lastRecapSentAt: Date | null }>> {
+  await ensureUserRecapColumns();
+  try {
+    const result = await turso.execute({
+      sql: `SELECT username, email, last_recap_sent_at FROM users WHERE LOWER(recap_preference) = LOWER(?) OR LOWER(recap_preference) IN ('both', 'weekly,monthly');`,
+      args: [frequency],
+    });
+    return result.rows.map((row) => ({
+      username: String(row.username),
+      email: String(row.email),
+      lastRecapSentAt: row.last_recap_sent_at ? new Date(String(row.last_recap_sent_at)) : null,
+    }));
+  } catch (err) {
+    console.error("Turso get users with recap error:", err);
+    return [];
+  }
+}
+
