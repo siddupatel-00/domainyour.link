@@ -22,10 +22,22 @@ const noCacheHeaders = {
   Expires: "0",
 };
 
+// Global rate limiting tracker for test emails (1 per hour per user)
+const ONE_HOUR_MS = 60 * 60 * 1000;
+
+declare global {
+  // eslint-disable-next-line no-var
+  var testEmailTimestamps: Record<string, number> | undefined;
+}
+
+if (!global.testEmailTimestamps) {
+  global.testEmailTimestamps = {};
+}
+
 // In-memory fallback preference store
 const fallbackRecapPrefs: Record<string, "off" | "weekly" | "monthly" | "both"> = {};
 
-// GET /api/user/settings - Fetch user settings (recap preference, email)
+// GET /api/user/settings - Fetch user settings (recap preference, email, test email cooldown)
 export async function GET() {
   const authed = await isAuthenticated();
   if (!authed) {
@@ -76,6 +88,14 @@ export async function GET() {
     const weeklyRecap = preference === "weekly" || preference === "both";
     const monthlyRecap = preference === "monthly" || preference === "both";
 
+    // Compute test email rate limit cooldown (1 hour per user)
+    const lastSent = global.testEmailTimestamps?.[username.toLowerCase()] || 0;
+    const now = Date.now();
+    const elapsed = now - lastSent;
+    const cooldownRemainingMs = Math.max(0, ONE_HOUR_MS - elapsed);
+    const remainingMinutes = Math.ceil(cooldownRemainingMs / (60 * 1000));
+    const canSendTest = cooldownRemainingMs <= 0;
+
     return NextResponse.json(
       {
         username,
@@ -83,6 +103,9 @@ export async function GET() {
         recapPreference: preference,
         weeklyRecap,
         monthlyRecap,
+        canSendTest,
+        remainingMinutes: canSendTest ? 0 : remainingMinutes,
+        cooldownRemainingMs,
       },
       { headers: noCacheHeaders }
     );
@@ -92,7 +115,7 @@ export async function GET() {
   }
 }
 
-// PATCH /api/user/settings - Update email recap preference or send a test recap
+// PATCH /api/user/settings - Update preference or send test recap email
 export async function PATCH(request: NextRequest) {
   const authed = await isAuthenticated();
   if (!authed) {
@@ -106,8 +129,25 @@ export async function PATCH(request: NextRequest) {
     const body = await request.json();
     const { recapPreference, weeklyRecap, monthlyRecap, sendTest } = body;
 
-    // Send a test recap email immediately
+    // Send a test recap email immediately with 1-hour rate limit
     if (sendTest) {
+      const lastSent = global.testEmailTimestamps?.[username.toLowerCase()] || 0;
+      const now = Date.now();
+      const elapsed = now - lastSent;
+
+      if (elapsed < ONE_HOUR_MS) {
+        const remainingMinutes = Math.ceil((ONE_HOUR_MS - elapsed) / (60 * 1000));
+        return NextResponse.json(
+          {
+            error: `Test email limit reached. Available once per hour. Please wait ${remainingMinutes} minute${remainingMinutes > 1 ? "s" : ""}.`,
+            canSendTest: false,
+            remainingMinutes,
+            cooldownRemainingMs: ONE_HOUR_MS - elapsed,
+          },
+          { status: 429, headers: noCacheHeaders }
+        );
+      }
+
       let email = user?.email || "";
       if (isTursoEnabled) {
         const t = await tursoGetUserRecapPreference(username);
@@ -151,7 +191,19 @@ export async function PATCH(request: NextRequest) {
         return NextResponse.json({ error: res.error || "Failed to send test recap email" }, { status: 500, headers: noCacheHeaders });
       }
 
-      return NextResponse.json({ success: true, message: `Test recap email sent to ${email}` }, { headers: noCacheHeaders });
+      // Record successful test email timestamp (1 hour rate limit)
+      if (!global.testEmailTimestamps) global.testEmailTimestamps = {};
+      global.testEmailTimestamps[username.toLowerCase()] = Date.now();
+
+      return NextResponse.json(
+        {
+          success: true,
+          message: `Test recap email sent to ${email}`,
+          canSendTest: false,
+          remainingMinutes: 60,
+        },
+        { headers: noCacheHeaders }
+      );
     }
 
     // Update preference
@@ -178,12 +230,14 @@ export async function PATCH(request: NextRequest) {
       else if (finalMonthly) validPref = "monthly";
       else validPref = "off";
     } else if (recapPreference !== undefined) {
-      validPref = ["off", "weekly", "monthly", "both"].includes(recapPreference)
-        ? (recapPreference as "off" | "weekly" | "monthly" | "both")
-        : "off";
+      if (["off", "weekly", "monthly", "both"].includes(recapPreference)) {
+        validPref = recapPreference;
+      } else {
+        return NextResponse.json({ error: "Invalid preference. Must be 'off', 'weekly', 'monthly', or 'both'" }, { status: 400, headers: noCacheHeaders });
+      }
     }
 
-    if (validPref !== null) {
+    if (validPref) {
       if (isTursoEnabled) {
         await tursoUpdateUserRecapPreference(username, validPref);
       }

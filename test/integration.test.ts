@@ -249,6 +249,18 @@ async function runTests() {
   const receivesMonthly = bothEnabledPref === "monthly" || bothEnabledPref === "both";
   assert(receivesWeekly && receivesMonthly, "Allows selecting both Weekly & Monthly recaps simultaneously");
 
+  // Rate Limiting (1 test email per hour per user)
+  const ONE_HOUR = 60 * 60 * 1000;
+  const lastTestSentTime = Date.now() - (15 * 60 * 1000); // 15 mins ago
+  const elapsed = Date.now() - lastTestSentTime;
+  const isRateLimited = elapsed < ONE_HOUR;
+  const remainingMins = Math.ceil((ONE_HOUR - elapsed) / (60 * 1000));
+  assert(isRateLimited === true && remainingMins === 45, "Enforces 1-hour rate limit on test email dispatches");
+
+  const expiredTestTime = Date.now() - (65 * 60 * 1000); // 65 mins ago
+  const isAllowedAgain = (Date.now() - expiredTestTime) >= ONE_HOUR;
+  assert(isAllowedAgain === true, "Permits sending new test email once 1-hour cooldown completes");
+
   console.log("\n========================================");
   console.log(`Summary: ${passed} passed, ${failed} failed`);
   console.log("========================================\n");

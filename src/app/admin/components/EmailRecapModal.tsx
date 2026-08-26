@@ -7,7 +7,7 @@ import {
   CheckCircle2,
   AlertCircle,
   Send,
-  Sparkles,
+  Clock,
 } from "lucide-react";
 
 interface EmailRecapModalProps {
@@ -24,6 +24,8 @@ export function EmailRecapModal({
   const [weeklyRecap, setWeeklyRecap] = useState(false);
   const [monthlyRecap, setMonthlyRecap] = useState(false);
   const [email, setEmail] = useState<string>("");
+  const [canSendTest, setCanSendTest] = useState(true);
+  const [remainingMinutes, setRemainingMinutes] = useState(0);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [testSending, setTestSending] = useState(false);
@@ -44,6 +46,8 @@ export function EmailRecapModal({
           setWeeklyRecap(!!data.weeklyRecap);
           setMonthlyRecap(!!data.monthlyRecap);
           setEmail(data.email || "");
+          setCanSendTest(data.canSendTest !== false);
+          setRemainingMinutes(data.remainingMinutes || 0);
         }
       } catch (err) {
         console.error("Failed to load user settings:", err);
@@ -85,6 +89,14 @@ export function EmailRecapModal({
   };
 
   const handleSendTest = async () => {
+    if (!canSendTest && remainingMinutes > 0) {
+      setMessage({
+        text: `Test email limit reached. Available once per hour (wait ${remainingMinutes}m).`,
+        type: "error",
+      });
+      return;
+    }
+
     setTestSending(true);
     setMessage(null);
     try {
@@ -97,7 +109,15 @@ export function EmailRecapModal({
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to send test recap");
+      if (!res.ok) {
+        if (res.status === 429) {
+          setCanSendTest(false);
+          setRemainingMinutes(data.remainingMinutes || 60);
+        }
+        throw new Error(data.error || "Failed to send test recap");
+      }
+      setCanSendTest(false);
+      setRemainingMinutes(60);
       setMessage({ text: data.message || "Test email dispatched successfully!", type: "success" });
     } catch (err: unknown) {
       setMessage({ text: err instanceof Error ? err.message : "Failed to send test email", type: "error" });
@@ -220,14 +240,28 @@ export function EmailRecapModal({
 
         {/* Footer Actions */}
         <div className="flex items-center justify-between pt-1">
+          {/* Rate-limited Send Test button (1 per hour per user) */}
           <button
             type="button"
             onClick={handleSendTest}
-            disabled={testSending || loading}
-            className="px-3.5 py-2 rounded-xl text-xs font-semibold text-neutral-700 dark:text-neutral-300 hover:text-black dark:hover:text-white bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 border border-neutral-200 dark:border-neutral-700 transition cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+            disabled={testSending || loading || !canSendTest}
+            title={!canSendTest ? `Test emails are limited to once per hour. Wait ${remainingMinutes}m.` : "Send a sample recap email"}
+            className="px-3.5 py-2 rounded-xl text-xs font-semibold text-neutral-700 dark:text-neutral-300 hover:text-black dark:hover:text-white bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 border border-neutral-200 dark:border-neutral-700 transition cursor-pointer flex items-center gap-1.5 disabled:opacity-45 disabled:cursor-not-allowed"
           >
-            <Send className={`w-3 h-3 ${testSending ? "animate-spin" : ""}`} />
-            <span>{testSending ? "Sending..." : "Send Test"}</span>
+            {testSending ? (
+              <Send className="w-3 h-3 animate-spin" />
+            ) : !canSendTest ? (
+              <Clock className="w-3 h-3 text-neutral-400" />
+            ) : (
+              <Send className="w-3 h-3" />
+            )}
+            <span>
+              {testSending
+                ? "Sending..."
+                : !canSendTest
+                ? `Send Test (${remainingMinutes}m)`
+                : "Send Test"}
+            </span>
           </button>
 
           <button
