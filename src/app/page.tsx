@@ -23,7 +23,6 @@ import {
   EyeOff,
   Sparkles,
   Check,
-  TrendingUp,
   BarChart2,
 } from "lucide-react";
 import { sanitizeSlug } from "@/lib/utils";
@@ -396,18 +395,6 @@ export default function HomePage() {
           <div className="flex items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400">
             <RefreshCw className="w-4 h-4 text-neutral-500 flex-shrink-0" />
             <span>Change where it goes anytime. Your link stays the same.</span>
-          </div>
-
-          {/* Simple Compact Analytics Feature Pill */}
-          <div className="flex flex-wrap items-center gap-2 pt-0.5">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50/80 dark:bg-neutral-900/60 text-xs text-neutral-700 dark:text-neutral-300">
-              <TrendingUp className="w-3.5 h-3.5 text-neutral-900 dark:text-white flex-shrink-0" />
-              <span className="font-medium">Real-time click & visitor analytics</span>
-            </div>
-            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50/80 dark:bg-neutral-900/60 text-xs text-neutral-700 dark:text-neutral-300">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="font-medium">Instant 0ms redirects</span>
-            </div>
           </div>
         </div>
 
