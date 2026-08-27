@@ -136,7 +136,7 @@ export default function CeoLoginPage() {
       </div>
 
       <footer className="text-center text-xs text-neutral-400 dark:text-neutral-500">
-        domainyourlink Executive Command & Operations
+        RelayLink Executive Command & Operations
       </footer>
     </main>
   );

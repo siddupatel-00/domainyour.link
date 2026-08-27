@@ -10,7 +10,7 @@ import {
 import { findSharedEmployeeByEmailOrUser } from "@/lib/employeeStore";
 import { eq, or } from "drizzle-orm";
 
-const JWT_SECRET = process.env.JWT_SECRET || process.env.ADMIN_JWT_SECRET || "domainyourlink-super-secret-production-key-32chars!";
+const JWT_SECRET = process.env.JWT_SECRET || process.env.ADMIN_JWT_SECRET || "relaylink-super-secret-production-key-32chars!";
 const CEO_PASSWORD = process.env.CEO_PASSWORD || "ceo123456";
 export const COOKIE_NAME = "permanentlink_session";
 export const CEO_COOKIE_NAME = "permanentlink_ceo_session";

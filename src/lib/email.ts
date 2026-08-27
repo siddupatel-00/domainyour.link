@@ -1,7 +1,7 @@
 import nodemailer from "nodemailer";
 import crypto from "crypto";
 
-const JWT_SECRET = process.env.JWT_SECRET || process.env.ADMIN_JWT_SECRET || "domainyourlink-super-secret-production-key-32chars!";
+const JWT_SECRET = process.env.JWT_SECRET || process.env.ADMIN_JWT_SECRET || "relaylink-super-secret-production-key-32chars!";
 
 // In-memory OTP storage with 10-minute TTL (for local fallback)
 interface OtpEntry {

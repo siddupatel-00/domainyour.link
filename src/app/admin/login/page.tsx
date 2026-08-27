@@ -191,7 +191,7 @@ export default function AdminLoginPage() {
       )}
 
       <footer className="text-center text-xs text-neutral-400 dark:text-neutral-500">
-        domainyourlink • One link. Always yours.
+        RelayLink • One link. Always yours.
       </footer>
     </main>
   );

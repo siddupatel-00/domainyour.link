@@ -26,7 +26,7 @@ import {
 } from "../src/lib/groupStore";
 
 async function runTests() {
-  console.log("🧪 Running domainyourlink Unit & Integration Tests...\n");
+  console.log("🧪 Running RelayLink Unit & Integration Tests...\n");
 
   let passed = 0;
   let failed = 0;
