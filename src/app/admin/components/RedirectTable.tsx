@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, Fragment } from "react";
-import { Redirect } from "@/lib/db/schema";
+import { Redirect, LinkGroup } from "@/lib/db/schema";
 import {
   Copy,
   Check,
@@ -23,6 +23,9 @@ import {
   RotateCcw,
   ChevronsUpDown,
   FolderPlus,
+  Settings2,
+  Share2,
+  Plus,
 } from "lucide-react";
 
 interface RedirectTableProps {
@@ -37,6 +40,10 @@ interface RedirectTableProps {
   onResetClicks?: (redirect: Redirect) => void;
   onOpenImportFromAllLinks?: () => void;
   isExpiredView?: boolean;
+  selectedGroup?: LinkGroup | null;
+  onOpenEditGroup?: (group: LinkGroup) => void;
+  onOpenShareGroup?: (group: LinkGroup) => void;
+  onDeleteGroup?: (id: number) => Promise<void> | void;
 }
 
 export function RedirectTable({
@@ -51,6 +58,10 @@ export function RedirectTable({
   onResetClicks,
   onOpenImportFromAllLinks,
   isExpiredView = false,
+  selectedGroup,
+  onOpenEditGroup,
+  onOpenShareGroup,
+  onDeleteGroup,
 }: RedirectTableProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [copiedId, setCopiedId] = useState<number | null>(null);
@@ -58,7 +69,11 @@ export function RedirectTable({
   const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
   const [hoveredUrl, setHoveredUrl] = useState<{ url: string; top: number; left: number } | null>(null);
   const [expandedParentIds, setExpandedParentIds] = useState<number[]>([]);
+  const [isGroupMenuOpen, setIsGroupMenuOpen] = useState(false);
+  const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const groupMenuRef = useRef<HTMLDivElement | null>(null);
+  const addMenuRef = useRef<HTMLDivElement | null>(null);
 
   // Close dropdown and tooltip on click outside or scroll/resize
   useEffect(() => {
@@ -67,11 +82,19 @@ export function RedirectTable({
         setOpenMenuId(null);
         setMenuPos(null);
       }
+      if (groupMenuRef.current && !groupMenuRef.current.contains(event.target as Node)) {
+        setIsGroupMenuOpen(false);
+      }
+      if (addMenuRef.current && !addMenuRef.current.contains(event.target as Node)) {
+        setIsAddMenuOpen(false);
+      }
     };
     const handleClose = () => {
       setOpenMenuId(null);
       setMenuPos(null);
       setHoveredUrl(null);
+      setIsGroupMenuOpen(false);
+      setIsAddMenuOpen(false);
     };
 
     document.addEventListener("mousedown", handleClickOutside);
@@ -118,6 +141,7 @@ export function RedirectTable({
   const filteredRedirects = redirects.filter((r) => {
     const search = searchTerm.toLowerCase();
     return (
+      (r.title && r.title.toLowerCase().includes(search)) ||
       r.webname.toLowerCase().includes(search) ||
       r.destinationUrl.toLowerCase().includes(search) ||
       r.username.toLowerCase().includes(search)
@@ -223,7 +247,8 @@ export function RedirectTable({
 
   // Helper to render individual row
   const renderRow = (r: Redirect, isChild = false) => {
-    const path = `/${r.username}/${r.webname}`;
+    const path = isChild ? `/${r.username}/${r.webname}` : `/${r.webname}`;
+    const displayName = r.title || r.webname;
     const isCopied = copiedId === r.id;
     const isMenuOpen = openMenuId === r.id;
     const children = childrenMap.get(r.id) || [];
@@ -273,12 +298,12 @@ export function RedirectTable({
               </span>
             )}
 
-            {/* Slug path with truncation and title */}
+            {/* Link Name / Project Name with truncation and tooltip */}
             <span
               className="text-neutral-900 dark:text-white font-bold tracking-tight truncate min-w-0 flex-1 block"
-              title={path}
+              title={`${displayName} (${path})`}
             >
-              {path}
+              {displayName}
             </span>
 
             {/* Sub-links count badge on parent */}
@@ -503,7 +528,7 @@ export function RedirectTable({
                 </button>
               )}
 
-              {/* Edit Destination */}
+              {/* Edit Link */}
               <button
                 type="button"
                 onClick={() => {
@@ -514,7 +539,7 @@ export function RedirectTable({
                 className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl transition text-left cursor-pointer"
               >
                 <Edit2 className="w-3.5 h-3.5 text-neutral-500" />
-                <span>Edit Destination</span>
+                <span>Edit</span>
               </button>
 
               {/* Reset Analytics to 0 */}
@@ -623,7 +648,7 @@ export function RedirectTable({
               onClick={onCreateOpen}
               className="px-5 py-2.5 text-xs font-semibold text-white dark:text-black bg-black dark:bg-white hover:bg-neutral-800 dark:hover:bg-neutral-200 rounded-xl transition shadow-sm cursor-pointer"
             >
-              Create First Link
+              {selectedGroup ? `Add Link to ${selectedGroup.name}` : "Create First Link"}
             </button>
           </div>
         )}
@@ -650,18 +675,136 @@ export function RedirectTable({
           <div />
         )}
 
-        {totalParentsWithChildren > 0 && (
-          <button
-            type="button"
-            onClick={toggleExpandAll}
-            className="text-xs font-semibold text-neutral-600 dark:text-neutral-400 hover:text-black dark:hover:text-white inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 transition cursor-pointer"
-          >
-            <ChevronsUpDown className="w-3.5 h-3.5" />
-            <span>
-              {expandedParentIds.length >= totalParentsWithChildren ? "Collapse All Sub-links" : "Expand All Sub-links"}
-            </span>
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {totalParentsWithChildren > 0 && (
+            <button
+              type="button"
+              onClick={toggleExpandAll}
+              className="text-xs font-semibold text-neutral-600 dark:text-neutral-400 hover:text-black dark:hover:text-white inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 transition cursor-pointer"
+            >
+              <ChevronsUpDown className="w-3.5 h-3.5" />
+              <span>
+                {expandedParentIds.length >= totalParentsWithChildren ? "Collapse All Sub-links" : "Expand All Sub-links"}
+              </span>
+            </button>
+          )}
+
+          {/* 2. + Button: Add new link or import from all links */}
+          {selectedGroup && (
+            <div className="relative" ref={addMenuRef}>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsAddMenuOpen(!isAddMenuOpen);
+                  setIsGroupMenuOpen(false);
+                }}
+                className="p-1.5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-neutral-600 dark:text-neutral-400 hover:text-black dark:hover:text-white transition cursor-pointer flex items-center justify-center shadow-sm"
+                title="Add new link or import from all links"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+
+              {isAddMenuOpen && (
+                <div className="absolute right-0 top-full mt-1.5 w-48 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-xl py-1.5 z-30 animate-in fade-in duration-100 font-sans">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsAddMenuOpen(false);
+                      onCreateOpen();
+                    }}
+                    className="w-full px-3.5 py-2 text-left text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 flex items-center gap-2.5 transition cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5 text-neutral-500" />
+                    <span>Create New Link</span>
+                  </button>
+                  {onOpenImportFromAllLinks && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsAddMenuOpen(false);
+                        onOpenImportFromAllLinks();
+                      }}
+                      className="w-full px-3.5 py-2 text-left text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 flex items-center gap-2.5 transition cursor-pointer"
+                    >
+                      <FolderPlus className="w-3.5 h-3.5 text-neutral-500" />
+                      <span>Import from All Links</span>
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 3. 3-Dots Button: Edit group name, share link, delete group */}
+          {selectedGroup && (
+            <div className="relative" ref={groupMenuRef}>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsGroupMenuOpen(!isGroupMenuOpen);
+                  setIsAddMenuOpen(false);
+                }}
+                className="p-1.5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-neutral-600 dark:text-neutral-400 hover:text-black dark:hover:text-white transition cursor-pointer flex items-center justify-center shadow-sm"
+                title="Group options"
+              >
+                <MoreVertical className="w-4 h-4" />
+              </button>
+
+              {isGroupMenuOpen && (
+                <div className="absolute right-0 top-full mt-1.5 w-44 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-xl py-1.5 z-30 animate-in fade-in duration-100 font-sans">
+                  {onOpenEditGroup && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsGroupMenuOpen(false);
+                        onOpenEditGroup(selectedGroup);
+                      }}
+                      className="w-full px-3.5 py-2 text-left text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 flex items-center gap-2.5 transition cursor-pointer"
+                    >
+                      <Settings2 className="w-3.5 h-3.5 text-neutral-500" />
+                      <span>Edit Group</span>
+                    </button>
+                  )}
+                  {onOpenShareGroup && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsGroupMenuOpen(false);
+                        onOpenShareGroup(selectedGroup);
+                      }}
+                      className="w-full px-3.5 py-2 text-left text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 flex items-center gap-2.5 transition cursor-pointer"
+                    >
+                      <Share2 className="w-3.5 h-3.5 text-neutral-500" />
+                      <span>Share Link</span>
+                    </button>
+                  )}
+                  {onDeleteGroup && (
+                    <>
+                      <div className="my-1 border-t border-neutral-100 dark:border-neutral-800" />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsGroupMenuOpen(false);
+                          if (
+                            window.confirm(
+                              `Are you sure you want to delete "${selectedGroup.name}"? Your links will not be deleted.`
+                            )
+                          ) {
+                            onDeleteGroup(selectedGroup.id!);
+                          }
+                        }}
+                        className="w-full px-3.5 py-2 text-left text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 flex items-center gap-2.5 transition cursor-pointer"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Delete Group</span>
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Table Container with Fixed Layout and Strict Column Proportions */}
@@ -669,7 +812,7 @@ export function RedirectTable({
         <table className="w-full text-left border-collapse table-fixed">
           <thead>
             <tr className="border-b border-neutral-100 dark:border-neutral-800 bg-neutral-50/70 dark:bg-neutral-900/80 text-[11px] uppercase tracking-wider text-neutral-400 dark:text-neutral-500 font-semibold whitespace-nowrap">
-              <th className="py-3.5 px-4 sm:px-5 w-[31%]">Your Link</th>
+              <th className="py-3.5 px-4 sm:px-5 w-[31%]">Name</th>
               {isExpiredView ? (
                 <>
                   <th className="py-3.5 px-3 sm:px-4 w-[15%]">When Expired</th>

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { X, Plus, AlertCircle, Clock, ShieldCheck, Calendar } from "lucide-react";
 import { sanitizeSlug, isValidUrl } from "@/lib/utils";
+import { LinkGroup } from "@/lib/db/schema";
 
 interface CreateRedirectModalProps {
   isOpen: boolean;
@@ -10,6 +11,7 @@ interface CreateRedirectModalProps {
   onCreated: () => void;
   baseUrl: string;
   currentUser: string;
+  targetGroup?: LinkGroup | null;
 }
 
 export function CreateRedirectModal({
@@ -18,22 +20,36 @@ export function CreateRedirectModal({
   onCreated,
   baseUrl,
   currentUser,
+  targetGroup,
 }: CreateRedirectModalProps) {
-  const [webname, setWebname] = useState("");
+  const [linkName, setLinkName] = useState("");
+  const [shortCode, setShortCode] = useState("");
   const [destinationUrl, setDestinationUrl] = useState("");
   const [linkType, setLinkType] = useState<"permanent" | "temporary">("permanent");
   const [duration, setDuration] = useState<string>("24h");
   const [customDate, setCustomDate] = useState<string>("");
   const [customTime, setCustomTime] = useState<string>("18:00");
+  const [assignToGroup, setAssignToGroup] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const generateRandomShortCode = () => {
+    const chars = "abcdefghjkmnpqrstuvwxyz23456789";
+    let code = "";
+    for (let i = 0; i < 6; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return code;
+  };
+
   useEffect(() => {
     if (isOpen) {
-      setWebname("");
+      setLinkName("");
+      setShortCode(generateRandomShortCode());
       setDestinationUrl("");
       setLinkType("permanent");
       setDuration("24h");
+      setAssignToGroup(true);
       setError(null);
     }
   }, [isOpen]);
@@ -55,16 +71,16 @@ export function CreateRedirectModal({
 
   if (!isOpen) return null;
 
-  const cleanWebname = sanitizeSlug(webname);
-  const previewPath = `${baseUrl}/${currentUser}/${cleanWebname || "link"}`;
   const minDate = new Date().toISOString().slice(0, 10);
+  const cleanShortCode = sanitizeSlug(shortCode) || "code";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    if (!cleanWebname) {
-      setError("Please enter a link name (e.g. linkedin, reddit, portfolio)");
+    const trimmedName = linkName.trim();
+    if (!trimmedName) {
+      setError("Please enter a link name (e.g. github-project, portfolio, resume)");
       return;
     }
 
@@ -79,7 +95,7 @@ export function CreateRedirectModal({
     }
 
     if (!isValidUrl(finalUrl)) {
-      setError("Please enter a valid destination URL (e.g. https://linkedin.com/in/...)");
+      setError("Please enter a valid destination URL (e.g. https://github.com/username/project)");
       return;
     }
 
@@ -100,13 +116,15 @@ export function CreateRedirectModal({
     try {
       const payload: {
         username: string;
+        title: string;
         webname: string;
         destinationUrl: string;
         duration?: string;
         expiresAt?: string;
       } = {
         username: currentUser,
-        webname: cleanWebname,
+        title: trimmedName,
+        webname: cleanShortCode,
         destinationUrl: finalUrl,
       };
 
@@ -131,6 +149,29 @@ export function CreateRedirectModal({
         throw new Error(data.error || "Failed to create link");
       }
 
+      // If created while inside a target group, automatically append the new link
+      if (targetGroup && assignToGroup && data.redirect?.id) {
+        let currentIds: number[] = [];
+        try {
+          const parsed = JSON.parse(targetGroup.linkIds || "[]");
+          if (Array.isArray(parsed)) currentIds = parsed.map(Number).filter((n) => !isNaN(n));
+        } catch {
+          currentIds = [];
+        }
+        if (!currentIds.includes(data.redirect.id)) {
+          currentIds.push(data.redirect.id);
+          try {
+            await fetch(`/api/groups/${targetGroup.id}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ linkIds: currentIds }),
+            });
+          } catch (err) {
+            console.error("Auto-assign to group error:", err);
+          }
+        }
+      }
+
       onCreated();
       onClose();
     } catch (err: unknown) {
@@ -149,6 +190,7 @@ export function CreateRedirectModal({
         onClick={(e) => e.stopPropagation()}
         className="relative w-full max-w-lg rounded-3xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-7 sm:p-8 shadow-2xl cursor-default font-sans my-8"
       >
+        {/* Header */}
         <div className="flex items-center justify-between pb-4 border-b border-neutral-100 dark:border-neutral-800">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-black dark:bg-white text-white dark:text-black flex items-center justify-center font-bold">
@@ -156,7 +198,7 @@ export function CreateRedirectModal({
             </div>
             <div>
               <h2 className="text-base font-bold text-neutral-900 dark:text-white">Create New Link</h2>
-              <p className="text-xs text-neutral-500 dark:text-neutral-400">Set up a fast permanent or temporary redirect</p>
+              <p className="text-xs text-neutral-500 dark:text-neutral-400">Name your link and assign a destination</p>
             </div>
           </div>
           <button
@@ -176,27 +218,48 @@ export function CreateRedirectModal({
           </div>
         )}
 
+        {targetGroup && (
+          <div className="mt-4 p-3 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50/70 dark:bg-neutral-950 flex items-center justify-between">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <span
+                className="w-3 h-3 rounded-full flex-shrink-0"
+                style={{ backgroundColor: targetGroup.color || "#000000" }}
+              />
+              <div className="text-xs truncate">
+                <span className="text-neutral-500 dark:text-neutral-400">Adding into group: </span>
+                <span className="font-bold text-neutral-900 dark:text-white">{targetGroup.name}</span>
+              </div>
+            </div>
+            <label className="flex items-center gap-1.5 cursor-pointer text-[11px] font-semibold text-neutral-600 dark:text-neutral-300 select-none flex-shrink-0">
+              <input
+                type="checkbox"
+                checked={assignToGroup}
+                onChange={(e) => setAssignToGroup(e.target.checked)}
+                className="w-3.5 h-3.5 rounded text-black dark:text-white accent-black dark:accent-white cursor-pointer"
+              />
+              <span>Auto-assign</span>
+            </label>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="mt-5 space-y-4">
+          {/* 1. Link Name (Project name / Title) */}
           <div>
             <label className="block text-xs font-semibold text-neutral-800 dark:text-neutral-200 mb-1.5">
               Link Name
             </label>
-            <div className="flex items-center rounded-xl border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-950 px-3.5 py-2.5 focus-within:border-black dark:focus-within:border-white focus-within:ring-1 focus-within:ring-black dark:focus-within:ring-white transition">
-              <span className="text-xs text-neutral-400 font-mono select-none">
-                /{currentUser}/
-              </span>
-              <input
-                type="text"
-                value={webname}
-                onChange={(e) => setWebname(e.target.value)}
-                placeholder="linkedin, reddit, portfolio"
-                autoFocus
-                required
-                className="w-full text-xs bg-transparent text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-600 focus:outline-none ml-1 font-mono font-medium"
-              />
-            </div>
+            <input
+              type="text"
+              value={linkName}
+              onChange={(e) => setLinkName(e.target.value)}
+              placeholder="e.g. github-project, portfolio, resume"
+              autoFocus
+              required
+              className="w-full px-3.5 py-2.5 text-xs bg-white dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 rounded-xl text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-600 focus:outline-none focus:border-black dark:focus:border-white focus:ring-1 focus:ring-black dark:focus:ring-white transition font-medium"
+            />
           </div>
 
+          {/* 2. Destination URL */}
           <div>
             <label className="block text-xs font-semibold text-neutral-800 dark:text-neutral-200 mb-1.5">
               Where Should It Go? (Destination URL)
@@ -205,12 +268,13 @@ export function CreateRedirectModal({
               type="text"
               value={destinationUrl}
               onChange={(e) => setDestinationUrl(e.target.value)}
-              placeholder="https://linkedin.com/in/yourname"
+              placeholder="https://github.com/username/projectlink"
               required
               className="w-full px-3.5 py-2.5 text-xs bg-white dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 rounded-xl text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-600 focus:outline-none focus:border-black dark:focus:border-white focus:ring-1 focus:ring-black dark:focus:ring-white transition font-mono font-medium"
             />
           </div>
 
+          {/* 3. Expiration Mode */}
           <div>
             <label className="block text-xs font-semibold text-neutral-800 dark:text-neutral-200 mb-1.5">
               Expiration Mode
@@ -248,46 +312,43 @@ export function CreateRedirectModal({
                 </div>
               </button>
             </div>
-          </div>
 
-          {linkType === "temporary" && (
-            <div className="p-3.5 rounded-2xl bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200 dark:border-neutral-700 space-y-3">
-              <label className="block text-xs font-semibold text-neutral-800 dark:text-neutral-200">
-                Expires after:
-              </label>
-              <div className="grid grid-cols-5 gap-1.5">
-                {[
-                  { label: "1 Hour", val: "1h" },
-                  { label: "24 Hours", val: "24h" },
-                  { label: "7 Days", val: "7d" },
-                  { label: "30 Days", val: "30d" },
-                  { label: "Custom", val: "custom" },
-                ].map((d) => (
-                  <button
-                    key={d.val}
-                    type="button"
-                    onClick={() => setDuration(d.val)}
-                    className={`py-2 px-1 text-center rounded-xl text-xs font-semibold border transition cursor-pointer ${
-                      duration === d.val
-                        ? "bg-black dark:bg-white text-white dark:text-black border-black dark:border-white shadow-sm"
-                        : "bg-white dark:bg-neutral-900 text-neutral-700 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700 hover:border-neutral-400"
-                    }`}
-                  >
-                    {d.label}
-                  </button>
-                ))}
-              </div>
+            {linkType === "temporary" && (
+              <div className="mt-3 p-3.5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/40 space-y-3 animate-in fade-in duration-150">
+                <div>
+                  <label className="block text-[11px] font-semibold text-neutral-700 dark:text-neutral-300 mb-1.5">
+                    How long should this link stay active?
+                  </label>
+                  <div className="grid grid-cols-5 gap-1.5">
+                    {[
+                      { label: "1 Hour", val: "1h" },
+                      { label: "24 Hours", val: "24h" },
+                      { label: "7 Days", val: "7d" },
+                      { label: "30 Days", val: "30d" },
+                      { label: "Custom", val: "custom" },
+                    ].map((opt) => (
+                      <button
+                        key={opt.val}
+                        type="button"
+                        onClick={() => setDuration(opt.val)}
+                        className={`py-1.5 px-2 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                          duration === opt.val
+                            ? "bg-black dark:bg-white text-white dark:text-black shadow-sm"
+                            : "bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
-              {duration === "custom" && (
-                <div className="pt-2.5 border-t border-neutral-200/80 dark:border-neutral-700 space-y-2">
-                  <span className="block text-[11px] font-semibold text-neutral-600 dark:text-neutral-300">
-                    Set Expiration Date & Time:
-                  </span>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {duration === "custom" && (
+                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-neutral-200/60 dark:border-neutral-700/60 animate-in fade-in duration-150">
                     <div>
-                      <label className="block text-[10px] font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider mb-1 flex items-center gap-1">
-                        <Calendar className="w-3 h-3 text-neutral-700 dark:text-neutral-300" />
-                        1. Select Date
+                      <label className="block text-[10px] font-medium text-neutral-500 dark:text-neutral-400 mb-1 flex items-center gap-1">
+                        <Calendar className="w-3 h-3" />
+                        <span>Date</span>
                       </label>
                       <input
                         type="date"
@@ -298,11 +359,10 @@ export function CreateRedirectModal({
                         className="w-full px-3 py-2 text-xs font-medium bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-700 rounded-xl text-neutral-900 dark:text-white focus:outline-none focus:border-black dark:focus:border-white shadow-sm"
                       />
                     </div>
-
                     <div>
-                      <label className="block text-[10px] font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider mb-1 flex items-center gap-1">
-                        <Clock className="w-3 h-3 text-neutral-700 dark:text-neutral-300" />
-                        2. Select Time
+                      <label className="block text-[10px] font-medium text-neutral-500 dark:text-neutral-400 mb-1 flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        <span>Time</span>
                       </label>
                       <input
                         type="time"
@@ -313,18 +373,22 @@ export function CreateRedirectModal({
                       />
                     </div>
                   </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          <div className="p-3.5 rounded-xl bg-neutral-50 dark:bg-neutral-800/50 border border-neutral-200 dark:border-neutral-800 text-xs">
-            <span className="text-[10px] text-neutral-500 dark:text-neutral-400 uppercase tracking-wider font-semibold block mb-1">
-              Your Shareable Link
-            </span>
-            <div className="font-mono font-bold text-neutral-900 dark:text-white truncate">{previewPath}</div>
+                )}
+              </div>
+            )}
           </div>
 
+          {/* Shareable Link Code Preview */}
+          <div className="p-3.5 rounded-xl bg-neutral-50 dark:bg-neutral-800/50 border border-neutral-200 dark:border-neutral-800 text-xs">
+            <span className="text-[10px] text-neutral-500 dark:text-neutral-400 uppercase tracking-wider font-semibold block mb-0.5">
+              Shareable Short Link
+            </span>
+            <div className="font-mono font-bold text-neutral-900 dark:text-white truncate">
+              {baseUrl}/{cleanShortCode}
+            </div>
+          </div>
+
+          {/* Footer Actions */}
           <div className="flex items-center justify-end gap-2 pt-4 border-t border-neutral-100 dark:border-neutral-800">
             <button
               type="button"

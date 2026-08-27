@@ -1,13 +1,14 @@
 "use client";
 
 import { use, useEffect, useState } from "react";
-import { Link2, ArrowRight } from "lucide-react";
+import { Link2, ArrowRight, X } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
 interface LinkItem {
   id: number;
   username: string;
   webname: string;
+  title?: string | null;
   destinationUrl: string;
   expiresAt: Date | string | null;
   showOnProfile: boolean;
@@ -23,7 +24,9 @@ export default function UserProfilePage({ params }: UserProfilePageProps) {
   const cleanUsername = username?.trim().toLowerCase() || "user";
 
   const [links, setLinks] = useState<LinkItem[]>([]);
+  const [avatar, setAvatar] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   useEffect(() => {
     async function loadUserLinks() {
@@ -36,7 +39,13 @@ export default function UserProfilePage({ params }: UserProfilePageProps) {
 
         if (res.ok) {
           const data = await res.json();
+          // If this was a direct shortcode redirect (e.g. /37c738)
+          if (data.isDirectRedirect && data.directRedirectUrl) {
+            window.location.replace(data.directRedirectUrl);
+            return;
+          }
           setLinks(data.links || []);
+          if (data.avatar) setAvatar(data.avatar);
         } else {
           setLinks([]);
         }
@@ -51,6 +60,14 @@ export default function UserProfilePage({ params }: UserProfilePageProps) {
     loadUserLinks();
   }, [cleanUsername]);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isPreviewOpen) setIsPreviewOpen(false);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isPreviewOpen]);
+
   const initial = cleanUsername.charAt(0).toUpperCase();
 
   return (
@@ -63,9 +80,24 @@ export default function UserProfilePage({ params }: UserProfilePageProps) {
       <div className="w-full max-w-md mx-auto space-y-8 animate-in fade-in duration-300">
         {/* Clean Avatar Header */}
         <div className="text-center space-y-3">
-          <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-black dark:bg-white text-white dark:text-black flex items-center justify-center font-bold text-2xl sm:text-3xl shadow-xl mx-auto ring-4 ring-neutral-100 dark:ring-neutral-900">
-            {initial}
-          </div>
+          {avatar ? (
+            <button
+              type="button"
+              onClick={() => setIsPreviewOpen(true)}
+              className="group/avatar block mx-auto rounded-full focus:outline-none focus:ring-4 focus:ring-black dark:focus:ring-white transition cursor-pointer"
+              title="Click to view full photo"
+            >
+              <img
+                src={avatar}
+                alt={cleanUsername}
+                className="w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover shadow-xl mx-auto ring-4 ring-neutral-100 dark:ring-neutral-900 group-hover/avatar:opacity-90 group-hover/avatar:scale-105 transition-all duration-200"
+              />
+            </button>
+          ) : (
+            <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-black dark:bg-white text-white dark:text-black flex items-center justify-center font-bold text-2xl sm:text-3xl shadow-xl mx-auto ring-4 ring-neutral-100 dark:ring-neutral-900">
+              {initial}
+            </div>
+          )}
 
           <div>
             <h1 className="text-lg sm:text-xl font-bold text-neutral-900 dark:text-white tracking-tight">
@@ -105,7 +137,7 @@ export default function UserProfilePage({ params }: UserProfilePageProps) {
                     </div>
                     <div className="min-w-0">
                       <span className="text-sm font-bold text-neutral-900 dark:text-white group-hover:text-black dark:group-hover:text-white transition truncate block">
-                        /{link.webname}
+                        {link.title || `/${link.webname}`}
                       </span>
                     </div>
                   </div>
@@ -130,6 +162,41 @@ export default function UserProfilePage({ params }: UserProfilePageProps) {
           <span>domainyourlink</span>
         </a>
       </footer>
+
+      {/* Profile Photo Lightbox Modal */}
+      {isPreviewOpen && avatar && (
+        <div
+          onClick={() => setIsPreviewOpen(false)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200 cursor-pointer"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="relative max-w-sm sm:max-w-md w-full flex flex-col items-center cursor-default animate-in zoom-in-95 duration-200"
+          >
+            <button
+              type="button"
+              onClick={() => setIsPreviewOpen(false)}
+              className="absolute -top-12 right-0 p-2 rounded-full bg-white/10 hover:bg-white/25 text-white transition cursor-pointer"
+              title="Close"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <img
+              src={avatar}
+              alt={cleanUsername}
+              className="w-72 h-72 sm:w-96 sm:h-96 rounded-full object-cover shadow-2xl ring-4 ring-white/20"
+            />
+
+            <div className="mt-5 text-center space-y-1">
+              <span className="text-sm font-bold text-white block">
+                @{cleanUsername}
+              </span>
+              <p className="text-xs text-white/50">Click outside to close</p>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

@@ -21,6 +21,14 @@ export function DeleteRedirectModal({
 }: DeleteRedirectModalProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [dontShowAgain, setDontShowAgain] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      setDontShowAgain(false);
+      setError(null);
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -32,13 +40,18 @@ export function DeleteRedirectModal({
 
   if (!isOpen || !redirect) return null;
 
-  const path = `/${redirect.username}/${redirect.webname}`;
+  const displayName = redirect.title || redirect.webname;
+  const path = `/${redirect.webname}`;
   const fullUrl = `${baseUrl}${path}`;
 
   const handleDelete = async () => {
     setLoading(true);
     setError(null);
     try {
+      if (dontShowAgain && typeof window !== "undefined") {
+        localStorage.setItem("skip_delete_link_confirm", "true");
+      }
+
       const res = await fetch(`/api/redirects/${redirect.id}`, {
         method: "DELETE",
       });
@@ -68,7 +81,7 @@ export function DeleteRedirectModal({
       >
         <div className="flex items-center justify-between pb-4 border-b border-neutral-100 dark:border-neutral-800">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-neutral-100 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 flex items-center justify-center font-bold">
+            <div className="w-9 h-9 rounded-xl bg-red-100 dark:bg-red-950/60 border border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-400 flex items-center justify-center font-bold">
               <Trash2 className="w-4 h-4" />
             </div>
             <div>
@@ -95,12 +108,12 @@ export function DeleteRedirectModal({
 
         <div className="mt-5 space-y-4 text-xs">
           <p className="text-neutral-600 dark:text-neutral-400">
-            Are you sure you want to delete this link? Anyone who clicks it will get a 404 page.
+            Are you sure you want to delete <strong className="text-neutral-900 dark:text-white">{displayName}</strong>? Anyone who clicks it will get a 404 page.
           </p>
 
           <div className="p-3.5 rounded-2xl bg-neutral-50 dark:bg-neutral-800/50 border border-neutral-200 dark:border-neutral-800 space-y-1">
             <span className="text-[10px] text-neutral-500 dark:text-neutral-400 uppercase tracking-wider font-semibold block">
-              Permanent Link
+              Permanent Short Link
             </span>
             <div className="font-mono font-bold text-neutral-900 dark:text-white truncate">{fullUrl}</div>
             <div className="text-[11px] text-neutral-500 dark:text-neutral-400 truncate">
@@ -108,7 +121,18 @@ export function DeleteRedirectModal({
             </div>
           </div>
 
-          <div className="flex items-center justify-end gap-2 pt-4 border-t border-neutral-100 dark:border-neutral-800">
+          {/* Don't show this confirmation again */}
+          <label className="flex items-center gap-2 cursor-pointer select-none text-[11px] text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200 pt-1">
+            <input
+              type="checkbox"
+              checked={dontShowAgain}
+              onChange={(e) => setDontShowAgain(e.target.checked)}
+              className="w-3.5 h-3.5 rounded border-neutral-300 dark:border-neutral-700 text-black dark:text-white accent-black dark:accent-white cursor-pointer"
+            />
+            <span>Don't show this confirmation again</span>
+          </label>
+
+          <div className="flex items-center justify-end gap-2 pt-3 border-t border-neutral-100 dark:border-neutral-800">
             <button
               type="button"
               onClick={onClose}

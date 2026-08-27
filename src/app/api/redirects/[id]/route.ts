@@ -38,7 +38,7 @@ export async function PATCH(
     }
 
     const body = await request.json();
-    const { destinationUrl, duration, expiresAt, showOnProfile, action, resetAnalytics } = body;
+    const { title, name, destinationUrl, duration, expiresAt, showOnProfile, action, resetAnalytics } = body;
 
     // Reset analytics to 0
     if (action === "reset_analytics" || resetAnalytics === true) {
@@ -68,6 +68,7 @@ export async function PATCH(
     }
 
     const updateFields: {
+      title?: string;
       destinationUrl?: string;
       expiresAt?: Date | null;
       showOnProfile?: boolean;
@@ -75,6 +76,10 @@ export async function PATCH(
     } = {
       updatedAt: new Date(),
     };
+
+    if (title !== undefined || name !== undefined) {
+      updateFields.title = title || name || "";
+    }
 
     if (destinationUrl !== undefined) {
       let formattedDestination = destinationUrl.trim();
@@ -135,6 +140,7 @@ export async function PATCH(
     const fallbackList = getLocalFallbackLinks();
     const item = fallbackList.find((l) => l.id === numericId);
     if (item) {
+      if (updateFields.title !== undefined) item.title = updateFields.title;
       if (updateFields.destinationUrl !== undefined) item.destinationUrl = updateFields.destinationUrl;
       if (updateFields.expiresAt !== undefined) item.expiresAt = updateFields.expiresAt;
       if (updateFields.showOnProfile !== undefined) item.showOnProfile = updateFields.showOnProfile;

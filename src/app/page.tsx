@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { sanitizeSlug } from "@/lib/utils";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { DashboardView } from "@/components/DashboardView";
 
 export default function HomePage() {
   const [isSignUp, setIsSignUp] = useState(true);
@@ -45,9 +46,28 @@ export default function HomePage() {
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
   const [isUsernameFocused, setIsUsernameFocused] = useState(false);
   const [modalType, setModalType] = useState<"features" | "howItWorks" | "about" | "forgotPassword" | null>(null);
+  const [currentUserSession, setCurrentUserSession] = useState<{ username: string; email?: string } | null>(null);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const router = useRouter();
 
   const cleanUsername = sanitizeSlug(username);
+
+  // Check existing session on mount
+  useEffect(() => {
+    async function checkExistingSession() {
+      try {
+        const res = await fetch(`/api/auth?t=${Date.now()}`, { cache: "no-store" });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.authenticated && data.user) {
+            setCurrentUserSession(data.user);
+          }
+        }
+      } catch {}
+      setIsCheckingAuth(false);
+    }
+    checkExistingSession();
+  }, []);
 
   // Close modal on Escape key press
   useEffect(() => {
@@ -300,6 +320,20 @@ export default function HomePage() {
     }, 50);
   };
 
+  // Loading state while checking authentication
+  if (isCheckingAuth) {
+    return (
+      <div className="min-h-screen bg-white dark:bg-neutral-950 flex items-center justify-center">
+        <div className="w-5 h-5 border-2 border-neutral-200 dark:border-neutral-800 border-t-black dark:border-t-white rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  // If user is logged in, do NOT show the landing page at all; show the inside Dashboard!
+  if (currentUserSession) {
+    return <DashboardView initialTab="links" />;
+  }
+
   return (
     <div className="min-h-screen bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 flex flex-col justify-between p-6 sm:p-10 lg:p-12 font-sans selection:bg-black dark:selection:bg-white selection:text-white dark:selection:text-black transition-colors duration-200">
       {/* Header */}
@@ -333,12 +367,22 @@ export default function HomePage() {
 
           <ThemeToggle />
 
-          <button
-            onClick={() => toggleAuthMode(!isSignUp)}
-            className="px-3.5 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800 text-neutral-900 dark:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition font-medium cursor-pointer"
-          >
-            {isSignUp ? "Sign in" : "Sign up"}
-          </button>
+          {currentUserSession ? (
+            <a
+              href="/admin"
+              className="px-3.5 py-1.5 rounded-xl bg-black dark:bg-white text-white dark:text-black hover:opacity-90 transition font-semibold text-xs inline-flex items-center gap-1.5 shadow-sm"
+            >
+              <span>Dashboard</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </a>
+          ) : (
+            <button
+              onClick={() => toggleAuthMode(!isSignUp)}
+              className="px-3.5 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800 text-neutral-900 dark:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition font-medium cursor-pointer"
+            >
+              {isSignUp ? "Sign in" : "Sign up"}
+            </button>
+          )}
         </nav>
       </header>
 
@@ -814,7 +858,6 @@ export default function HomePage() {
                 </div>
               </>
             )}
-
           </div>
         </div>
       </main>

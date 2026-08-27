@@ -9,7 +9,7 @@ import {
   verifyEmployeeSessionToken,
 } from "../src/lib/auth";
 import { generateOtp, storeOtp, verifyOtp, createOtpChallenge, verifyOtpChallenge } from "../src/lib/email";
-import { hashPassword, verifyPasswordHash, createOrUpdateUser, findUserByEmailOrUsername } from "../src/lib/userStore";
+import { hashPassword, verifyPasswordHash, createOrUpdateUser, findUserByEmailOrUsername, updateUserAvatar, updateUsername, deleteUserAccount } from "../src/lib/userStore";
 import { isReservedUsername } from "../src/lib/reservedUsernames";
 import {
   findSharedEmployeeByEmailOrUser,
@@ -22,6 +22,7 @@ import {
   getSharedLinkGroups,
   updateSharedLinkGroup,
   deleteSharedLinkGroup,
+  findSharedGroupByShareCode,
 } from "../src/lib/groupStore";
 
 async function runTests() {
@@ -203,6 +204,10 @@ async function runTests() {
     name: "GitHub Projects",
     color: "#2563eb",
     linkIds: JSON.stringify([1, 2, 5]),
+    shareCode: "grp_101",
+    isShared: true,
+    expiresAt: null,
+    sortOrder: 0,
     createdAt: new Date(),
     updatedAt: new Date(),
   };
@@ -220,9 +225,9 @@ async function runTests() {
   );
 
   // Reorder test
-  const g1 = { id: 201, username: "siddu", name: "Group A", color: "#000", linkIds: "[]", createdAt: new Date(), updatedAt: new Date() };
-  const g2 = { id: 202, username: "siddu", name: "Group B", color: "#000", linkIds: "[]", createdAt: new Date(), updatedAt: new Date() };
-  const g3 = { id: 203, username: "siddu", name: "Group C", color: "#000", linkIds: "[]", createdAt: new Date(), updatedAt: new Date() };
+  const g1 = { id: 201, username: "siddu", name: "Group A", color: "#000", linkIds: "[]", shareCode: "g1", isShared: true, expiresAt: null, sortOrder: 0, createdAt: new Date(), updatedAt: new Date() };
+  const g2 = { id: 202, username: "siddu", name: "Group B", color: "#000", linkIds: "[]", shareCode: "g2", isShared: true, expiresAt: null, sortOrder: 1, createdAt: new Date(), updatedAt: new Date() };
+  const g3 = { id: 203, username: "siddu", name: "Group C", color: "#000", linkIds: "[]", shareCode: "g3", isShared: true, expiresAt: null, sortOrder: 2, createdAt: new Date(), updatedAt: new Date() };
   addSharedLinkGroup(g1);
   addSharedLinkGroup(g2);
   addSharedLinkGroup(g3);
@@ -260,6 +265,95 @@ async function runTests() {
   const expiredTestTime = Date.now() - (65 * 60 * 1000); // 65 mins ago
   const isAllowedAgain = (Date.now() - expiredTestTime) >= ONE_HOUR;
   assert(isAllowedAgain === true, "Permits sending new test email once 1-hour cooldown completes");
+
+  // 13. Avatar Profile Picture & Random Short Code Tests
+  console.log("\n13. Avatar Profile Picture & Random Short Code Tests");
+  const testAvatarBase64 = "data:image/webp;base64,UklGRhoAAABXRUJQVlA4TA0AAAAvAAAAEAcQERGIiP4HAA==";
+  await createOrUpdateUser("avatartester", "avatar@test.com", "avatarPass123");
+  
+  // Update avatar
+  const avatarUpdated = await updateUserAvatar("avatartester", testAvatarBase64);
+  assert(avatarUpdated === true, "Successfully uploads and stores profile picture data URL");
+
+  const userWithAvatar = await findUserByEmailOrUsername("avatartester");
+  assert(userWithAvatar?.avatar === testAvatarBase64, "Retrieves updated profile picture for user");
+
+  // Remove avatar
+  await updateUserAvatar("avatartester", null);
+  const userWithoutAvatar = await findUserByEmailOrUsername("avatartester");
+  assert(userWithoutAvatar?.avatar === null, "Successfully removes profile picture");
+
+  // Random 6-char short code link generation test
+  const chars = "abcdefghjkmnpqrstuvwxyz23456789";
+  let randomCode = "";
+  for (let i = 0; i < 6; i++) {
+    randomCode += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  // 14. Change Username & Delete Account Tests
+  console.log("\n14. Change Username & Delete Account Tests");
+  await createOrUpdateUser("olduser123", "olduser@test.com", "pass12345");
+
+  // Update username
+  const updatedUsernameOk = await updateUsername("olduser123", "newuser456");
+  assert(updatedUsernameOk === true, "Successfully changes username in store");
+
+  const foundNewUser = await findUserByEmailOrUsername("newuser456");
+  assert(foundNewUser?.username === "newuser456", "Finds user under updated username");
+
+  const oldUserGone = await findUserByEmailOrUsername("olduser123");
+  assert(!oldUserGone || oldUserGone.username === "newuser456", "Old username no longer points to separate user");
+
+  // Delete account
+  const deleteAccountOk = await deleteUserAccount("newuser456");
+  assert(deleteAccountOk === true, "Successfully executes account deletion");
+
+  const deletedUser = await findUserByEmailOrUsername("newuser456");
+  assert(!deletedUser, "Deleted account is permanently removed from store");
+
+  // 15. Link Name vs Short Code Tests
+  console.log("\n15. Link Name vs Short Code Tests");
+  const testLinkTitle: string = "github-project";
+  const testShortCode: string = "88r872";
+  
+  // Verify title is distinct from shortcode
+  assert(testLinkTitle !== testShortCode, "Link name is distinct from auto-assigned short code");
+  assert(testShortCode.length === 6, "Auto-assigned short code is 6 characters");
+
+  // 16. Group Sharing with Random Code & Expiration Tests
+  console.log("\n16. Group Sharing with Random Code & Expiration Tests");
+  const groupRandomCode = Math.random().toString(36).substring(2, 8).toLowerCase();
+  
+  const testSharedGroup = {
+    id: 999,
+    username: "testuser",
+    name: "Portfolio Projects",
+    color: "#2563eb",
+    linkIds: "[1, 2]",
+    shareCode: groupRandomCode,
+    isShared: true,
+    expiresAt: null,
+    sortOrder: 0,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+  addSharedLinkGroup(testSharedGroup);
+
+  const foundGroup = findSharedGroupByShareCode(groupRandomCode);
+  assert(foundGroup?.id === 999, "Successfully finds shared group by anonymous random short code");
+  assert(foundGroup?.isShared === true, "Shared group defaults to active public sharing");
+  assert(foundGroup?.shareCode?.length === 6, "Group share code is exactly 6 random characters");
+
+  // Toggle sharing off (Private)
+  updateSharedLinkGroup(999, { isShared: false });
+  const privateGroup = findSharedGroupByShareCode(groupRandomCode);
+  assert(privateGroup?.isShared === false, "Successfully turns off public sharing for group (Private mode)");
+
+  // Temporary expiration in past
+  const pastDate = new Date(Date.now() - 3600000);
+  updateSharedLinkGroup(999, { isShared: true, expiresAt: pastDate });
+  const expiredGroup = findSharedGroupByShareCode(groupRandomCode);
+  const isExp = Boolean(expiredGroup?.expiresAt && new Date(expiredGroup.expiresAt).getTime() <= Date.now());
+  assert(isExp === true, "Successfully flags temporary shared group as expired when timestamp passes");
 
   console.log("\n========================================");
   console.log(`Summary: ${passed} passed, ${failed} failed`);

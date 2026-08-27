@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { redirects, bios, Redirect, Bio } from "@/lib/db/schema";
+import { redirects, bios, users, Redirect, Bio } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { getLocalFallbackLinks } from "@/app/api/redirects/route";
 import { getLocalFallbackBios } from "@/app/api/bios/route";
@@ -8,7 +8,10 @@ import {
   isTursoEnabled,
   tursoGetRedirects,
   tursoGetBios,
+  tursoGetUserAvatar,
+  tursoFindRedirectByWebnameOnly,
 } from "@/lib/tursoDb";
+import { findUserByEmailOrUsername } from "@/lib/userStore";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -30,14 +33,42 @@ export async function GET(request: NextRequest) {
   const cleanBioname = bioname ? bioname.trim().toLowerCase() : null;
 
   try {
+    // 0. Check if this is a direct Short Code Link (e.g. /37c738 or /r/37c738)
+    if (!cleanBioname) {
+      let directMatch: Redirect | null = null;
+      if (isTursoEnabled) {
+        directMatch = await tursoFindRedirectByWebnameOnly(cleanUsername);
+      }
+      if (!directMatch && db) {
+        try {
+          const res = await db.select().from(redirects).where(eq(redirects.webname, cleanUsername)).limit(1);
+          if (res.length > 0) directMatch = res[0];
+        } catch {}
+      }
+      if (!directMatch) {
+        const fallbacks = getLocalFallbackLinks();
+        directMatch = fallbacks.find((l) => l.webname.toLowerCase() === cleanUsername) || null;
+      }
+
+      if (directMatch) {
+        return NextResponse.json({
+          isDirectRedirect: true,
+          destinationUrl: directMatch.destinationUrl,
+          directRedirectUrl: `/${directMatch.username}/${directMatch.webname}`,
+        }, { headers: noCacheHeaders });
+      }
+    }
+
     let userLinks: Redirect[] = [];
     let userBios: Bio[] = [];
+    let avatar: string | null = null;
 
     // 1. Try Turso Database
     if (isTursoEnabled) {
       try {
         userLinks = await tursoGetRedirects(cleanUsername);
         userBios = await tursoGetBios(cleanUsername);
+        avatar = await tursoGetUserAvatar(cleanUsername);
       } catch (err) {
         console.warn("Turso public profile error:", err);
       }
@@ -54,6 +85,10 @@ export async function GET(request: NextRequest) {
           .select()
           .from(bios)
           .where(eq(bios.username, cleanUsername));
+        if (!avatar) {
+          const u = await db.select({ avatar: users.avatar }).from(users).where(eq(users.username, cleanUsername)).limit(1);
+          if (u.length > 0) avatar = u[0].avatar;
+        }
       } catch {}
     }
 
@@ -63,6 +98,10 @@ export async function GET(request: NextRequest) {
       userLinks = fallbackLinks.filter((l) => l.username.toLowerCase() === cleanUsername);
       const fallbackBios = getLocalFallbackBios();
       userBios = fallbackBios.filter((b) => b.username.toLowerCase() === cleanUsername);
+      if (!avatar) {
+        const u = await findUserByEmailOrUsername(cleanUsername);
+        if (u?.avatar) avatar = u.avatar;
+      }
     }
 
     // Filter active non-expired links
@@ -99,6 +138,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       {
         username: cleanUsername,
+        avatar,
         bio: targetBio,
         isExpired,
         links: finalLinks,

@@ -157,6 +157,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const {
       username: bodyUsername,
+      title,
+      name,
       webname,
       destinationUrl,
       duration,
@@ -166,8 +168,9 @@ export async function POST(request: NextRequest) {
     } = body;
 
     const finalUsername = bodyUsername || session.username || "creator";
+    const linkTitle = (title || name || "").trim();
 
-    if (!webname || !destinationUrl) {
+    if ((!webname && !linkTitle) || !destinationUrl) {
       return NextResponse.json(
         { error: "Link name and destination URL are required" },
         { status: 400, headers: noCacheHeaders }
@@ -175,14 +178,13 @@ export async function POST(request: NextRequest) {
     }
 
     const cleanUsername = sanitizeSlug(finalUsername);
-    const cleanWebname = sanitizeSlug(webname);
-
+    let cleanWebname = sanitizeSlug(webname || "");
     if (!cleanWebname) {
-      return NextResponse.json(
-        { error: "Please enter a valid link name" },
-        { status: 400, headers: noCacheHeaders }
-      );
+      // Auto-assign 6-char random short code if not provided
+      cleanWebname = Math.random().toString(36).substring(2, 8).toLowerCase();
     }
+
+    const finalTitle = linkTitle || cleanWebname;
 
     let formattedDestination = destinationUrl.trim();
     if (
@@ -215,6 +217,7 @@ export async function POST(request: NextRequest) {
         const newRecord = await tursoCreateRedirect({
           username: cleanUsername,
           webname: cleanWebname,
+          title: finalTitle,
           destinationUrl: formattedDestination,
           redirectCode: 307,
           expiresAt: expirationDate,
@@ -255,6 +258,7 @@ export async function POST(request: NextRequest) {
         .values({
           username: cleanUsername,
           webname: cleanWebname,
+          title: finalTitle,
           destinationUrl: formattedDestination,
           redirectCode: 307,
           expiresAt: expirationDate,
@@ -280,6 +284,7 @@ export async function POST(request: NextRequest) {
         id: nextId++,
         username: cleanUsername,
         webname: cleanWebname,
+        title: finalTitle,
         destinationUrl: formattedDestination,
         redirectCode: 307,
         clickCount: 0,

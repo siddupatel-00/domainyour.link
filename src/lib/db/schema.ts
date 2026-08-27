@@ -18,6 +18,7 @@ export const users = pgTable(
     username: varchar("username", { length: 64 }).notNull(),
     email: varchar("email", { length: 255 }).notNull(),
     password: text("password"), // Hashed password
+    avatar: text("avatar"), // Base64 data URI or image URL
     recapPreference: varchar("recap_preference", { length: 32 }).default("off").notNull(), // "off" | "weekly" | "monthly"
     lastRecapSentAt: timestamp("last_recap_sent_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -35,6 +36,7 @@ export const redirects = pgTable(
     id: serial("id").primaryKey(),
     username: varchar("username", { length: 64 }).notNull(),
     webname: varchar("webname", { length: 128 }).notNull(),
+    title: varchar("title", { length: 255 }), // User-friendly link title (e.g. "github-project")
     destinationUrl: text("destination_url").notNull(),
     redirectCode: integer("redirect_code").default(307).notNull(),
     clickCount: integer("click_count").default(0).notNull(),
@@ -76,6 +78,10 @@ export const linkGroups = pgTable(
     name: varchar("name", { length: 128 }).notNull(), // e.g. "GitHub Projects", "Socials"
     color: varchar("color", { length: 32 }).default("#000000"), // Optional badge color
     linkIds: text("link_ids").notNull().default("[]"), // JSON stringified array of redirect IDs e.g. "[1, 4, 8]"
+    shareCode: varchar("share_code", { length: 32 }), // Random short code e.g. "4k2pm9"
+    isShared: boolean("is_shared").default(true).notNull(), // Sharing on/off
+    expiresAt: timestamp("expires_at"), // Null = permanent; Timestamp = temporary expiring
+    sortOrder: integer("sort_order").default(0),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },

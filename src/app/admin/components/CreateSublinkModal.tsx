@@ -31,9 +31,18 @@ export function CreateSublinkModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const generateRandomSubCode = () => {
+    const chars = "abcdefghjkmnpqrstuvwxyz23456789";
+    let code = "";
+    for (let i = 0; i < 4; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return code;
+  };
+
   useEffect(() => {
     if (isOpen && parentRedirect) {
-      setSubWebname("");
+      setSubWebname(generateRandomSubCode());
       setDestinationUrl(parentRedirect.destinationUrl || "");
       setLinkType("permanent");
       setDuration("24h");

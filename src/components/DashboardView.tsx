@@ -8,8 +8,12 @@ import { AnalyticsView } from "@/app/admin/components/AnalyticsView";
 import { BioPageView } from "@/app/admin/components/BioPageView";
 import { GroupFilterBar } from "@/app/admin/components/GroupFilterBar";
 import { ManageGroupModal } from "@/app/admin/components/ManageGroupModal";
+import { ShareGroupModal } from "@/app/admin/components/ShareGroupModal";
 import { EmailRecapModal } from "@/app/admin/components/EmailRecapModal";
 import { ResetClicksModal } from "@/app/admin/components/ResetClicksModal";
+import { AvatarUploadModal } from "@/app/admin/components/AvatarUploadModal";
+import { ChangeUsernameModal } from "@/app/admin/components/ChangeUsernameModal";
+import { DeleteAccountModal } from "@/app/admin/components/DeleteAccountModal";
 import { CreateRedirectModal } from "@/app/admin/components/CreateRedirectModal";
 import { CreateSublinkModal } from "@/app/admin/components/CreateSublinkModal";
 import { EditRedirectModal } from "@/app/admin/components/EditRedirectModal";
@@ -27,7 +31,9 @@ import {
   Sparkles,
   Mail,
   Folder,
-  MoreVertical,
+  Camera,
+  UserCheck,
+  Trash2,
 } from "lucide-react";
 
 export type DashboardTab = "links" | "expired" | "analytics" | "bio";
@@ -44,6 +50,8 @@ export function DashboardView({ initialTab = "links" }: DashboardViewProps) {
   const [loading, setLoading] = useState(true);
   const [baseUrl, setBaseUrl] = useState("");
   const [currentUser, setCurrentUser] = useState("siddu");
+  const [currentUserEmail, setCurrentUserEmail] = useState<string>("");
+  const [avatar, setAvatar] = useState<string | null>(null);
 
   // Modals state
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -51,8 +59,13 @@ export function DashboardView({ initialTab = "links" }: DashboardViewProps) {
   const [editingRedirect, setEditingRedirect] = useState<Redirect | null>(null);
   const [deletingRedirect, setDeletingRedirect] = useState<Redirect | null>(null);
   const [isManageGroupOpen, setIsManageGroupOpen] = useState(false);
+  const [isGroupImportOnly, setIsGroupImportOnly] = useState(false);
   const [groupToEdit, setGroupToEdit] = useState<LinkGroup | null>(null);
+  const [groupToShare, setGroupToShare] = useState<LinkGroup | null>(null);
   const [isEmailRecapOpen, setIsEmailRecapOpen] = useState(false);
+  const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
+  const [isChangeUsernameOpen, setIsChangeUsernameOpen] = useState(false);
+  const [isDeleteAccountOpen, setIsDeleteAccountOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [userMenuPos, setUserMenuPos] = useState<{ top: number; left: number } | null>(null);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
@@ -190,6 +203,9 @@ export function DashboardView({ initialTab = "links" }: DashboardViewProps) {
       if (authData.user?.username) {
         setCurrentUser(authData.user.username);
       }
+      if (authData.user?.email) {
+        setCurrentUserEmail(authData.user.email);
+      }
 
       const res = await fetch(`/api/redirects?t=${Date.now()}`, {
         cache: "no-store",
@@ -213,18 +229,40 @@ export function DashboardView({ initialTab = "links" }: DashboardViewProps) {
     }
   }, [router]);
 
+  const fetchUserSettings = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/user/settings?t=${Date.now()}`, {
+        cache: "no-store",
+        headers: { "Cache-Control": "no-cache" },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.avatar) setAvatar(data.avatar);
+        if (data.email) setCurrentUserEmail(data.email);
+      }
+    } catch {}
+  }, []);
+
   useEffect(() => {
     setBaseUrl(window.location.origin);
     fetchRedirects();
     fetchGroups();
-  }, [fetchRedirects, fetchGroups]);
+    fetchUserSettings();
+  }, [fetchRedirects, fetchGroups, fetchUserSettings]);
 
   const handleLogout = async () => {
     try {
       await fetch("/api/auth", { method: "DELETE" });
-      router.push("/");
+      if (typeof window !== "undefined") {
+        window.location.href = "/";
+      } else {
+        router.push("/");
+      }
     } catch (err) {
       console.error("Logout error:", err);
+      if (typeof window !== "undefined") {
+        window.location.href = "/";
+      }
     }
   };
 
@@ -260,6 +298,22 @@ export function DashboardView({ initialTab = "links" }: DashboardViewProps) {
     } catch (err) {
       console.error("Expire link error:", err);
     }
+  };
+
+  const handleDeleteRedirectRequest = async (redirect: Redirect) => {
+    if (typeof window !== "undefined" && localStorage.getItem("skip_delete_link_confirm") === "true") {
+      try {
+        const res = await fetch(`/api/redirects/${redirect.id}`, { method: "DELETE" });
+        if (res.ok) {
+          showToast("Link deleted");
+          fetchRedirects();
+          return;
+        }
+      } catch (err) {
+        console.error("Delete link error:", err);
+      }
+    }
+    setDeletingRedirect(redirect);
   };
 
   const handleResetClicks = (redirect: Redirect) => {
@@ -323,7 +377,7 @@ export function DashboardView({ initialTab = "links" }: DashboardViewProps) {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Failed to save group");
 
-    showToast(isEdit ? "Group updated!" : "Group box created!");
+    showToast(isGroupImportOnly ? "Links imported to group!" : isEdit ? "Group updated!" : "Group box created!");
     fetchGroups();
   };
 
@@ -337,6 +391,30 @@ export function DashboardView({ initialTab = "links" }: DashboardViewProps) {
     showToast("Group box deleted");
     fetchGroups();
   };
+
+  const handleSaveShareSettings = async (
+    groupId: number,
+    data: {
+      isShared: boolean;
+      shareCode?: string;
+      duration?: string;
+      expiresAt?: string | null;
+    }
+  ) => {
+    const res = await fetch(`/api/groups/${groupId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || "Failed to save share settings");
+    }
+    await fetchGroups();
+    showToast(data.isShared ? "Group sharing updated!" : "Group sharing turned off");
+  };
+
+  const activeGroup = selectedGroupId !== "all" ? groups.find((g) => g.id === selectedGroupId) || null : null;
 
   return (
     <main className="min-h-screen bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 font-sans selection:bg-black dark:selection:bg-white selection:text-white dark:selection:text-black transition-colors duration-200">
@@ -362,10 +440,12 @@ export function DashboardView({ initialTab = "links" }: DashboardViewProps) {
             {/* Theme Toggle */}
             <ThemeToggle />
 
+            {/* Refresh real-time data */}
             <button
               onClick={() => {
                 fetchRedirects();
                 fetchGroups();
+                fetchUserSettings();
               }}
               title="Refresh real-time data"
               className="p-2 rounded-xl text-neutral-400 hover:text-black dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 transition cursor-pointer"
@@ -373,15 +453,20 @@ export function DashboardView({ initialTab = "links" }: DashboardViewProps) {
               <RotateCw className={`w-4 h-4 ${loading ? "animate-spin text-black dark:text-white" : ""}`} />
             </button>
 
+            {/* Create Link button */}
             <button
               onClick={() => setIsCreateOpen(true)}
               className="flex items-center gap-1.5 px-4 py-2 bg-black dark:bg-white hover:bg-neutral-800 dark:hover:bg-neutral-200 text-white dark:text-black rounded-xl text-xs font-semibold transition shadow-sm cursor-pointer"
             >
               <Plus className="w-4 h-4" />
-              <span>Create Link</span>
+              <span>
+                {activeTab === "links" && activeGroup
+                  ? `Add to ${activeGroup.name}`
+                  : "Create Link"}
+              </span>
             </button>
 
-            {/* 3-Dots Account Menu Button */}
+            {/* Profile Avatar Button (replaces 3-dots button) */}
             <div className="relative">
               <button
                 type="button"
@@ -392,21 +477,31 @@ export function DashboardView({ initialTab = "links" }: DashboardViewProps) {
                     setUserMenuPos(null);
                   } else {
                     const rect = e.currentTarget.getBoundingClientRect();
-                    const dropdownWidth = 190;
+                    const dropdownWidth = 240;
                     setUserMenuPos({
-                      top: rect.bottom + 6,
+                      top: rect.bottom + 8,
                       left: Math.max(12, rect.right - dropdownWidth),
                     });
                     setIsUserMenuOpen(true);
                   }
                 }}
                 title="Account options"
-                className="p-2 rounded-xl text-neutral-500 hover:text-black dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 transition cursor-pointer"
+                className="relative p-0.5 rounded-full ring-2 ring-neutral-200 dark:ring-neutral-800 hover:ring-black dark:hover:ring-white transition cursor-pointer flex-shrink-0"
               >
-                <MoreVertical className="w-4 h-4" />
+                {avatar ? (
+                  <img
+                    src={avatar}
+                    alt={currentUser}
+                    className="w-8 h-8 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-black dark:bg-white text-white dark:text-black flex items-center justify-center font-bold text-xs shadow-sm">
+                    {currentUser.charAt(0).toUpperCase()}
+                  </div>
+                )}
               </button>
 
-              {/* Unclipped 3-Dots Dropdown */}
+              {/* Unclipped User Account Dropdown */}
               {isUserMenuOpen && userMenuPos && (
                 <div
                   ref={userMenuRef}
@@ -416,38 +511,112 @@ export function DashboardView({ initialTab = "links" }: DashboardViewProps) {
                     left: `${userMenuPos.left}px`,
                     zIndex: 9999,
                   }}
-                  className="w-48 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-1.5 shadow-2xl animate-in fade-in zoom-in-95 duration-150 text-left font-sans"
+                  className="w-60 rounded-3xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-2 shadow-2xl animate-in fade-in zoom-in-95 duration-150 text-left font-sans space-y-1"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  {/* Email Recap */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsUserMenuOpen(false);
-                      setUserMenuPos(null);
-                      setIsEmailRecapOpen(true);
-                    }}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800 hover:text-black dark:hover:text-white rounded-xl transition text-left cursor-pointer"
-                  >
-                    <Mail className="w-3.5 h-3.5 text-neutral-500" />
-                    <span>Email Recap</span>
-                  </button>
+                  {/* User Profile Header */}
+                  <div className="flex items-center gap-3 p-2.5 pb-3 border-b border-neutral-100 dark:border-neutral-800">
+                    {avatar ? (
+                      <img
+                        src={avatar}
+                        alt={currentUser}
+                        className="w-9 h-9 rounded-full object-cover ring-1 ring-neutral-200 dark:ring-neutral-700"
+                      />
+                    ) : (
+                      <div className="w-9 h-9 rounded-full bg-black dark:bg-white text-white dark:text-black flex items-center justify-center font-bold text-sm shadow-xs">
+                        {currentUser.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="font-bold text-xs text-neutral-900 dark:text-white truncate">
+                        @{currentUser}
+                      </div>
+                      {currentUserEmail ? (
+                        <div className="text-[11px] text-neutral-500 dark:text-neutral-400 truncate mt-0.5">
+                          {currentUserEmail}
+                        </div>
+                      ) : (
+                        <div className="text-[10px] text-neutral-400 dark:text-neutral-500 truncate mt-0.5">
+                          Permanent Member
+                        </div>
+                      )}
+                    </div>
+                  </div>
 
-                  <div className="h-px bg-neutral-100 dark:bg-neutral-800 my-1" />
+                  {/* Menu items */}
+                  <div className="pt-1 space-y-0.5">
+                    {/* Profile Picture */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsUserMenuOpen(false);
+                        setUserMenuPos(null);
+                        setIsAvatarModalOpen(true);
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800 hover:text-black dark:hover:text-white rounded-xl transition text-left cursor-pointer"
+                    >
+                      <Camera className="w-4 h-4 text-neutral-400" />
+                      <span>Profile Picture</span>
+                    </button>
 
-                  {/* Sign Out */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsUserMenuOpen(false);
-                      setUserMenuPos(null);
-                      handleLogout();
-                    }}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-xl transition text-left cursor-pointer"
-                  >
-                    <LogOut className="w-3.5 h-3.5" />
-                    <span>Sign Out</span>
-                  </button>
+                    {/* Change Username */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsUserMenuOpen(false);
+                        setUserMenuPos(null);
+                        setIsChangeUsernameOpen(true);
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800 hover:text-black dark:hover:text-white rounded-xl transition text-left cursor-pointer"
+                    >
+                      <UserCheck className="w-4 h-4 text-neutral-400" />
+                      <span>Change Username</span>
+                    </button>
+
+                    {/* Email Recap */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsUserMenuOpen(false);
+                        setUserMenuPos(null);
+                        setIsEmailRecapOpen(true);
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800 hover:text-black dark:hover:text-white rounded-xl transition text-left cursor-pointer"
+                    >
+                      <Mail className="w-4 h-4 text-neutral-400" />
+                      <span>Email Recap</span>
+                    </button>
+
+                    <div className="h-px bg-neutral-100 dark:bg-neutral-800 my-1" />
+
+                    {/* Sign Out */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsUserMenuOpen(false);
+                        setUserMenuPos(null);
+                        handleLogout();
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800 hover:text-black dark:hover:text-white rounded-xl transition text-left cursor-pointer"
+                    >
+                      <LogOut className="w-4 h-4 text-neutral-400" />
+                      <span>Sign Out</span>
+                    </button>
+
+                    {/* Delete Account */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsUserMenuOpen(false);
+                        setUserMenuPos(null);
+                        setIsDeleteAccountOpen(true);
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-xl transition text-left cursor-pointer"
+                    >
+                      <Trash2 className="w-4 h-4 text-red-500" />
+                      <span>Delete Account</span>
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -527,14 +696,14 @@ export function DashboardView({ initialTab = "links" }: DashboardViewProps) {
               onClick={() => switchTab("links")}
               className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer ${
                 activeTab === "links"
-                  ? "bg-white dark:bg-white text-black dark:text-black shadow-sm"
+                  ? "bg-black dark:bg-white text-white dark:text-black shadow-sm"
                   : "text-neutral-500 dark:text-neutral-400 hover:text-black dark:hover:text-white"
               }`}
             >
               <span>Active Links</span>
               <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-medium ${
                 activeTab === "links"
-                  ? "bg-neutral-100 text-neutral-800"
+                  ? "bg-neutral-800 dark:bg-neutral-200 text-white dark:text-black"
                   : "bg-neutral-200 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300"
               }`}>
                 {activeLinks.length}
@@ -547,7 +716,7 @@ export function DashboardView({ initialTab = "links" }: DashboardViewProps) {
               onClick={() => switchTab("expired")}
               className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer ${
                 activeTab === "expired"
-                  ? "bg-white dark:bg-white text-black dark:text-black shadow-sm"
+                  ? "bg-black dark:bg-white text-white dark:text-black shadow-sm"
                   : "text-neutral-500 dark:text-neutral-400 hover:text-black dark:hover:text-white"
               }`}
             >
@@ -556,7 +725,7 @@ export function DashboardView({ initialTab = "links" }: DashboardViewProps) {
               {expiredLinks.length > 0 && (
                 <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-semibold ${
                   activeTab === "expired"
-                    ? "bg-neutral-100 text-neutral-800"
+                    ? "bg-neutral-800 dark:bg-neutral-200 text-white dark:text-black"
                     : "bg-neutral-200 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300"
                 }`}>
                   {expiredLinks.length}
@@ -570,7 +739,7 @@ export function DashboardView({ initialTab = "links" }: DashboardViewProps) {
               onClick={() => switchTab("analytics")}
               className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer ${
                 activeTab === "analytics"
-                  ? "bg-white dark:bg-white text-black dark:text-black shadow-sm"
+                  ? "bg-black dark:bg-white text-white dark:text-black shadow-sm"
                   : "text-neutral-500 dark:text-neutral-400 hover:text-black dark:hover:text-white"
               }`}
             >
@@ -584,7 +753,7 @@ export function DashboardView({ initialTab = "links" }: DashboardViewProps) {
               onClick={() => switchTab("bio")}
               className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer ${
                 activeTab === "bio"
-                  ? "bg-white dark:bg-white text-black dark:text-black shadow-sm"
+                  ? "bg-black dark:bg-white text-white dark:text-black shadow-sm"
                   : "text-neutral-500 dark:text-neutral-400 hover:text-black dark:hover:text-white"
               }`}
             >
@@ -609,11 +778,16 @@ export function DashboardView({ initialTab = "links" }: DashboardViewProps) {
               totalLinksCount={activeLinks.length}
               onOpenCreateGroup={() => {
                 setGroupToEdit(null);
+                setIsGroupImportOnly(false);
                 setIsManageGroupOpen(true);
               }}
               onOpenEditGroup={(group) => {
                 setGroupToEdit(group);
+                setIsGroupImportOnly(false);
                 setIsManageGroupOpen(true);
+              }}
+              onOpenShareGroup={(group) => {
+                setGroupToShare(group);
               }}
               onReorderGroups={handleReorderGroups}
             />
@@ -623,18 +797,29 @@ export function DashboardView({ initialTab = "links" }: DashboardViewProps) {
               redirects={displayedActiveLinks}
               baseUrl={baseUrl}
               onEdit={(r) => setEditingRedirect(r)}
-              onDelete={(r) => setDeletingRedirect(r)}
+              onDelete={handleDeleteRedirectRequest}
               onCreateOpen={() => setIsCreateOpen(true)}
               onCreateSublink={(r) => setSublinkParent(r)}
               onToggleProfileVisibility={handleToggleProfileVisibility}
               onExpireLink={handleExpireLink}
               onResetClicks={handleResetClicks}
+              selectedGroup={selectedGroupId !== "all" ? groups.find((g) => g.id === selectedGroupId) || null : null}
+              onOpenEditGroup={(grp) => {
+                setGroupToEdit(grp);
+                setIsGroupImportOnly(false);
+                setIsManageGroupOpen(true);
+              }}
+              onOpenShareGroup={(grp) => {
+                setGroupToShare(grp);
+              }}
+              onDeleteGroup={handleDeleteGroup}
               onOpenImportFromAllLinks={
                 selectedGroupId !== "all" && activeLinks.length > 0
                   ? () => {
                       const grp = groups.find((g) => g.id === selectedGroupId);
                       if (grp) {
                         setGroupToEdit(grp);
+                        setIsGroupImportOnly(true);
                         setIsManageGroupOpen(true);
                       }
                     }
@@ -648,7 +833,7 @@ export function DashboardView({ initialTab = "links" }: DashboardViewProps) {
             redirects={expiredLinks}
             baseUrl={baseUrl}
             onEdit={(r) => setEditingRedirect(r)}
-            onDelete={(r) => setDeletingRedirect(r)}
+            onDelete={handleDeleteRedirectRequest}
             onCreateOpen={() => setIsCreateOpen(true)}
             onCreateSublink={(r) => setSublinkParent(r)}
             onToggleProfileVisibility={handleToggleProfileVisibility}
@@ -660,7 +845,7 @@ export function DashboardView({ initialTab = "links" }: DashboardViewProps) {
             redirects={redirects}
             baseUrl={baseUrl}
             onEdit={(r) => setEditingRedirect(r)}
-            onDelete={(r) => setDeletingRedirect(r)}
+            onDelete={handleDeleteRedirectRequest}
             onCreateSublink={(r) => setSublinkParent(r)}
             onResetClicks={handleResetClicks}
             onResetAllAnalytics={handleResetAllAnalytics}
@@ -679,11 +864,17 @@ export function DashboardView({ initialTab = "links" }: DashboardViewProps) {
       <CreateRedirectModal
         isOpen={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
+        targetGroup={activeTab === "links" ? activeGroup : null}
         baseUrl={baseUrl}
         currentUser={currentUser}
         onCreated={() => {
           fetchRedirects();
-          showToast("Link created!");
+          fetchGroups();
+          showToast(
+            activeTab === "links" && activeGroup
+              ? `Link created and added to ${activeGroup.name}!`
+              : "Link created!"
+          );
         }}
       />
 
@@ -725,18 +916,57 @@ export function DashboardView({ initialTab = "links" }: DashboardViewProps) {
         isOpen={isManageGroupOpen}
         onClose={() => {
           setIsManageGroupOpen(false);
+          setIsGroupImportOnly(false);
           setGroupToEdit(null);
         }}
         groupToEdit={groupToEdit}
         allRedirects={activeLinks}
+        isImportOnly={isGroupImportOnly}
         onSaveGroup={handleSaveGroup}
         onDeleteGroup={handleDeleteGroup}
+      />
+
+      <ShareGroupModal
+        isOpen={!!groupToShare}
+        onClose={() => setGroupToShare(null)}
+        group={groupToShare}
+        baseUrl={baseUrl}
+        onSaveShareSettings={handleSaveShareSettings}
       />
 
       <EmailRecapModal
         isOpen={isEmailRecapOpen}
         onClose={() => setIsEmailRecapOpen(false)}
         currentUser={currentUser}
+      />
+
+      <AvatarUploadModal
+        isOpen={isAvatarModalOpen}
+        onClose={() => setIsAvatarModalOpen(false)}
+        currentAvatar={avatar}
+        username={currentUser}
+        onAvatarUpdated={(newAv) => {
+          setAvatar(newAv);
+          showToast(newAv ? "Profile picture updated!" : "Profile picture removed");
+        }}
+      />
+
+      <ChangeUsernameModal
+        isOpen={isChangeUsernameOpen}
+        onClose={() => setIsChangeUsernameOpen(false)}
+        currentUsername={currentUser}
+        onUsernameChanged={(newU) => {
+          setCurrentUser(newU);
+          showToast(`Username changed to @${newU}`);
+          fetchRedirects();
+          fetchUserSettings();
+        }}
+      />
+
+      <DeleteAccountModal
+        isOpen={isDeleteAccountOpen}
+        onClose={() => setIsDeleteAccountOpen(false)}
+        username={currentUser}
       />
 
       <ResetClicksModal

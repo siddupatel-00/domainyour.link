@@ -2,7 +2,7 @@
 
 import { useState, useRef, useLayoutEffect, useEffect } from "react";
 import { LinkGroup } from "@/lib/db/schema";
-import { Folder, FolderPlus, Settings2, GripVertical } from "lucide-react";
+import { Folder, FolderPlus, Settings2, Share2, GripVertical } from "lucide-react";
 
 interface GroupFilterBarProps {
   groups: LinkGroup[];
@@ -11,6 +11,7 @@ interface GroupFilterBarProps {
   totalLinksCount: number;
   onOpenCreateGroup: () => void;
   onOpenEditGroup: (group: LinkGroup) => void;
+  onOpenShareGroup?: (group: LinkGroup) => void;
   onReorderGroups?: (reordered: LinkGroup[]) => void;
 }
 
@@ -21,6 +22,7 @@ export function GroupFilterBar({
   totalLinksCount,
   onOpenCreateGroup,
   onOpenEditGroup,
+  onOpenShareGroup,
   onReorderGroups,
 }: GroupFilterBarProps) {
   const [items, setItems] = useState<LinkGroup[]>(groups);
@@ -227,6 +229,25 @@ export function GroupFilterBar({
                   {count}
                 </span>
               </button>
+
+              {/* Share group button */}
+              {onOpenShareGroup && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onOpenShareGroup(group);
+                  }}
+                  title="Share group link"
+                  className={`px-1.5 py-2 transition cursor-pointer opacity-70 hover:opacity-100 ${
+                    isSelected
+                      ? "text-white dark:text-black"
+                      : "text-neutral-400 hover:text-black dark:hover:text-white"
+                  }`}
+                >
+                  <Share2 className="w-3.5 h-3.5" />
+                </button>
+              )}
 
               {/* Edit settings button */}
               <button

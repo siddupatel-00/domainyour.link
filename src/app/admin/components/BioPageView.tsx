@@ -38,6 +38,8 @@ export function BioPageView({
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditMainOpen, setIsEditMainOpen] = useState(false);
   const [editingBio, setEditingBio] = useState<Bio | null>(null);
+  const [deletingBio, setDeletingBio] = useState<Bio | null>(null);
+  const [dontShowBioDeleteConfirmAgain, setDontShowBioDeleteConfirmAgain] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   // Close dropdown on click outside or scroll/resize
@@ -73,6 +75,8 @@ export function BioPageView({
       if (res.ok) {
         const data = await res.json();
         setBios(data.bios || []);
+      } else {
+        setBios([]);
       }
     } catch {
       setBios([]);
@@ -93,13 +97,26 @@ export function BioPageView({
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const handleDeleteBio = async (id: number) => {
-    if (!confirm("Are you sure you want to delete this bio page?")) return;
+  const handleDeleteBioClick = async (targetBio: Bio) => {
+    const skip = typeof window !== "undefined" && localStorage.getItem("skip_delete_bio_confirm") === "true";
+    if (skip) {
+      await executeDeleteBio(targetBio.id);
+      return;
+    }
+    setDeletingBio(targetBio);
+  };
+
+  const executeDeleteBio = async (id: number) => {
     try {
+      if (dontShowBioDeleteConfirmAgain && typeof window !== "undefined") {
+        localStorage.setItem("skip_delete_bio_confirm", "true");
+      }
       const res = await fetch(`/api/bios/${id}`, { method: "DELETE" });
       if (res.ok) {
         fetchBios();
+        if (onRefreshData) onRefreshData();
       }
+      setDeletingBio(null);
     } catch (err) {
       console.error("Delete bio error:", err);
     }
@@ -445,11 +462,11 @@ export function BioPageView({
                           onClick={() => {
                             setOpenMenuId(null);
                             setMenuPos(null);
-                            handleDeleteBio(b.id);
+                            handleDeleteBioClick(b);
                           }}
-                          className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:text-black dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl transition text-left cursor-pointer"
+                          className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-xl transition text-left cursor-pointer"
                         >
-                          <Trash2 className="w-3.5 h-3.5 text-neutral-500" />
+                          <Trash2 className="w-3.5 h-3.5" />
                           <span>Delete bio</span>
                         </button>
                       </div>
@@ -498,6 +515,66 @@ export function BioPageView({
         currentUser={currentUser}
         links={redirects}
       />
+
+      {/* In-App Delete Bio Confirmation Modal */}
+      {deletingBio && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-150">
+          <div
+            className="w-full max-w-sm rounded-3xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-2xl p-6 space-y-4 animate-in zoom-in-95 duration-150 font-sans"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-red-100 dark:bg-red-950/60 border border-red-200 dark:border-red-900/50 flex items-center justify-center text-red-600 dark:text-red-400 flex-shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-neutral-900 dark:text-white tracking-tight">
+                  Delete Bio Page?
+                </h3>
+                <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                  Your individual links will <strong className="text-neutral-800 dark:text-neutral-200">NOT</strong> be deleted.
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-neutral-50 dark:bg-neutral-800/50 border border-neutral-100 dark:border-neutral-800 text-xs text-neutral-600 dark:text-neutral-300">
+              Are you sure you want to delete <strong className="text-neutral-900 dark:text-white font-mono">&quot;/{currentUser}/b/{deletingBio.bioname}&quot;</strong>?
+            </div>
+
+            {/* Don't show again checkbox */}
+            <label className="flex items-center gap-2.5 pt-1 cursor-pointer select-none group">
+              <input
+                type="checkbox"
+                checked={dontShowBioDeleteConfirmAgain}
+                onChange={(e) => setDontShowBioDeleteConfirmAgain(e.target.checked)}
+                className="w-4 h-4 rounded-md border-neutral-300 dark:border-neutral-700 text-black dark:text-white focus:ring-black dark:focus:ring-white cursor-pointer accent-black dark:accent-white"
+              />
+              <span className="text-xs text-neutral-600 dark:text-neutral-400 group-hover:text-black dark:group-hover:text-white transition">
+                Don&apos;t show this confirmation again
+              </span>
+            </label>
+
+            {/* Action Buttons */}
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-neutral-100 dark:border-neutral-800">
+              <button
+                type="button"
+                onClick={() => setDeletingBio(null)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-black dark:hover:text-white transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => executeDeleteBio(deletingBio.id)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-red-600 hover:bg-red-700 transition shadow-sm cursor-pointer inline-flex items-center gap-1.5"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Delete Bio</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

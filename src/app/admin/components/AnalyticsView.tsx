@@ -312,8 +312,8 @@ export function AnalyticsView({
                               <span>sub</span>
                             </span>
                           )}
-                          <span className="font-mono font-bold text-xs text-neutral-900 dark:text-white truncate">
-                            {path}
+                          <span className="font-bold text-xs text-neutral-900 dark:text-white truncate">
+                            {r.title || r.webname}
                           </span>
                           <button
                             onClick={() => handleCopy(r.id, path)}
@@ -416,7 +416,7 @@ export function AnalyticsView({
                                 className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:text-black dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl transition text-left cursor-pointer"
                               >
                                 <Edit2 className="w-3.5 h-3.5 text-neutral-500" />
-                                <span>Edit destination</span>
+                                <span>Edit</span>
                               </button>
                             )}
 

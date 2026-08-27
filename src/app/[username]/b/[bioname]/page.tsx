@@ -8,6 +8,7 @@ interface LinkItem {
   id: number;
   username: string;
   webname: string;
+  title?: string | null;
   destinationUrl: string;
   expiresAt: Date | string | null;
   showOnProfile: boolean;
@@ -35,6 +36,7 @@ export default function SubBioPage({ params }: SubBioPageProps) {
 
   const [bio, setBio] = useState<BioData | null>(null);
   const [links, setLinks] = useState<LinkItem[]>([]);
+  const [avatar, setAvatar] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [isExpired, setIsExpired] = useState(false);
 
@@ -53,6 +55,7 @@ export default function SubBioPage({ params }: SubBioPageProps) {
           setBio(data.bio || null);
           setIsExpired(Boolean(data.isExpired));
           setLinks(data.links || []);
+          if (data.avatar) setAvatar(data.avatar);
         } else {
           setLinks([]);
         }
@@ -101,9 +104,17 @@ export default function SubBioPage({ params }: SubBioPageProps) {
       <div className="w-full max-w-md mx-auto space-y-8 animate-in fade-in duration-300">
         {/* Clean Avatar & Header */}
         <div className="text-center space-y-3">
-          <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-black dark:bg-white text-white dark:text-black flex items-center justify-center font-bold text-2xl sm:text-3xl shadow-xl mx-auto ring-4 ring-neutral-100 dark:ring-neutral-900">
-            {initial}
-          </div>
+          {avatar ? (
+            <img
+              src={avatar}
+              alt={cleanUsername}
+              className="w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover shadow-xl mx-auto ring-4 ring-neutral-100 dark:ring-neutral-900"
+            />
+          ) : (
+            <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-black dark:bg-white text-white dark:text-black flex items-center justify-center font-bold text-2xl sm:text-3xl shadow-xl mx-auto ring-4 ring-neutral-100 dark:ring-neutral-900">
+              {initial}
+            </div>
+          )}
 
           <div className="space-y-1">
             <h1 className="text-xl sm:text-2xl font-bold text-neutral-900 dark:text-white tracking-tight">
@@ -151,7 +162,7 @@ export default function SubBioPage({ params }: SubBioPageProps) {
                     </div>
                     <div className="min-w-0">
                       <span className="text-sm font-bold text-neutral-900 dark:text-white group-hover:text-black dark:group-hover:text-white transition truncate block">
-                        /{link.webname}
+                        {link.title || `/${link.webname}`}
                       </span>
                     </div>
                   </div>

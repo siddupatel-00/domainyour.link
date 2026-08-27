@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { name, color, linkIds } = body;
+    const { name, color, linkIds, shareCode, isShared, duration, expiresAt } = body;
 
     if (!name || !name.trim()) {
       return NextResponse.json({ error: "Group name is required" }, { status: 400, headers: noCacheHeaders });
@@ -97,6 +97,14 @@ export async function POST(request: NextRequest) {
       ? linkIds
       : "[]";
 
+    const cleanShareCode = (shareCode || Math.random().toString(36).substring(2, 8)).toLowerCase().trim();
+    const expirationDate = expiresAt
+      ? new Date(expiresAt)
+      : duration && duration !== "permanent"
+      ? new Date(Date.now() + (duration === "1h" ? 3600000 : duration === "24h" ? 86400000 : duration === "7d" ? 604800000 : 2592000000))
+      : null;
+    const finalIsShared = isShared !== false;
+
     // 1. Try Turso
     if (isTursoEnabled) {
       try {
@@ -105,6 +113,9 @@ export async function POST(request: NextRequest) {
           name: cleanName,
           color: cleanColor,
           linkIds: formattedLinkIds,
+          shareCode: cleanShareCode,
+          isShared: finalIsShared,
+          expiresAt: expirationDate,
         });
         addSharedLinkGroup(created);
         return NextResponse.json({ success: true, group: created }, { status: 201, headers: noCacheHeaders });
@@ -123,6 +134,9 @@ export async function POST(request: NextRequest) {
             name: cleanName,
             color: cleanColor,
             linkIds: formattedLinkIds,
+            shareCode: cleanShareCode,
+            isShared: finalIsShared,
+            expiresAt: expirationDate,
           })
           .returning();
 
@@ -140,6 +154,10 @@ export async function POST(request: NextRequest) {
       name: cleanName,
       color: cleanColor,
       linkIds: formattedLinkIds,
+      shareCode: cleanShareCode,
+      isShared: finalIsShared,
+      expiresAt: expirationDate,
+      sortOrder: 0,
       createdAt: new Date(),
       updatedAt: new Date(),
     };

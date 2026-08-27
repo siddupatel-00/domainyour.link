@@ -19,7 +19,17 @@ export const isTursoEnabled = Boolean(tursoUrl && tursoToken);
 // 1. REDIRECTS (Links & Sublinks)
 // ==========================================
 
+let hasEnsuredRedirectTitle = false;
+export async function ensureRedirectTitleColumn() {
+  if (hasEnsuredRedirectTitle) return;
+  try {
+    await turso.execute(`ALTER TABLE redirects ADD COLUMN title TEXT;`);
+  } catch {}
+  hasEnsuredRedirectTitle = true;
+}
+
 export async function tursoGetRedirects(username: string): Promise<Redirect[]> {
+  await ensureRedirectTitleColumn();
   const result = await turso.execute({
     sql: `SELECT * FROM redirects WHERE LOWER(username) = LOWER(?) ORDER BY id DESC;`,
     args: [username],
@@ -29,6 +39,7 @@ export async function tursoGetRedirects(username: string): Promise<Redirect[]> {
     id: Number(row.id),
     username: String(row.username),
     webname: String(row.webname),
+    title: row.title ? String(row.title) : String(row.webname),
     destinationUrl: String(row.destination_url),
     redirectCode: Number(row.redirect_code || 307),
     clickCount: Number(row.click_count || 0),
@@ -203,6 +214,7 @@ export async function tursoGetAllRedirects(): Promise<Redirect[]> {
     id: Number(row.id),
     username: String(row.username),
     webname: String(row.webname),
+    title: row.title ? String(row.title) : String(row.webname),
     destinationUrl: String(row.destination_url),
     redirectCode: Number(row.redirect_code || 307),
     clickCount: Number(row.click_count || 0),
@@ -235,6 +247,7 @@ export async function tursoGetAllBios(): Promise<Bio[]> {
 }
 
 export async function tursoFindRedirect(username: string, webname: string): Promise<Redirect | null> {
+  await ensureRedirectTitleColumn();
   const result = await turso.execute({
     sql: `SELECT * FROM redirects WHERE LOWER(username) = LOWER(?) AND LOWER(webname) = LOWER(?) LIMIT 1;`,
     args: [username, webname],
@@ -247,6 +260,7 @@ export async function tursoFindRedirect(username: string, webname: string): Prom
     id: Number(row.id),
     username: String(row.username),
     webname: String(row.webname),
+    title: row.title ? String(row.title) : String(row.webname),
     destinationUrl: String(row.destination_url),
     redirectCode: Number(row.redirect_code || 307),
     clickCount: Number(row.click_count || 0),
@@ -262,20 +276,23 @@ export async function tursoFindRedirect(username: string, webname: string): Prom
 export async function tursoCreateRedirect(data: {
   username: string;
   webname: string;
+  title?: string;
   destinationUrl: string;
   redirectCode?: number;
   expiresAt?: Date | null;
   parentId?: number | null;
   showOnProfile?: boolean;
 }): Promise<Redirect> {
+  await ensureRedirectTitleColumn();
   const expiresStr = data.expiresAt ? data.expiresAt.toISOString() : null;
   const result = await turso.execute({
-    sql: `INSERT INTO redirects (username, webname, destination_url, redirect_code, expires_at, parent_id, show_on_profile)
-          VALUES (?, ?, ?, ?, ?, ?, ?)
+    sql: `INSERT INTO redirects (username, webname, title, destination_url, redirect_code, expires_at, parent_id, show_on_profile)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
           RETURNING *;`,
     args: [
       data.username.toLowerCase(),
       data.webname.toLowerCase(),
+      data.title || data.webname,
       data.destinationUrl,
       data.redirectCode || 307,
       expiresStr,
@@ -289,6 +306,7 @@ export async function tursoCreateRedirect(data: {
     id: Number(row.id),
     username: String(row.username),
     webname: String(row.webname),
+    title: row.title ? String(row.title) : String(row.webname),
     destinationUrl: String(row.destination_url),
     redirectCode: Number(row.redirect_code),
     clickCount: Number(row.click_count || 0),
@@ -324,15 +342,21 @@ export async function tursoIncrementExpiredClick(id: number): Promise<void> {
 export async function tursoUpdateRedirect(
   id: number,
   data: {
+    title?: string;
     destinationUrl?: string;
     expiresAt?: Date | null;
     showOnProfile?: boolean;
     webname?: string;
   }
 ): Promise<Redirect | null> {
+  await ensureRedirectTitleColumn();
   const sets: string[] = [];
   const args: any[] = [];
 
+  if (data.title !== undefined) {
+    sets.push("title = ?");
+    args.push(data.title);
+  }
   if (data.destinationUrl !== undefined) {
     sets.push("destination_url = ?");
     args.push(data.destinationUrl);
@@ -364,6 +388,7 @@ export async function tursoUpdateRedirect(
     id: Number(row.id),
     username: String(row.username),
     webname: String(row.webname),
+    title: row.title ? String(row.title) : String(row.webname),
     destinationUrl: String(row.destination_url),
     redirectCode: Number(row.redirect_code || 307),
     clickCount: Number(row.click_count || 0),
@@ -508,6 +533,7 @@ export async function tursoFindUser(identifier: string): Promise<User | null> {
     username: String(row.username),
     email: String(row.email),
     password: row.password ? String(row.password) : null,
+    avatar: row.avatar ? String(row.avatar) : null,
     recapPreference: String(row.recap_preference || "off"),
     lastRecapSentAt: row.last_recap_sent_at ? new Date(String(row.last_recap_sent_at)) : null,
     createdAt: new Date(String(row.created_at)),
@@ -532,6 +558,7 @@ export async function tursoCreateOrUpdateUser(username: string, email: string, h
       username: String(row.username),
       email: String(row.email),
       password: row.password ? String(row.password) : null,
+      avatar: row.avatar ? String(row.avatar) : null,
       recapPreference: String(row.recap_preference || "off"),
       lastRecapSentAt: row.last_recap_sent_at ? new Date(String(row.last_recap_sent_at)) : null,
       createdAt: new Date(String(row.created_at)),
@@ -548,6 +575,7 @@ export async function tursoCreateOrUpdateUser(username: string, email: string, h
       username: String(row.username),
       email: String(row.email),
       password: row.password ? String(row.password) : null,
+      avatar: row.avatar ? String(row.avatar) : null,
       recapPreference: String(row.recap_preference || "off"),
       lastRecapSentAt: row.last_recap_sent_at ? new Date(String(row.last_recap_sent_at)) : null,
       createdAt: new Date(String(row.created_at)),
@@ -814,6 +842,9 @@ export async function ensureLinkGroupsTable() {
         color TEXT DEFAULT '#000000',
         link_ids TEXT NOT NULL DEFAULT '[]',
         sort_order INTEGER DEFAULT 0,
+        share_code TEXT,
+        is_shared INTEGER DEFAULT 1,
+        expires_at DATETIME,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
       );
@@ -824,6 +855,31 @@ export async function ensureLinkGroupsTable() {
     try {
       await turso.execute(`ALTER TABLE link_groups ADD COLUMN sort_order INTEGER DEFAULT 0;`);
     } catch {}
+    try {
+      await turso.execute(`ALTER TABLE link_groups ADD COLUMN share_code TEXT;`);
+    } catch {}
+    try {
+      await turso.execute(`ALTER TABLE link_groups ADD COLUMN is_shared INTEGER DEFAULT 1;`);
+    } catch {}
+    try {
+      await turso.execute(`ALTER TABLE link_groups ADD COLUMN expires_at DATETIME;`);
+    } catch {}
+    try {
+      await turso.execute(`CREATE INDEX IF NOT EXISTS link_groups_share_code_idx ON link_groups (share_code);`);
+    } catch {}
+
+    // Backfill missing share_code for any existing groups
+    try {
+      const missing = await turso.execute(`SELECT id FROM link_groups WHERE share_code IS NULL OR share_code = '';`);
+      for (const row of missing.rows) {
+        const randomCode = Math.random().toString(36).substring(2, 8).toLowerCase();
+        await turso.execute({
+          sql: `UPDATE link_groups SET share_code = ? WHERE id = ?;`,
+          args: [randomCode, Number(row.id)],
+        });
+      }
+    } catch {}
+
     linkGroupsTableInitialized = true;
   } catch (err) {
     console.warn("Error initializing link_groups table in Turso:", err);
@@ -843,9 +899,38 @@ export async function tursoGetLinkGroups(username: string): Promise<LinkGroup[]>
     name: String(row.name),
     color: row.color ? String(row.color) : "#000000",
     linkIds: String(row.link_ids || "[]"),
+    shareCode: row.share_code ? String(row.share_code) : null,
+    isShared: row.is_shared !== null && row.is_shared !== undefined ? Boolean(row.is_shared) : true,
+    expiresAt: row.expires_at ? new Date(String(row.expires_at)) : null,
+    sortOrder: Number(row.sort_order || 0),
     createdAt: new Date(String(row.created_at || Date.now())),
     updatedAt: new Date(String(row.updated_at || Date.now())),
   }));
+}
+
+export async function tursoFindGroupByShareCode(shareCode: string): Promise<LinkGroup | null> {
+  await ensureLinkGroupsTable();
+  const cleanCode = shareCode.trim().toLowerCase();
+  const result = await turso.execute({
+    sql: `SELECT * FROM link_groups WHERE LOWER(share_code) = LOWER(?) LIMIT 1;`,
+    args: [cleanCode],
+  });
+
+  if (result.rows.length === 0) return null;
+  const row = result.rows[0];
+  return {
+    id: Number(row.id),
+    username: String(row.username),
+    name: String(row.name),
+    color: row.color ? String(row.color) : "#000000",
+    linkIds: String(row.link_ids || "[]"),
+    shareCode: row.share_code ? String(row.share_code) : cleanCode,
+    isShared: row.is_shared !== null && row.is_shared !== undefined ? Boolean(row.is_shared) : true,
+    expiresAt: row.expires_at ? new Date(String(row.expires_at)) : null,
+    sortOrder: Number(row.sort_order || 0),
+    createdAt: new Date(String(row.created_at || Date.now())),
+    updatedAt: new Date(String(row.updated_at || Date.now())),
+  };
 }
 
 export async function tursoCreateLinkGroup(data: {
@@ -853,15 +938,25 @@ export async function tursoCreateLinkGroup(data: {
   name: string;
   color?: string;
   linkIds?: string;
+  shareCode?: string;
+  isShared?: boolean;
+  expiresAt?: Date | null;
 }): Promise<LinkGroup> {
   await ensureLinkGroupsTable();
+  const code = data.shareCode || Math.random().toString(36).substring(2, 8).toLowerCase();
+  const expiresStr = data.expiresAt ? data.expiresAt.toISOString() : null;
+
   const result = await turso.execute({
-    sql: `INSERT INTO link_groups (username, name, color, link_ids) VALUES (?, ?, ?, ?) RETURNING *;`,
+    sql: `INSERT INTO link_groups (username, name, color, link_ids, share_code, is_shared, expires_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING *;`,
     args: [
       data.username,
       data.name,
       data.color || "#000000",
       data.linkIds || "[]",
+      code,
+      data.isShared !== false ? 1 : 0,
+      expiresStr,
     ],
   });
 
@@ -872,6 +967,10 @@ export async function tursoCreateLinkGroup(data: {
     name: String(row.name),
     color: row.color ? String(row.color) : "#000000",
     linkIds: String(row.link_ids || "[]"),
+    shareCode: row.share_code ? String(row.share_code) : code,
+    isShared: row.is_shared !== null && row.is_shared !== undefined ? Boolean(row.is_shared) : true,
+    expiresAt: row.expires_at ? new Date(String(row.expires_at)) : null,
+    sortOrder: Number(row.sort_order || 0),
     createdAt: new Date(String(row.created_at)),
     updatedAt: new Date(String(row.updated_at)),
   };
@@ -897,6 +996,18 @@ export async function tursoUpdateLinkGroup(
     sets.push("link_ids = ?");
     args.push(data.linkIds);
   }
+  if (data.shareCode !== undefined) {
+    sets.push("share_code = ?");
+    args.push(data.shareCode);
+  }
+  if (data.isShared !== undefined) {
+    sets.push("is_shared = ?");
+    args.push(data.isShared ? 1 : 0);
+  }
+  if (data.expiresAt !== undefined) {
+    sets.push("expires_at = ?");
+    args.push(data.expiresAt ? data.expiresAt.toISOString() : null);
+  }
 
   sets.push("updated_at = CURRENT_TIMESTAMP");
   args.push(id);
@@ -914,6 +1025,10 @@ export async function tursoUpdateLinkGroup(
     name: String(row.name),
     color: row.color ? String(row.color) : "#000000",
     linkIds: String(row.link_ids || "[]"),
+    shareCode: row.share_code ? String(row.share_code) : null,
+    isShared: row.is_shared !== null && row.is_shared !== undefined ? Boolean(row.is_shared) : true,
+    expiresAt: row.expires_at ? new Date(String(row.expires_at)) : null,
+    sortOrder: Number(row.sort_order || 0),
     createdAt: new Date(String(row.created_at)),
     updatedAt: new Date(String(row.updated_at)),
   };
@@ -1029,4 +1144,134 @@ export async function tursoGetUsersWithRecapEnabled(
     return [];
   }
 }
+
+// Avatar column migration & helpers
+let avatarColumnEnsured = false;
+export async function ensureUserAvatarColumn(): Promise<void> {
+  if (avatarColumnEnsured) return;
+  try {
+    await turso.execute({
+      sql: `ALTER TABLE users ADD COLUMN avatar TEXT;`,
+      args: [],
+    });
+  } catch {}
+  avatarColumnEnsured = true;
+}
+
+export async function tursoGetUserAvatar(username: string): Promise<string | null> {
+  await ensureUserAvatarColumn();
+  try {
+    const result = await turso.execute({
+      sql: `SELECT avatar FROM users WHERE LOWER(username) = LOWER(?) LIMIT 1;`,
+      args: [username],
+    });
+    if (result.rows.length === 0) return null;
+    const row = result.rows[0];
+    return row.avatar ? String(row.avatar) : null;
+  } catch (err) {
+    console.error("Turso get user avatar error:", err);
+    return null;
+  }
+}
+
+export async function tursoUpdateUserAvatar(username: string, avatar: string | null): Promise<boolean> {
+  await ensureUserAvatarColumn();
+  try {
+    await turso.execute({
+      sql: `UPDATE users SET avatar = ?, updated_at = CURRENT_TIMESTAMP WHERE LOWER(username) = LOWER(?);`,
+      args: [avatar, username],
+    });
+    return true;
+  } catch (err) {
+    console.error("Turso update user avatar error:", err);
+    return false;
+  }
+}
+
+// Find redirect directly by webname/shortcode across any user (for short links like /37c738)
+export async function tursoFindRedirectByWebnameOnly(webname: string): Promise<Redirect | null> {
+  const cleanWebname = webname.trim().toLowerCase();
+  try {
+    const result = await turso.execute({
+      sql: `SELECT * FROM redirects WHERE LOWER(webname) = ? ORDER BY id DESC LIMIT 1;`,
+      args: [cleanWebname],
+    });
+    if (result.rows.length === 0) return null;
+    const row = result.rows[0];
+    return {
+      id: Number(row.id),
+      username: String(row.username),
+      webname: String(row.webname),
+      title: row.title ? String(row.title) : String(row.webname),
+      destinationUrl: String(row.destination_url),
+      redirectCode: Number(row.redirect_code || 307),
+      clickCount: Number(row.click_count || 0),
+      expiredClickCount: Number(row.expired_click_count || 0),
+      expiresAt: row.expires_at ? new Date(String(row.expires_at)) : null,
+      parentId: row.parent_id !== null && row.parent_id !== undefined ? Number(row.parent_id) : null,
+      showOnProfile: Boolean(row.show_on_profile),
+      createdAt: new Date(String(row.created_at || Date.now())),
+      updatedAt: new Date(String(row.updated_at || Date.now())),
+    };
+  } catch (err) {
+    console.error("Turso find redirect by webname error:", err);
+    return null;
+  }
+}
+
+// Update username across all tables
+export async function tursoUpdateUsername(oldUsername: string, newUsername: string): Promise<boolean> {
+  const oldU = oldUsername.trim().toLowerCase();
+  const newU = newUsername.trim().toLowerCase();
+  try {
+    await turso.execute({
+      sql: `UPDATE users SET username = ?, updated_at = CURRENT_TIMESTAMP WHERE LOWER(username) = ?;`,
+      args: [newU, oldU],
+    });
+    await turso.execute({
+      sql: `UPDATE redirects SET username = ?, updated_at = CURRENT_TIMESTAMP WHERE LOWER(username) = ?;`,
+      args: [newU, oldU],
+    });
+    await turso.execute({
+      sql: `UPDATE bios SET username = ?, updated_at = CURRENT_TIMESTAMP WHERE LOWER(username) = ?;`,
+      args: [newU, oldU],
+    });
+    await turso.execute({
+      sql: `UPDATE link_groups SET username = ?, updated_at = CURRENT_TIMESTAMP WHERE LOWER(username) = ?;`,
+      args: [newU, oldU],
+    });
+    return true;
+  } catch (err) {
+    console.error("Turso update username error:", err);
+    return false;
+  }
+}
+
+// Delete user account and all associated records
+export async function tursoDeleteUserAccount(username: string): Promise<boolean> {
+  const u = username.trim().toLowerCase();
+  try {
+    await turso.execute({
+      sql: `DELETE FROM redirects WHERE LOWER(username) = ?;`,
+      args: [u],
+    });
+    await turso.execute({
+      sql: `DELETE FROM bios WHERE LOWER(username) = ?;`,
+      args: [u],
+    });
+    await turso.execute({
+      sql: `DELETE FROM link_groups WHERE LOWER(username) = ?;`,
+      args: [u],
+    });
+    await turso.execute({
+      sql: `DELETE FROM users WHERE LOWER(username) = ?;`,
+      args: [u],
+    });
+    return true;
+  } catch (err) {
+    console.error("Turso delete user account error:", err);
+    return false;
+  }
+}
+
 

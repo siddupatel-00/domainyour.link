@@ -40,7 +40,7 @@ export async function PATCH(
     }
 
     const body = await request.json();
-    const { name, color, linkIds } = body;
+    const { name, color, linkIds, shareCode, isShared, duration, expiresAt } = body;
 
     const updateFields: any = {
       updatedAt: new Date(),
@@ -54,6 +54,15 @@ export async function PATCH(
         : typeof linkIds === "string"
         ? linkIds
         : "[]";
+    }
+    if (shareCode !== undefined) updateFields.shareCode = shareCode.trim().toLowerCase();
+    if (isShared !== undefined) updateFields.isShared = Boolean(isShared);
+    if (expiresAt !== undefined) {
+      updateFields.expiresAt = expiresAt ? new Date(expiresAt) : null;
+    } else if (duration !== undefined) {
+      updateFields.expiresAt = duration === "permanent" || !duration
+        ? null
+        : new Date(Date.now() + (duration === "1h" ? 3600000 : duration === "24h" ? 86400000 : duration === "7d" ? 604800000 : 2592000000));
     }
 
     // 1. Try Turso

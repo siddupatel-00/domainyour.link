@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Redirect } from "@/lib/db/schema";
-import { X, Edit2, AlertCircle, ArrowRight, Clock, ShieldCheck, Calendar } from "lucide-react";
+import { X, Edit2, AlertCircle, Clock, ShieldCheck, Calendar } from "lucide-react";
 import { isValidUrl } from "@/lib/utils";
 
 interface EditRedirectModalProps {
@@ -20,6 +20,7 @@ export function EditRedirectModal({
   onUpdated,
   baseUrl,
 }: EditRedirectModalProps) {
+  const [linkName, setLinkName] = useState("");
   const [destinationUrl, setDestinationUrl] = useState("");
   const [linkType, setLinkType] = useState<"permanent" | "temporary">("permanent");
   const [duration, setDuration] = useState<string>("24h");
@@ -30,6 +31,7 @@ export function EditRedirectModal({
 
   useEffect(() => {
     if (redirect && isOpen) {
+      setLinkName(redirect.title || redirect.webname || "");
       setDestinationUrl(redirect.destinationUrl);
       const isExp = redirect.expiresAt && new Date(redirect.expiresAt).getTime() <= Date.now();
       if (redirect.expiresAt && !isExp) {
@@ -60,12 +62,17 @@ export function EditRedirectModal({
   if (!isOpen || !redirect) return null;
 
   const minDate = new Date().toISOString().slice(0, 10);
-  const path = `/${redirect.username}/${redirect.webname}`;
-  const fullUrl = `${baseUrl}${path}`;
+  const fullUrl = `${baseUrl}/${redirect.webname}`;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    const trimmedName = linkName.trim();
+    if (!trimmedName) {
+      setError("Please enter a link name (e.g. github-project, portfolio, resume)");
+      return;
+    }
 
     if (!destinationUrl.trim()) {
       setError("Please enter a destination URL");
@@ -97,7 +104,8 @@ export function EditRedirectModal({
 
     setLoading(true);
     try {
-      const payload: { destinationUrl: string; duration?: string; expiresAt?: string | null } = {
+      const payload: { title: string; destinationUrl: string; duration?: string; expiresAt?: string | null } = {
+        title: trimmedName,
         destinationUrl: finalUrl,
       };
 
@@ -143,11 +151,11 @@ export function EditRedirectModal({
         <div className="flex items-center justify-between pb-4 border-b border-neutral-100 dark:border-neutral-800">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-black dark:bg-white text-white dark:text-black flex items-center justify-center font-bold">
-              <Edit2 className="w-4 h-4" />
+              <Edit2 className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-neutral-900 dark:text-white">Edit Destination</h2>
-              <p className="text-xs text-neutral-500 dark:text-neutral-400">Update where your permanent link points</p>
+              <h2 className="text-base font-bold text-neutral-900 dark:text-white">Edit Link</h2>
+              <p className="text-xs text-neutral-500 dark:text-neutral-400">Update link name or destination URL</p>
             </div>
           </div>
           <button
@@ -170,26 +178,42 @@ export function EditRedirectModal({
         <form onSubmit={handleSubmit} className="mt-5 space-y-4">
           <div className="p-3.5 rounded-2xl bg-neutral-50 dark:bg-neutral-800/50 border border-neutral-200 dark:border-neutral-800 text-xs space-y-1">
             <span className="text-[10px] text-neutral-500 dark:text-neutral-400 uppercase tracking-wider font-semibold block">
-              Permanent Link (stays unchanged)
+              Permanent Short Link
             </span>
             <div className="font-mono font-bold text-neutral-900 dark:text-white truncate">{fullUrl}</div>
           </div>
 
+          {/* 1. Link Name (Project name) */}
           <div>
             <label className="block text-xs font-semibold text-neutral-800 dark:text-neutral-200 mb-1.5">
-              New Destination URL
+              Link Name
+            </label>
+            <input
+              type="text"
+              value={linkName}
+              onChange={(e) => setLinkName(e.target.value)}
+              placeholder="e.g. github-project, portfolio, resume"
+              required
+              className="w-full px-3.5 py-2.5 text-xs bg-white dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 rounded-xl text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-600 focus:outline-none focus:border-black dark:focus:border-white focus:ring-1 focus:ring-black dark:focus:ring-white transition font-medium"
+            />
+          </div>
+
+          {/* 2. Destination URL */}
+          <div>
+            <label className="block text-xs font-semibold text-neutral-800 dark:text-neutral-200 mb-1.5">
+              Destination URL
             </label>
             <input
               type="text"
               value={destinationUrl}
               onChange={(e) => setDestinationUrl(e.target.value)}
-              placeholder="https://linkedin.com/in/yourname"
+              placeholder="https://github.com/username/projectlink"
               required
-              autoFocus
               className="w-full px-3.5 py-2.5 text-xs bg-white dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 rounded-xl text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-600 focus:outline-none focus:border-black dark:focus:border-white focus:ring-1 focus:ring-black dark:focus:ring-white transition font-mono font-medium"
             />
           </div>
 
+          {/* 3. Expiration Mode */}
           <div>
             <label className="block text-xs font-semibold text-neutral-800 dark:text-neutral-200 mb-1.5">
               Expiration Mode
@@ -223,50 +247,47 @@ export function EditRedirectModal({
                 <Clock className="w-4 h-4 text-black dark:text-white flex-shrink-0" />
                 <div>
                   <div className="text-xs font-bold text-neutral-900 dark:text-white">Temporary</div>
-                  <div className="text-[10px] text-neutral-500 dark:text-neutral-400">Set new duration</div>
+                  <div className="text-[10px] text-neutral-500 dark:text-neutral-400">Expires after time</div>
                 </div>
               </button>
             </div>
-          </div>
 
-          {linkType === "temporary" && (
-            <div className="p-3.5 rounded-2xl bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200 dark:border-neutral-700 space-y-3">
-              <label className="block text-xs font-semibold text-neutral-800 dark:text-neutral-200">
-                Expires after:
-              </label>
-              <div className="grid grid-cols-5 gap-1.5">
-                {[
-                  { label: "1 Hour", val: "1h" },
-                  { label: "24 Hours", val: "24h" },
-                  { label: "7 Days", val: "7d" },
-                  { label: "30 Days", val: "30d" },
-                  { label: "Custom", val: "custom" },
-                ].map((d) => (
-                  <button
-                    key={d.val}
-                    type="button"
-                    onClick={() => setDuration(d.val)}
-                    className={`py-2 px-1 text-center rounded-xl text-xs font-semibold border transition cursor-pointer ${
-                      duration === d.val
-                        ? "bg-black dark:bg-white text-white dark:text-black border-black dark:border-white shadow-sm"
-                        : "bg-white dark:bg-neutral-900 text-neutral-700 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700 hover:border-neutral-400"
-                    }`}
-                  >
-                    {d.label}
-                  </button>
-                ))}
-              </div>
+            {linkType === "temporary" && (
+              <div className="mt-3 p-3.5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/40 space-y-3 animate-in fade-in duration-150">
+                <div>
+                  <label className="block text-[11px] font-semibold text-neutral-700 dark:text-neutral-300 mb-1.5">
+                    How long should this link stay active?
+                  </label>
+                  <div className="grid grid-cols-5 gap-1.5">
+                    {[
+                      { label: "1 Hour", val: "1h" },
+                      { label: "24 Hours", val: "24h" },
+                      { label: "7 Days", val: "7d" },
+                      { label: "30 Days", val: "30d" },
+                      { label: "Custom", val: "custom" },
+                    ].map((opt) => (
+                      <button
+                        key={opt.val}
+                        type="button"
+                        onClick={() => setDuration(opt.val)}
+                        className={`py-1.5 px-2 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                          duration === opt.val
+                            ? "bg-black dark:bg-white text-white dark:text-black shadow-sm"
+                            : "bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
-              {duration === "custom" && (
-                <div className="pt-2.5 border-t border-neutral-200/80 dark:border-neutral-700 space-y-2">
-                  <span className="block text-[11px] font-semibold text-neutral-600 dark:text-neutral-300">
-                    Set Expiration Date & Time:
-                  </span>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {duration === "custom" && (
+                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-neutral-200/60 dark:border-neutral-700/60 animate-in fade-in duration-150">
                     <div>
-                      <label className="block text-[10px] font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider mb-1 flex items-center gap-1">
-                        <Calendar className="w-3 h-3 text-neutral-700 dark:text-neutral-300" />
-                        1. Select Date
+                      <label className="block text-[10px] font-medium text-neutral-500 dark:text-neutral-400 mb-1 flex items-center gap-1">
+                        <Calendar className="w-3 h-3" />
+                        <span>Date</span>
                       </label>
                       <input
                         type="date"
@@ -277,11 +298,10 @@ export function EditRedirectModal({
                         className="w-full px-3 py-2 text-xs font-medium bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-700 rounded-xl text-neutral-900 dark:text-white focus:outline-none focus:border-black dark:focus:border-white shadow-sm"
                       />
                     </div>
-
                     <div>
-                      <label className="block text-[10px] font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider mb-1 flex items-center gap-1">
-                        <Clock className="w-3 h-3 text-neutral-700 dark:text-neutral-300" />
-                        2. Select Time
+                      <label className="block text-[10px] font-medium text-neutral-500 dark:text-neutral-400 mb-1 flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        <span>Time</span>
                       </label>
                       <input
                         type="time"
@@ -292,10 +312,10 @@ export function EditRedirectModal({
                       />
                     </div>
                   </div>
-                </div>
-              )}
-            </div>
-          )}
+                )}
+              </div>
+            )}
+          </div>
 
           <div className="flex items-center justify-end gap-2 pt-4 border-t border-neutral-100 dark:border-neutral-800">
             <button
@@ -311,7 +331,7 @@ export function EditRedirectModal({
               disabled={loading}
               className="px-5 py-2 text-xs font-semibold text-white dark:text-black bg-black dark:bg-white hover:bg-neutral-800 dark:hover:bg-neutral-200 rounded-xl transition disabled:opacity-50 shadow-sm cursor-pointer"
             >
-              {loading ? "Saving..." : "Save Destination"}
+              {loading ? "Saving..." : "Save Changes"}
             </button>
           </div>
         </form>

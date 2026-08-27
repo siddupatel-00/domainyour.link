@@ -85,6 +85,26 @@ export async function GET() {
       preference = fallbackRecapPrefs[username.toLowerCase()] || "off";
     }
 
+    let avatar: string | null = null;
+    if (isTursoEnabled) {
+      const { tursoGetUserAvatar } = await import("@/lib/tursoDb");
+      avatar = await tursoGetUserAvatar(username);
+    }
+    if (!avatar && db) {
+      try {
+        const found = await db
+          .select({ avatar: users.avatar })
+          .from(users)
+          .where(eq(users.username, username))
+          .limit(1);
+        if (found.length > 0) avatar = found[0].avatar;
+      } catch {}
+    }
+    if (!avatar) {
+      const memoryUser = await findUserByEmailOrUsername(username);
+      if (memoryUser?.avatar) avatar = memoryUser.avatar;
+    }
+
     const weeklyRecap = preference === "weekly" || preference === "both";
     const monthlyRecap = preference === "monthly" || preference === "both";
 
@@ -100,6 +120,7 @@ export async function GET() {
       {
         username,
         email,
+        avatar,
         recapPreference: preference,
         weeklyRecap,
         monthlyRecap,
@@ -127,7 +148,19 @@ export async function PATCH(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { recapPreference, weeklyRecap, monthlyRecap, sendTest } = body;
+    const { recapPreference, weeklyRecap, monthlyRecap, sendTest, avatar, action } = body;
+
+    // Update Avatar (Upload / Remove)
+    if (avatar !== undefined || action === "update_avatar") {
+      const newAvatar = avatar === "" || avatar === null ? null : String(avatar);
+      const { updateUserAvatar } = await import("@/lib/userStore");
+      await updateUserAvatar(username, newAvatar);
+      return NextResponse.json({
+        success: true,
+        avatar: newAvatar,
+        message: newAvatar ? "Profile picture updated" : "Profile picture removed",
+      }, { headers: noCacheHeaders });
+    }
 
     // Send a test recap email immediately with 1-hour rate limit
     if (sendTest) {

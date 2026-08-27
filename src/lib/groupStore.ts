@@ -72,3 +72,11 @@ export function reorderSharedLinkGroups(username: string, orderedIds: number[]):
 
   global.fallbackLinkGroupsStore = [...otherGroups, ...reordered];
 }
+
+export function findSharedGroupByShareCode(shareCode: string): LinkGroup | undefined {
+  if (!global.fallbackLinkGroupsStore) return undefined;
+  const clean = shareCode.trim().toLowerCase();
+  return global.fallbackLinkGroupsStore.find(
+    (g) => (g.shareCode || "").toLowerCase() === clean
+  );
+}

@@ -127,6 +127,7 @@ export async function createOrUpdateUser(
       username: cleanUsername,
       email: cleanEmail,
       password: hashedPassword ?? null,
+      avatar: null,
       recapPreference: "off",
       lastRecapSentAt: null,
       createdAt: new Date(),
@@ -136,4 +137,82 @@ export async function createOrUpdateUser(
     global.fallbackUsersStore.push(created);
     return created;
   }
+}
+
+export async function updateUserAvatar(identifier: string, avatar: string | null): Promise<boolean> {
+  const clean = identifier.trim().toLowerCase();
+
+  // Try Turso first
+  if (isTursoEnabled) {
+    try {
+      const ok = await (await import("./tursoDb")).tursoUpdateUserAvatar(clean, avatar);
+      if (ok) return true;
+    } catch {}
+  }
+
+  // Try PostgreSQL
+  try {
+    if (db) {
+      await db
+        .update(users)
+        .set({ avatar, updatedAt: new Date() })
+        .where(or(eq(users.email, clean), eq(users.username, clean)));
+      return true;
+    }
+  } catch {}
+
+  // Fallback memory store
+  const user = (global.fallbackUsersStore || []).find(
+    (u) => u.email.toLowerCase() === clean || u.username.toLowerCase() === clean
+  );
+  if (user) {
+    user.avatar = avatar;
+    user.updatedAt = new Date();
+    return true;
+  }
+  return false;
+}
+
+export async function updateUsername(oldUsername: string, newUsername: string): Promise<boolean> {
+  const oldU = oldUsername.trim().toLowerCase();
+  const newU = newUsername.trim().toLowerCase();
+
+  // Try Turso first
+  if (isTursoEnabled) {
+    try {
+      const ok = await (await import("./tursoDb")).tursoUpdateUsername(oldU, newU);
+      if (ok) return true;
+    } catch {}
+  }
+
+  // Fallback memory store
+  const user = (global.fallbackUsersStore || []).find(
+    (u) => u.username.toLowerCase() === oldU
+  );
+  if (user) {
+    user.username = newU;
+    user.updatedAt = new Date();
+    return true;
+  }
+  return true;
+}
+
+export async function deleteUserAccount(username: string): Promise<boolean> {
+  const u = username.trim().toLowerCase();
+
+  // Try Turso first
+  if (isTursoEnabled) {
+    try {
+      const ok = await (await import("./tursoDb")).tursoDeleteUserAccount(u);
+      if (ok) return true;
+    } catch {}
+  }
+
+  // Fallback memory store
+  if (global.fallbackUsersStore) {
+    global.fallbackUsersStore = global.fallbackUsersStore.filter(
+      (user) => user.username.toLowerCase() !== u
+    );
+  }
+  return true;
 }
