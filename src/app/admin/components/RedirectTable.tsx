@@ -456,12 +456,16 @@ export function RedirectTable({
                 setMenuPos(null);
               } else {
                 const rect = e.currentTarget.getBoundingClientRect();
-                const dropdownHeight = 290;
+                const dropdownHeight = 430;
                 const dropdownWidth = 212;
                 const fitsBelow = rect.bottom + dropdownHeight <= window.innerHeight - 12;
+                const top = Math.min(
+                  window.innerHeight - dropdownHeight - 12,
+                  Math.max(12, fitsBelow ? rect.bottom + 6 : rect.top - dropdownHeight - 6)
+                );
 
                 setMenuPos({
-                  top: fitsBelow ? rect.bottom + 6 : Math.max(12, rect.top - dropdownHeight - 6),
+                  top: Math.max(12, top),
                   left: Math.max(12, Math.min(window.innerWidth - dropdownWidth - 12, rect.right - dropdownWidth)),
                 });
                 setOpenMenuId(r.id);
@@ -483,7 +487,7 @@ export function RedirectTable({
                 left: `${menuPos.left}px`,
                 zIndex: 9999,
               }}
-              className="w-52 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-1.5 shadow-2xl animate-in fade-in zoom-in-95 duration-150 text-left"
+              className="w-52 max-h-[calc(100vh-24px)] overflow-y-auto rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-1.5 shadow-2xl animate-in fade-in zoom-in-95 duration-150 text-left"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Add Sublink option */}
