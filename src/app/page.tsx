@@ -529,15 +529,6 @@ export default function HomePage() {
                           <span>{usernameMessage}</span>
                         </div>
                       )}
-
-                      {isUsernameFocused && usernameStatus === "idle" && (
-                        <div className="mt-1.5 p-2 rounded-lg bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200 dark:border-neutral-700 flex items-start gap-1.5 text-[11px] text-neutral-600 dark:text-neutral-400 leading-snug animate-in fade-in duration-150">
-                          <AlertTriangle className="w-3.5 h-3.5 text-neutral-800 dark:text-neutral-200 flex-shrink-0 mt-0.5" />
-                          <span>
-                            <strong className="text-neutral-900 dark:text-white font-semibold">Note:</strong> Your username cannot be changed later.
-                          </span>
-                        </div>
-                      )}
                     </div>
                   )}
 
