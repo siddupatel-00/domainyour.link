@@ -319,11 +319,11 @@ export function ManageGroupModal({
                               </span>
                             )}
                             <span className="font-bold text-neutral-900 dark:text-white truncate">
-                              {r.title || `/${r.username}/${r.webname}`}
+                              {r.title || (r.code ? `/u/${r.code}` : `/${r.username}/${r.webname}`)}
                             </span>
                             {r.title && (
                               <span className="text-[10px] text-neutral-400 font-mono">
-                                /{r.username}/{r.webname}
+                                {r.code ? `/u/${r.code}` : `/${r.username}/${r.webname}`}
                               </span>
                             )}
                           </div>

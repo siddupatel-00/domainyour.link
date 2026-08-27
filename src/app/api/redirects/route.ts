@@ -253,6 +253,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      const linkCode = Math.random().toString(36).substring(2, 8).toLowerCase();
       const [newRecord] = await db
         .insert(redirects)
         .values({
@@ -261,6 +262,7 @@ export async function POST(request: NextRequest) {
           title: finalTitle,
           destinationUrl: formattedDestination,
           redirectCode: 307,
+          code: linkCode,
           expiresAt: expirationDate,
           parentId: parentId ? Number(parentId) : null,
           showOnProfile: showOnProfile !== false,
@@ -280,6 +282,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      const fallbackCode = Math.random().toString(36).substring(2, 8).toLowerCase();
       const newRecord: Redirect = {
         id: nextId++,
         username: cleanUsername,
@@ -287,6 +290,7 @@ export async function POST(request: NextRequest) {
         title: finalTitle,
         destinationUrl: formattedDestination,
         redirectCode: 307,
+        code: fallbackCode,
         clickCount: 0,
         expiredClickCount: 0,
         expiresAt: expirationDate,

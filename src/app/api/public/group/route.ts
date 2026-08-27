@@ -173,6 +173,7 @@ export async function GET(request: NextRequest) {
       id: number;
       username: string;
       webname: string;
+      code?: string | null;
       title: string;
       destinationUrl: string;
       redirectUrl: string;
@@ -190,9 +191,10 @@ export async function GET(request: NextRequest) {
             id: link.id,
             username: link.username,
             webname: link.webname,
+            code: link.code || null,
             title: link.title || link.webname,
             destinationUrl: link.destinationUrl,
-            redirectUrl: `/${link.username}/${link.webname}`,
+            redirectUrl: link.code ? `/u/${link.code}` : `/${link.username}/${link.webname}`,
             expiresAt: link.expiresAt,
             clickCount: link.clickCount || 0,
           });

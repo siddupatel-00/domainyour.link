@@ -41,7 +41,7 @@ export function DeleteRedirectModal({
   if (!isOpen || !redirect) return null;
 
   const displayName = redirect.title || redirect.webname;
-  const path = `/${redirect.username}/${redirect.webname}`;
+  const path = redirect.code ? `/u/${redirect.code}` : `/${redirect.username}/${redirect.webname}`;
   const fullUrl = `${baseUrl}${path}`;
 
   const handleDelete = async () => {

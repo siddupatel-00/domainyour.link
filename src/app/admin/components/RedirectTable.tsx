@@ -247,7 +247,9 @@ export function RedirectTable({
 
   // Helper to render individual row
   const renderRow = (r: Redirect, isChild = false) => {
-    const path = `/${r.username}/${r.webname}`;
+    const permPath = r.code ? `/u/${r.code}` : `/${r.username}/${r.webname}`;
+    const handlePath = `/${r.username}/${r.webname}`;
+    const path = permPath;
     const displayName = r.title || r.webname;
     const isCopied = copiedId === r.id;
     const isMenuOpen = openMenuId === r.id;
@@ -573,6 +575,34 @@ export function RedirectTable({
                   <span>Expire Link Now</span>
                 </button>
               )}
+
+              {/* Copy Short Link */}
+              <button
+                type="button"
+                onClick={() => {
+                  setOpenMenuId(null);
+                  setMenuPos(null);
+                  handleCopy(r.id, permPath);
+                }}
+                className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl transition text-left cursor-pointer"
+              >
+                <Copy className="w-3.5 h-3.5 text-neutral-500" />
+                <span>Copy short link ({permPath})</span>
+              </button>
+
+              {/* Copy Handle Link */}
+              <button
+                type="button"
+                onClick={() => {
+                  setOpenMenuId(null);
+                  setMenuPos(null);
+                  handleCopy(r.id, handlePath);
+                }}
+                className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl transition text-left cursor-pointer"
+              >
+                <Copy className="w-3.5 h-3.5 text-neutral-500" />
+                <span>Copy handle link</span>
+              </button>
 
               {/* Test Link in New Tab */}
               <a

@@ -20,16 +20,217 @@ export const isTursoEnabled = Boolean(tursoUrl && tursoToken);
 // ==========================================
 
 let hasEnsuredRedirectTitle = false;
-export async function ensureRedirectTitleColumn() {
-  if (hasEnsuredRedirectTitle) return;
+let hasEnsuredUsedCodesAndRedirectCode = false;
+const fallbackUsedCodes = new Set<string>();
+const fallbackRedirectsList: Redirect[] = [];
+
+export async function ensureUsedCodesAndRedirectCodeColumns() {
+  if (hasEnsuredUsedCodesAndRedirectCode) return;
+  if (!isTursoEnabled) {
+    hasEnsuredUsedCodesAndRedirectCode = true;
+    return;
+  }
+  try {
+    await turso.execute(`
+      CREATE TABLE IF NOT EXISTS used_codes (
+        code TEXT PRIMARY KEY,
+        type TEXT NOT NULL,
+        username TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+  } catch {}
+
   try {
     await turso.execute(`ALTER TABLE redirects ADD COLUMN title TEXT;`);
   } catch {}
+
+  try {
+    await turso.execute(`ALTER TABLE redirects ADD COLUMN code TEXT;`);
+  } catch {}
+
+  try {
+    await turso.execute(`CREATE INDEX IF NOT EXISTS redirects_code_idx ON redirects (code);`);
+  } catch {}
+
+  // Backfill any redirects missing a code
+  try {
+    const missing = await turso.execute(`SELECT id, username, webname FROM redirects WHERE code IS NULL OR code = '';`);
+    for (const row of missing.rows) {
+      let assignedCode = "";
+      const cleanWebname = String(row.webname || "").toLowerCase().trim();
+      if (/^[a-z0-9]{6}$/.test(cleanWebname)) {
+        const check = await turso.execute({
+          sql: `SELECT code FROM used_codes WHERE LOWER(code) = ?;`,
+          args: [cleanWebname],
+        });
+        if (check.rows.length === 0) assignedCode = cleanWebname;
+      }
+      if (!assignedCode) {
+        const chars = "abcdefghjkmnpqrstuvwxyz23456789";
+        let unique = false;
+        while (!unique) {
+          let candidate = "";
+          for (let i = 0; i < 6; i++) {
+            candidate += chars.charAt(Math.floor(Math.random() * chars.length));
+          }
+          const check = await turso.execute({
+            sql: `SELECT code FROM used_codes WHERE LOWER(code) = ?;`,
+            args: [candidate],
+          });
+          if (check.rows.length === 0) {
+            assignedCode = candidate;
+            unique = true;
+          }
+        }
+      }
+
+      await turso.execute({
+        sql: `UPDATE redirects SET code = ? WHERE id = ?;`,
+        args: [assignedCode, Number(row.id)],
+      });
+      await turso.execute({
+        sql: `INSERT OR IGNORE INTO used_codes (code, type, username) VALUES (?, 'link', ?);`,
+        args: [assignedCode, String(row.username)],
+      });
+    }
+  } catch (err) {
+    console.error("Backfill redirects code error:", err);
+  }
+
+  // Backfill existing bios and groups into used_codes
+  try {
+    const bioRows = await turso.execute(`SELECT code, username FROM bios WHERE code IS NOT NULL AND code != '';`);
+    for (const b of bioRows.rows) {
+      await turso.execute({
+        sql: `INSERT OR IGNORE INTO used_codes (code, type, username) VALUES (?, 'bio', ?);`,
+        args: [String(b.code).toLowerCase(), String(b.username)],
+      });
+    }
+    const userBioRows = await turso.execute(`SELECT bio_code, username FROM users WHERE bio_code IS NOT NULL AND bio_code != '';`);
+    for (const u of userBioRows.rows) {
+      await turso.execute({
+        sql: `INSERT OR IGNORE INTO used_codes (code, type, username) VALUES (?, 'bio', ?);`,
+        args: [String(u.bio_code).toLowerCase(), String(u.username)],
+      });
+    }
+    const groupRows = await turso.execute(`SELECT share_code, username FROM link_groups WHERE share_code IS NOT NULL AND share_code != '';`);
+    for (const g of groupRows.rows) {
+      await turso.execute({
+        sql: `INSERT OR IGNORE INTO used_codes (code, type, username) VALUES (?, 'group', ?);`,
+        args: [String(g.share_code).toLowerCase(), String(g.username)],
+      });
+    }
+  } catch {}
+
+  hasEnsuredUsedCodesAndRedirectCode = true;
   hasEnsuredRedirectTitle = true;
 }
 
+export async function ensureRedirectTitleColumn() {
+  await ensureUsedCodesAndRedirectCodeColumns();
+}
+
+export async function tursoGenerateUniqueCode(type: 'link' | 'bio' | 'group', username?: string): Promise<string> {
+  await ensureUsedCodesAndRedirectCodeColumns();
+  const chars = "abcdefghjkmnpqrstuvwxyz23456789";
+
+  if (!isTursoEnabled) {
+    while (true) {
+      let candidate = "";
+      for (let i = 0; i < 6; i++) {
+        candidate += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      if (!fallbackUsedCodes.has(candidate)) {
+        fallbackUsedCodes.add(candidate);
+        return candidate;
+      }
+    }
+  }
+
+  while (true) {
+    let candidate = "";
+    for (let i = 0; i < 6; i++) {
+      candidate += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    const check = await turso.execute({
+      sql: `SELECT code FROM used_codes WHERE LOWER(code) = ?;`,
+      args: [candidate],
+    });
+    if (check.rows.length === 0) {
+      await turso.execute({
+        sql: `INSERT INTO used_codes (code, type, username) VALUES (?, ?, ?);`,
+        args: [candidate, type, username || null],
+      });
+      return candidate;
+    }
+  }
+}
+
+export async function tursoIsCodeUsed(code: string): Promise<boolean> {
+  await ensureUsedCodesAndRedirectCodeColumns();
+  const clean = code.trim().toLowerCase();
+  if (!isTursoEnabled) {
+    return fallbackUsedCodes.has(clean);
+  }
+  const check = await turso.execute({
+    sql: `SELECT code FROM used_codes WHERE LOWER(code) = ?;`,
+    args: [clean],
+  });
+  return check.rows.length > 0;
+}
+
+export async function tursoClaimCode(code: string, type: 'link' | 'bio' | 'group', username?: string): Promise<boolean> {
+  await ensureUsedCodesAndRedirectCodeColumns();
+  const clean = code.trim().toLowerCase();
+  if (!isTursoEnabled) {
+    fallbackUsedCodes.add(clean);
+    return true;
+  }
+  try {
+    await turso.execute({
+      sql: `INSERT INTO used_codes (code, type, username) VALUES (?, ?, ?);`,
+      args: [clean, type, username || null],
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function tursoFindRedirectByCode(code: string): Promise<Redirect | null> {
+  await ensureUsedCodesAndRedirectCodeColumns();
+  const clean = code.trim().toLowerCase();
+  if (!isTursoEnabled) {
+    return fallbackRedirectsList.find((r) => (r.code || "").toLowerCase() === clean) || null;
+  }
+  const result = await turso.execute({
+    sql: `SELECT * FROM redirects WHERE LOWER(code) = ? LIMIT 1;`,
+    args: [clean],
+  });
+
+  if (result.rows.length === 0) return null;
+  const row = result.rows[0];
+  return {
+    id: Number(row.id),
+    username: String(row.username),
+    webname: String(row.webname),
+    title: row.title ? String(row.title) : String(row.webname),
+    destinationUrl: String(row.destination_url),
+    redirectCode: Number(row.redirect_code || 307),
+    code: row.code ? String(row.code) : clean,
+    clickCount: Number(row.click_count || 0),
+    expiredClickCount: Number(row.expired_click_count || 0),
+    expiresAt: row.expires_at ? new Date(String(row.expires_at)) : null,
+    parentId: row.parent_id !== null && row.parent_id !== undefined ? Number(row.parent_id) : null,
+    showOnProfile: Boolean(row.show_on_profile),
+    createdAt: new Date(String(row.created_at || Date.now())),
+    updatedAt: new Date(String(row.updated_at || Date.now())),
+  };
+}
+
 export async function tursoGetRedirects(username: string): Promise<Redirect[]> {
-  await ensureRedirectTitleColumn();
+  await ensureUsedCodesAndRedirectCodeColumns();
   const result = await turso.execute({
     sql: `SELECT * FROM redirects WHERE LOWER(username) = LOWER(?) ORDER BY id DESC;`,
     args: [username],
@@ -42,6 +243,7 @@ export async function tursoGetRedirects(username: string): Promise<Redirect[]> {
     title: row.title ? String(row.title) : String(row.webname),
     destinationUrl: String(row.destination_url),
     redirectCode: Number(row.redirect_code || 307),
+    code: row.code ? String(row.code) : null,
     clickCount: Number(row.click_count || 0),
     expiredClickCount: Number(row.expired_click_count || 0),
     expiresAt: row.expires_at ? new Date(String(row.expires_at)) : null,
@@ -205,6 +407,7 @@ export async function tursoGetClickEventsCountMap(
 }
 
 export async function tursoGetAllRedirects(): Promise<Redirect[]> {
+  await ensureUsedCodesAndRedirectCodeColumns();
   const result = await turso.execute({
     sql: `SELECT * FROM redirects ORDER BY click_count DESC, id DESC;`,
     args: [],
@@ -217,6 +420,7 @@ export async function tursoGetAllRedirects(): Promise<Redirect[]> {
     title: row.title ? String(row.title) : String(row.webname),
     destinationUrl: String(row.destination_url),
     redirectCode: Number(row.redirect_code || 307),
+    code: row.code ? String(row.code) : null,
     clickCount: Number(row.click_count || 0),
     expiredClickCount: Number(row.expired_click_count || 0),
     expiresAt: row.expires_at ? new Date(String(row.expires_at)) : null,
@@ -248,7 +452,7 @@ export async function tursoGetAllBios(): Promise<Bio[]> {
 }
 
 export async function tursoFindRedirect(username: string, webname: string): Promise<Redirect | null> {
-  await ensureRedirectTitleColumn();
+  await ensureUsedCodesAndRedirectCodeColumns();
   const result = await turso.execute({
     sql: `SELECT * FROM redirects WHERE LOWER(username) = LOWER(?) AND LOWER(webname) = LOWER(?) LIMIT 1;`,
     args: [username, webname],
@@ -264,6 +468,7 @@ export async function tursoFindRedirect(username: string, webname: string): Prom
     title: row.title ? String(row.title) : String(row.webname),
     destinationUrl: String(row.destination_url),
     redirectCode: Number(row.redirect_code || 307),
+    code: row.code ? String(row.code) : null,
     clickCount: Number(row.click_count || 0),
     expiredClickCount: Number(row.expired_click_count || 0),
     expiresAt: row.expires_at ? new Date(String(row.expires_at)) : null,
@@ -280,15 +485,45 @@ export async function tursoCreateRedirect(data: {
   title?: string;
   destinationUrl: string;
   redirectCode?: number;
+  code?: string;
   expiresAt?: Date | null;
   parentId?: number | null;
   showOnProfile?: boolean;
 }): Promise<Redirect> {
-  await ensureRedirectTitleColumn();
+  await ensureUsedCodesAndRedirectCodeColumns();
   const expiresStr = data.expiresAt ? data.expiresAt.toISOString() : null;
+
+  let assignedCode = data.code ? data.code.trim().toLowerCase() : "";
+  if (!assignedCode) {
+    assignedCode = await tursoGenerateUniqueCode("link", data.username);
+  } else {
+    await tursoClaimCode(assignedCode, "link", data.username);
+  }
+
+  if (!isTursoEnabled) {
+    const mock: Redirect = {
+      id: fallbackRedirectsList.length + 1000,
+      username: data.username,
+      webname: data.webname,
+      title: data.title || data.webname,
+      destinationUrl: data.destinationUrl,
+      redirectCode: data.redirectCode || 307,
+      code: assignedCode,
+      clickCount: 0,
+      expiredClickCount: 0,
+      expiresAt: data.expiresAt || null,
+      parentId: data.parentId ?? null,
+      showOnProfile: data.showOnProfile !== false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    fallbackRedirectsList.push(mock);
+    return mock;
+  }
+
   const result = await turso.execute({
-    sql: `INSERT INTO redirects (username, webname, title, destination_url, redirect_code, expires_at, parent_id, show_on_profile)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    sql: `INSERT INTO redirects (username, webname, title, destination_url, redirect_code, code, expires_at, parent_id, show_on_profile)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
           RETURNING *;`,
     args: [
       data.username.toLowerCase(),
@@ -296,6 +531,7 @@ export async function tursoCreateRedirect(data: {
       data.title || data.webname,
       data.destinationUrl,
       data.redirectCode || 307,
+      assignedCode,
       expiresStr,
       data.parentId ?? null,
       data.showOnProfile !== false ? 1 : 0,
@@ -310,6 +546,7 @@ export async function tursoCreateRedirect(data: {
     title: row.title ? String(row.title) : String(row.webname),
     destinationUrl: String(row.destination_url),
     redirectCode: Number(row.redirect_code),
+    code: row.code ? String(row.code) : assignedCode,
     clickCount: Number(row.click_count || 0),
     expiredClickCount: Number(row.expired_click_count || 0),
     expiresAt: row.expires_at ? new Date(String(row.expires_at)) : null,
@@ -392,6 +629,7 @@ export async function tursoUpdateRedirect(
     title: row.title ? String(row.title) : String(row.webname),
     destinationUrl: String(row.destination_url),
     redirectCode: Number(row.redirect_code || 307),
+    code: row.code ? String(row.code) : null,
     clickCount: Number(row.click_count || 0),
     expiredClickCount: Number(row.expired_click_count || 0),
     expiresAt: row.expires_at ? new Date(String(row.expires_at)) : null,
@@ -403,6 +641,14 @@ export async function tursoUpdateRedirect(
 }
 
 export async function tursoDeleteRedirect(id: number): Promise<boolean> {
+  if (!isTursoEnabled) {
+    const idx = fallbackRedirectsList.findIndex((r) => r.id === id);
+    if (idx !== -1) {
+      fallbackRedirectsList.splice(idx, 1);
+      return true;
+    }
+    return false;
+  }
   const result = await turso.execute({
     sql: `DELETE FROM redirects WHERE id = ?;`,
     args: [id],
@@ -1340,6 +1586,7 @@ export async function tursoFindRedirectByWebnameOnly(webname: string): Promise<R
       title: row.title ? String(row.title) : String(row.webname),
       destinationUrl: String(row.destination_url),
       redirectCode: Number(row.redirect_code || 307),
+      code: row.code ? String(row.code) : null,
       clickCount: Number(row.click_count || 0),
       expiredClickCount: Number(row.expired_click_count || 0),
       expiresAt: row.expires_at ? new Date(String(row.expires_at)) : null,

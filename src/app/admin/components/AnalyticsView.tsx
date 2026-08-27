@@ -173,7 +173,7 @@ export function AnalyticsView({
           {topLink && (topLink.clickCount || 0) > 0 ? (
             <div className="min-w-0">
               <div className="text-lg font-bold font-mono text-neutral-900 dark:text-white truncate">
-                /{topLink.username}/{topLink.webname}
+                {topLink.code ? `/u/${topLink.code}` : `/${topLink.username}/${topLink.webname}`}
               </div>
               <p className="text-xs text-neutral-500 dark:text-neutral-400 font-mono">
                 {topLink.clickCount} clicks ({totalClicks > 0 ? Math.round(((topLink.clickCount || 0) / totalClicks) * 100) : 0}%)
@@ -287,7 +287,7 @@ export function AnalyticsView({
         ) : (
           <div className="space-y-4">
             {sortedRedirects.map((r, index) => {
-              const path = `/${r.username}/${r.webname}`;
+              const path = r.code ? `/u/${r.code}` : `/${r.username}/${r.webname}`;
               const percentage = totalClicks > 0 ? Math.round(((r.clickCount || 0) / totalClicks) * 100) : 0;
               const isMenuOpen = openMenuId === r.id;
               const isCopied = copiedId === r.id;

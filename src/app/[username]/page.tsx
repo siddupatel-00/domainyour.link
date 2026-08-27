@@ -8,6 +8,7 @@ interface LinkItem {
   id: number;
   username: string;
   webname: string;
+  code?: string | null;
   title?: string | null;
   destinationUrl: string;
   expiresAt: Date | string | null;
@@ -125,7 +126,7 @@ export default function UserProfilePage({ params }: UserProfilePageProps) {
             </div>
           ) : (
             links.map((link) => {
-              const directRedirectUrl = `/${cleanUsername}/${link.webname}`;
+              const directRedirectUrl = link.code ? `/u/${link.code}` : `/${cleanUsername}/${link.webname}`;
 
               return (
                 <a

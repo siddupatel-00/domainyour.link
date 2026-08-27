@@ -42,6 +42,7 @@ export const redirects = pgTable(
     title: varchar("title", { length: 255 }), // User-friendly link title (e.g. "github-project")
     destinationUrl: text("destination_url").notNull(),
     redirectCode: integer("redirect_code").default(307).notNull(),
+    code: varchar("code", { length: 32 }), // Permanent short code e.g. "a1b2c3"
     clickCount: integer("click_count").default(0).notNull(),
     expiredClickCount: integer("expired_click_count").default(0).notNull(), // Clicks received after link expired
     expiresAt: timestamp("expires_at"), // Null means permanent; Timestamp means temporary expiring link
@@ -52,6 +53,7 @@ export const redirects = pgTable(
   },
   (table) => [
     uniqueIndex("username_webname_idx").on(table.username, table.webname),
+    index("redirects_code_idx").on(table.code),
   ]
 );
 
@@ -129,6 +131,17 @@ export const employees = pgTable(
   ]
 );
 
+// Tombstone registry of all permanently retired/reserved codes (never re-issued)
+export const usedCodes = pgTable(
+  "used_codes",
+  {
+    code: varchar("code", { length: 32 }).primaryKey(),
+    type: varchar("type", { length: 16 }).notNull(), // 'link' | 'bio' | 'group'
+    username: varchar("username", { length: 64 }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  }
+);
+
 export type User = InferSelectModel<typeof users>;
 export type NewUser = InferInsertModel<typeof users>;
 export type Redirect = InferSelectModel<typeof redirects>;
@@ -141,3 +154,5 @@ export type ClickEvent = InferSelectModel<typeof clickEvents>;
 export type NewClickEvent = InferInsertModel<typeof clickEvents>;
 export type Employee = InferSelectModel<typeof employees>;
 export type NewEmployee = InferInsertModel<typeof employees>;
+export type UsedCode = InferSelectModel<typeof usedCodes>;
+export type NewUsedCode = InferInsertModel<typeof usedCodes>;

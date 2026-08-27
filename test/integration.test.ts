@@ -375,6 +375,43 @@ async function runTests() {
   const stillFoundByBio = await findUserByBioCode(testBioUser.bioCode!);
   assert(stillFoundByBio?.username === "renameduser", "Permanent bio link (/b/[code]) remains 100% intact after username change");
 
+  // 18. Permanent Single Links (/u/[code]) & Used Codes Registry Tests
+  console.log("\n18. Permanent Single Links (/u/[code]) & Used Codes Registry Tests");
+  const { tursoGenerateUniqueCode, tursoIsCodeUsed, tursoCreateRedirect, tursoDeleteRedirect, tursoFindRedirectByCode } = await import("../src/lib/tursoDb");
+
+  // Generate unique link shortcode
+  const testLinkCode = await tursoGenerateUniqueCode("link", "testuser");
+  assert(Boolean(testLinkCode), "Generates permanent link code");
+  assert(testLinkCode.length === 6, "Permanent link code is 6 characters");
+
+  // Verify code is registered in used_codes
+  const isUsedBefore = await tursoIsCodeUsed(testLinkCode);
+  assert(isUsedBefore === true, "Code is immediately registered into used_codes table upon generation");
+
+  // Create link with this code
+  const createdLink = await tursoCreateRedirect({
+    username: "testuser",
+    webname: "test-unique-slug",
+    title: "Test Destination",
+    destinationUrl: "https://example.com/target",
+    code: testLinkCode,
+  });
+  assert(createdLink.code === testLinkCode, "Redirect record saves assigned permanent shortcode");
+
+  // Find redirect by code
+  const foundLink = await tursoFindRedirectByCode(testLinkCode);
+  assert(foundLink?.id === createdLink.id, "Successfully resolves redirect record by permanent /u/[code]");
+  assert(foundLink?.destinationUrl === "https://example.com/target", "Resolved redirect contains correct destination URL");
+
+  // Delete the link
+  await tursoDeleteRedirect(createdLink.id);
+  const foundAfterDelete = await tursoFindRedirectByCode(testLinkCode);
+  assert(foundAfterDelete === null, "Deleted redirect is no longer in redirects table");
+
+  // Verify code REMAINS in used_codes forever after link deletion
+  const isUsedAfterDelete = await tursoIsCodeUsed(testLinkCode);
+  assert(isUsedAfterDelete === true, "Deleted code remains permanently in used_codes tombstone registry (never re-issued)");
+
   console.log("\n========================================");
   console.log(`Summary: ${passed} passed, ${failed} failed`);
   console.log("========================================\n");

@@ -62,7 +62,7 @@ export function EditRedirectModal({
   if (!isOpen || !redirect) return null;
 
   const minDate = new Date().toISOString().slice(0, 10);
-  const fullUrl = `${baseUrl}/${redirect.username}/${redirect.webname}`;
+  const fullUrl = redirect.code ? `${baseUrl}/u/${redirect.code}` : `${baseUrl}/${redirect.username}/${redirect.webname}`;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

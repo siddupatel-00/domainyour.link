@@ -8,6 +8,7 @@ interface LinkItem {
   id: number;
   username: string;
   webname: string;
+  code?: string | null;
   title?: string | null;
   destinationUrl: string;
   expiresAt: Date | string | null;
@@ -188,7 +189,7 @@ export default function PermanentBioPage({ params }: BioPageProps) {
             bioData.links.map((link) => (
               <a
                 key={link.id}
-                href={`/${link.username}/${link.webname}`}
+                href={link.code ? `/u/${link.code}` : `/${link.username}/${link.webname}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="group relative flex items-center justify-between p-4 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 hover:border-black dark:hover:border-white shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer"
