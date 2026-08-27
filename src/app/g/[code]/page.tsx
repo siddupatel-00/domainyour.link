@@ -338,7 +338,7 @@ export default function PublicGroupPage({ params }: PublicGroupPageProps) {
           className="inline-flex items-center gap-1.5 text-xs text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 transition duration-150 font-medium cursor-pointer"
         >
           <Sparkles className="w-3.5 h-3.5" />
-          <span>Powered by domainyourlink</span>
+          <span>Powered by RelayLink</span>
         </a>
       </footer>
 

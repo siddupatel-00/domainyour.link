@@ -435,6 +435,16 @@ async function runTests() {
   // Cleanup test group
   await tursoDeleteLinkGroup(tempGroup.id);
 
+  // 20. RelayLink Brand & Subscription Plan Defaults Tests
+  console.log("\n20. RelayLink Brand & Subscription Plan Defaults Tests");
+  assert(isReservedUsername("relaylink"), "Flags 'relaylink' as reserved");
+  assert(isReservedUsername("pro"), "Flags 'pro' as reserved");
+  assert(isReservedUsername("checkout"), "Flags 'checkout' as reserved");
+  const testPlanUser = await createOrUpdateUser("plancheckuser", "plancheck@example.com", "SecretPass123!");
+  assert(testPlanUser.plan === "free", "New user defaults to free tier plan");
+  assert(testPlanUser.subscriptionStatus === "active", "New user has active subscription status");
+  await deleteUserAccount("plancheckuser");
+
   // Clean up any remaining test data
   try {
     const { deleteUserAccount } = await import("../src/lib/userStore");
@@ -442,6 +452,7 @@ async function runTests() {
     await deleteUserAccount("avatartester");
     await deleteUserAccount("renameduser");
     await deleteUserAccount("testuser");
+    await deleteUserAccount("plancheckuser");
   } catch {}
 
   console.log("\n========================================");

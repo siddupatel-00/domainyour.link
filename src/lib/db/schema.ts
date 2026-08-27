@@ -23,6 +23,9 @@ export const users = pgTable(
     previousUsernames: text("previous_usernames").default("[]"), // JSON stringified array of previous usernames
     recapPreference: varchar("recap_preference", { length: 32 }).default("off").notNull(), // "off" | "weekly" | "monthly"
     lastRecapSentAt: timestamp("last_recap_sent_at"),
+    plan: varchar("plan", { length: 32 }).default("free").notNull(), // "free" | "pro"
+    subscriptionId: varchar("subscription_id", { length: 128 }), // Razorpay subscription ID
+    subscriptionStatus: varchar("subscription_status", { length: 32 }).default("active"), // "active" | "canceled" | "past_due"
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },

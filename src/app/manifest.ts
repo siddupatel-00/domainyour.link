@@ -2,8 +2,8 @@ import { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "domainyourlink",
-    short_name: "domainyourlink",
+    name: "RelayLink",
+    short_name: "RelayLink",
     description: "One link. Always yours.",
     start_url: "/",
     display: "standalone",

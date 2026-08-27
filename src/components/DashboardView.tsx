@@ -433,7 +433,7 @@ export function DashboardView({ initialTab = "links" }: DashboardViewProps) {
           <a href="/" className="flex items-center gap-2">
             <Link2 className="w-5 h-5 text-black dark:text-white stroke-[2.2]" />
             <span className="font-bold text-base tracking-tight text-neutral-900 dark:text-white">
-              domainyourlink
+              RelayLink
             </span>
           </a>
 

@@ -164,6 +164,9 @@ export async function createOrUpdateUser(
       previousUsernames: "[]",
       recapPreference: "off",
       lastRecapSentAt: null,
+      plan: "free",
+      subscriptionId: null,
+      subscriptionStatus: "active",
       createdAt: new Date(),
       updatedAt: new Date(),
     };

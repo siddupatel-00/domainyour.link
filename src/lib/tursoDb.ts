@@ -760,6 +760,9 @@ export async function tursoFindUser(identifier: string): Promise<User | null> {
     previousUsernames: row.previous_usernames ? String(row.previous_usernames) : "[]",
     recapPreference: String(row.recap_preference || "off"),
     lastRecapSentAt: row.last_recap_sent_at ? new Date(String(row.last_recap_sent_at)) : null,
+    plan: row.plan ? String(row.plan) : "free",
+    subscriptionId: row.subscription_id ? String(row.subscription_id) : null,
+    subscriptionStatus: row.subscription_status ? String(row.subscription_status) : "active",
     createdAt: new Date(String(row.created_at)),
     updatedAt: new Date(String(row.updated_at)),
   };
@@ -785,6 +788,9 @@ export async function tursoFindUserByBioCode(bioCode: string): Promise<User | nu
     previousUsernames: row.previous_usernames ? String(row.previous_usernames) : "[]",
     recapPreference: String(row.recap_preference || "off"),
     lastRecapSentAt: row.last_recap_sent_at ? new Date(String(row.last_recap_sent_at)) : null,
+    plan: row.plan ? String(row.plan) : "free",
+    subscriptionId: row.subscription_id ? String(row.subscription_id) : null,
+    subscriptionStatus: row.subscription_status ? String(row.subscription_status) : "active",
     createdAt: new Date(String(row.created_at)),
     updatedAt: new Date(String(row.updated_at)),
   };
@@ -810,6 +816,9 @@ export async function tursoFindUserByPreviousUsername(oldUsername: string): Prom
     previousUsernames: row.previous_usernames ? String(row.previous_usernames) : "[]",
     recapPreference: String(row.recap_preference || "off"),
     lastRecapSentAt: row.last_recap_sent_at ? new Date(String(row.last_recap_sent_at)) : null,
+    plan: row.plan ? String(row.plan) : "free",
+    subscriptionId: row.subscription_id ? String(row.subscription_id) : null,
+    subscriptionStatus: row.subscription_status ? String(row.subscription_status) : "active",
     createdAt: new Date(String(row.created_at)),
     updatedAt: new Date(String(row.updated_at)),
   };
@@ -838,6 +847,9 @@ export async function tursoCreateOrUpdateUser(username: string, email: string, h
       previousUsernames: row.previous_usernames ? String(row.previous_usernames) : "[]",
       recapPreference: String(row.recap_preference || "off"),
       lastRecapSentAt: row.last_recap_sent_at ? new Date(String(row.last_recap_sent_at)) : null,
+      plan: row.plan ? String(row.plan) : "free",
+      subscriptionId: row.subscription_id ? String(row.subscription_id) : null,
+      subscriptionStatus: row.subscription_status ? String(row.subscription_status) : "active",
       createdAt: new Date(String(row.created_at)),
       updatedAt: new Date(String(row.updated_at)),
     };
@@ -858,6 +870,9 @@ export async function tursoCreateOrUpdateUser(username: string, email: string, h
       previousUsernames: row.previous_usernames ? String(row.previous_usernames) : "[]",
       recapPreference: String(row.recap_preference || "off"),
       lastRecapSentAt: row.last_recap_sent_at ? new Date(String(row.last_recap_sent_at)) : null,
+      plan: row.plan ? String(row.plan) : "free",
+      subscriptionId: row.subscription_id ? String(row.subscription_id) : null,
+      subscriptionStatus: row.subscription_status ? String(row.subscription_status) : "active",
       createdAt: new Date(String(row.created_at)),
       updatedAt: new Date(String(row.updated_at)),
     };
