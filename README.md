@@ -1,30 +1,32 @@
-# ⚡ domainyourlink
+# ⚡ RelayLink
 
-**domainyourlink** is an ultra-fast dynamic URL redirection service built with **Next.js (App Router)** and **PostgreSQL (Neon / Vercel Postgres)**.
+**RelayLink** ([relaylink.app](https://relaylink.app)) is an ultra-fast dynamic URL redirection and link management service built with **Next.js (App Router)**, **Turso (LibSQL)**, and **PostgreSQL**.
 
-It provides permanent public URLs that you can point to any destination and update at any time without ever breaking the public link.
+It provides permanent, username-independent short links (`/u/[code]`), group hubs (`/g/[code]`), and bio pages (`/b/[code]`) that you can point to any destination and update at any time without ever breaking the link.
 
 ---
 
 ## 🎯 Purpose & Use Case
 
-Imagine you print your LinkedIn or portfolio URL on resumes, business cards, NFC tags, or social bios:
+Imagine you print your portfolio, resume link, or product on business cards, resumes, NFC tags, billboards, or social bios:
 ```
-domainyourlink.vercel.app/siddu/linkedin
+relaylink.app/u/k9f2w1
 ```
-If you later change your LinkedIn username or custom vanity URL, simply update the destination in your domainyourlink dashboard. The public link `domainyourlink.vercel.app/siddu/linkedin` remains completely unchanged, and all future visitors will be redirected to the new destination instantly.
+Whenever you update your LinkedIn, GitHub, YouTube, or business website, simply change where the link points in your **RelayLink Dashboard**. The public short link `relaylink.app/u/k9f2w1` remains completely unchanged, and all future visitors are redirected to the new destination instantly.
 
 ---
 
 ## 🚀 Key Features
 
-* **⚡ Ultra-Low Latency**: The redirect endpoint executes a single indexed database lookup (`username` + `webname`) and returns an immediate server-side HTTP `307` redirect.
-* **🛡️ HTTP 307 Redirects by Default**: Prevents aggressive browser caching so changes to destination URLs take effect immediately.
-* **📊 Decoupled Analytics**: Click counts are updated asynchronously without blocking or delaying the redirect response.
+* **⚡ Sub-Millisecond Latency**: Single indexed lookups with immediate HTTP `307` server-side redirection.
+* **🛡️ Used Codes Registry**: Any shortcode issued to a link, bio, or group is recorded forever and never recycled or reassigned upon deletion.
+* **📦 Link Groups Hubs (`/g/[code]`)**: Bundle related links into interactive shareable boxes with customizable visibility and expiration.
+* **👤 Permanent Bio Pages (`/b/[code]`)**: Clean personal link-in-bio profiles that stay permanently yours even if you change your username.
+* **📊 Asynchronous Decoupled Analytics**: Click events and referrer analytics update asynchronously without delaying redirection response times.
 * **🔒 Password & OTP Sign-In**: Creators can log in with 6-digit email OTPs or password.
 * **👑 CEO Command Center (`/ceo`)**: Real-time worldwide link stats, user management, and employee authorization.
-* **💼 Employee Portal (`/employee`)**: Clean, privacy-first view of platform metrics and destination platforms with zero user PII.
-* **☁️ Vercel & Neon Ready**: Optimized for serverless and edge environments with zero connection overhead.
+* **💼 Employee Portal (`/employee`)**: Privacy-first operational insights with zero creator PII exposure.
+* **💳 Subscription Ready**: Free and Pro tier database foundation ready for Razorpay checkout.
 
 ---
 
@@ -32,9 +34,10 @@ If you later change your LinkedIn username or custom vanity URL, simply update t
 
 * **Framework**: Next.js 16+ (App Router, React 19, TypeScript)
 * **Styling**: Tailwind CSS & Lucide Icons
-* **Database**: PostgreSQL (Neon / Vercel Postgres / Supabase)
-* **ORM & Migrations**: Drizzle ORM & Drizzle Kit
+* **Database**: Turso (LibSQL / SQLite edge) + PostgreSQL (Neon / Supabase)
+* **ORM**: Drizzle ORM & Drizzle Kit
 * **Authentication**: Signed HTTP-only session cookies (`jose` / HMAC-SHA256)
+* **Email**: Nodemailer (Gmail SMTP) for 6-digit OTP verification and analytics recaps
 
 ---
 
@@ -43,10 +46,11 @@ If you later change your LinkedIn username or custom vanity URL, simply update t
 Create a `.env.local` file in the root of your project:
 
 ```env
-# PostgreSQL connection string (Neon / Vercel Postgres / Supabase / Local)
-DATABASE_URL="postgresql://user:password@ep-sample-12345.us-east-2.aws.neon.tech/neondb?sslmode=require"
+# Turso Database URL & Auth Token (Primary fast edge database)
+TURSO_DATABASE_URL="libsql://your-database.turso.io"
+TURSO_AUTH_TOKEN="your_turso_auth_token"
 
-# Master password for /ceo portal
+# Master password for /ceo executive portal
 CEO_PASSWORD="your_secure_ceo_password"
 
 # Default password for creator admin login
@@ -55,12 +59,12 @@ ADMIN_PASSWORD="your_secure_password"
 # Secret key for signing session tokens (min 32 characters)
 JWT_SECRET="your_random_secret_string_minimum_32_characters_long"
 
-# Gmail SMTP for sending 6-digit verification codes
+# Gmail SMTP for sending 6-digit verification codes & analytics recaps
 GMAIL_USER="yourname@gmail.com"
 GMAIL_APP_PASSWORD="xxxx xxxx xxxx xxxx"
 
 # Public URL of your deployed application
-NEXT_PUBLIC_APP_URL="https://domainyourlink.vercel.app"
+NEXT_PUBLIC_APP_URL="https://relaylink.app"
 ```
 
 ---
@@ -72,9 +76,9 @@ NEXT_PUBLIC_APP_URL="https://domainyourlink.vercel.app"
 npm install
 ```
 
-### 2. Push Database Schema
+### 2. Run Test Suite
 ```bash
-npm run db:push
+npm test
 ```
 
 ### 3. Start Development Server
@@ -82,8 +86,8 @@ npm run db:push
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
-Visit [http://localhost:3000/ceo](http://localhost:3000/ceo) for the CEO Command Center.
+Open [http://localhost:3000](http://localhost:3000) in your browser.  
+Visit [http://localhost:3000/ceo](http://localhost:3000/ceo) for the CEO Command Center.  
 Visit [http://localhost:3000/employee](http://localhost:3000/employee) for Employee Insights.
 
 ---
@@ -91,7 +95,8 @@ Visit [http://localhost:3000/employee](http://localhost:3000/employee) for Emplo
 ## 🚀 Deployment to Vercel
 
 ```bash
-git remote add origin https://github.com/siddupatel-00/domainyour.link.git
+git remote add origin https://github.com/siddupatel-00/relaylink.git
 git branch -M main
 git push -u origin main
 ```
+Configure custom domain `relaylink.app` in your Vercel Project Settings under **Domains**.
