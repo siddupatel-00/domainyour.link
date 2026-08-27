@@ -41,11 +41,6 @@ export default function UserProfilePage({ params }: UserProfilePageProps) {
 
         if (res.ok) {
           const data = await res.json();
-          // If this was a direct shortcode redirect (e.g. /37c738)
-          if (data.isDirectRedirect && data.directRedirectUrl) {
-            window.location.replace(data.directRedirectUrl);
-            return;
-          }
           setLinks(data.links || []);
           if (data.username) setDisplayUsername(data.username);
           if (data.redirectedFrom) setRedirectedFrom(data.redirectedFrom);

@@ -247,7 +247,7 @@ export function RedirectTable({
 
   // Helper to render individual row
   const renderRow = (r: Redirect, isChild = false) => {
-    const path = isChild ? `/${r.username}/${r.webname}` : `/${r.webname}`;
+    const path = `/${r.username}/${r.webname}`;
     const displayName = r.title || r.webname;
     const isCopied = copiedId === r.id;
     const isMenuOpen = openMenuId === r.id;

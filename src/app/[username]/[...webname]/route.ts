@@ -42,6 +42,16 @@ export async function GET(
       if (!tursoMatch && hyphenWebname !== cleanWebname) {
         tursoMatch = await tursoFindRedirect(cleanUsername, hyphenWebname);
       }
+      if (!tursoMatch) {
+        const { tursoFindUserByPreviousUsername } = await import("@/lib/tursoDb");
+        const prevUser = await tursoFindUserByPreviousUsername(cleanUsername);
+        if (prevUser) {
+          tursoMatch = await tursoFindRedirect(prevUser.username, cleanWebname);
+          if (!tursoMatch && hyphenWebname !== cleanWebname) {
+            tursoMatch = await tursoFindRedirect(prevUser.username, hyphenWebname);
+          }
+        }
+      }
       if (tursoMatch) {
         destination = tursoMatch.destinationUrl;
         recordId = tursoMatch.id;

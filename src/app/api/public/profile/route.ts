@@ -9,7 +9,6 @@ import {
   tursoGetRedirects,
   tursoGetBios,
   tursoGetUserAvatar,
-  tursoFindRedirectByWebnameOnly,
 } from "@/lib/tursoDb";
 import { findUserByEmailOrUsername } from "@/lib/userStore";
 
@@ -33,32 +32,6 @@ export async function GET(request: NextRequest) {
   const cleanBioname = bioname ? bioname.trim().toLowerCase() : null;
 
   try {
-    // 0. Check if this is a direct Short Code Link (e.g. /37c738 or /r/37c738)
-    if (!cleanBioname) {
-      let directMatch: Redirect | null = null;
-      if (isTursoEnabled) {
-        directMatch = await tursoFindRedirectByWebnameOnly(cleanUsername);
-      }
-      if (!directMatch && db) {
-        try {
-          const res = await db.select().from(redirects).where(eq(redirects.webname, cleanUsername)).limit(1);
-          if (res.length > 0) directMatch = res[0];
-        } catch {}
-      }
-      if (!directMatch) {
-        const fallbacks = getLocalFallbackLinks();
-        directMatch = fallbacks.find((l) => l.webname.toLowerCase() === cleanUsername) || null;
-      }
-
-      if (directMatch) {
-        return NextResponse.json({
-          isDirectRedirect: true,
-          destinationUrl: directMatch.destinationUrl,
-          directRedirectUrl: `/${directMatch.username}/${directMatch.webname}`,
-        }, { headers: noCacheHeaders });
-      }
-    }
-
     let userLinks: Redirect[] = [];
     let userBios: Bio[] = [];
     let avatar: string | null = null;

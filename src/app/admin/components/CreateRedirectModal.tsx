@@ -384,7 +384,7 @@ export function CreateRedirectModal({
               Shareable Short Link
             </span>
             <div className="font-mono font-bold text-neutral-900 dark:text-white truncate">
-              {baseUrl}/{cleanShortCode}
+              {baseUrl}/{currentUser}/{cleanShortCode}
             </div>
           </div>
 
