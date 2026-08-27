@@ -285,9 +285,10 @@ export function BioPageView({
                           position: "fixed",
                           top: `${menuPos.top}px`,
                           left: `${menuPos.left}px`,
+                          maxHeight: "calc(100vh - 24px)",
                           zIndex: 9999,
                         }}
-                        className="w-56 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-1.5 shadow-2xl animate-in fade-in zoom-in-95 duration-150 text-left"
+                        className="w-56 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-1.5 shadow-2xl animate-in fade-in zoom-in-95 duration-150 text-left overflow-y-auto overscroll-contain"
                         onClick={(e) => e.stopPropagation()}
                       >
                         <button
@@ -435,9 +436,10 @@ export function BioPageView({
                           position: "fixed",
                           top: `${menuPos.top}px`,
                           left: `${menuPos.left}px`,
+                          maxHeight: "calc(100vh - 24px)",
                           zIndex: 9999,
                         }}
-                        className="w-56 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-1.5 shadow-2xl animate-in fade-in zoom-in-95 duration-150 text-left"
+                        className="w-56 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-1.5 shadow-2xl animate-in fade-in zoom-in-95 duration-150 text-left overflow-y-auto overscroll-contain"
                         onClick={(e) => e.stopPropagation()}
                       >
                         <button

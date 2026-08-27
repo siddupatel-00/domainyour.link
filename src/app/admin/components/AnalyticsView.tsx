@@ -357,12 +357,22 @@ export function AnalyticsView({
                               setMenuPos(null);
                             } else {
                               const rect = e.currentTarget.getBoundingClientRect();
-                              const dropdownHeight = 230;
+                              const dropdownHeight = 320;
                               const dropdownWidth = 196;
                               const fitsBelow = rect.bottom + dropdownHeight <= window.innerHeight - 12;
+                              const fitsAbove = rect.top - dropdownHeight >= 12;
+
+                              let topPos: number;
+                              if (fitsBelow) {
+                                topPos = rect.bottom + 6;
+                              } else if (fitsAbove) {
+                                topPos = rect.top - dropdownHeight - 6;
+                              } else {
+                                topPos = Math.max(12, Math.min(window.innerHeight - dropdownHeight - 12, rect.top - dropdownHeight - 6));
+                              }
 
                               setMenuPos({
-                                top: fitsBelow ? rect.bottom + 6 : Math.max(12, rect.top - dropdownHeight - 6),
+                                top: topPos,
                                 left: Math.max(12, Math.min(window.innerWidth - dropdownWidth - 12, rect.right - dropdownWidth)),
                               });
                               setOpenMenuId(r.id);
@@ -382,9 +392,10 @@ export function AnalyticsView({
                               position: "fixed",
                               top: `${menuPos.top}px`,
                               left: `${menuPos.left}px`,
+                              maxHeight: "calc(100vh - 24px)",
                               zIndex: 9999,
                             }}
-                            className="w-48 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-1.5 shadow-2xl animate-in fade-in zoom-in-95 duration-150 text-left"
+                            className="w-48 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-1.5 shadow-2xl animate-in fade-in zoom-in-95 duration-150 text-left overflow-y-auto overscroll-contain"
                             onClick={(e) => e.stopPropagation()}
                           >
                             {onCreateSublink && (

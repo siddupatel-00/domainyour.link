@@ -456,16 +456,22 @@ export function RedirectTable({
                 setMenuPos(null);
               } else {
                 const rect = e.currentTarget.getBoundingClientRect();
-                const dropdownHeight = 430;
-                const dropdownWidth = 212;
+                const dropdownHeight = 420;
+                const dropdownWidth = 216;
                 const fitsBelow = rect.bottom + dropdownHeight <= window.innerHeight - 12;
-                const top = Math.min(
-                  window.innerHeight - dropdownHeight - 12,
-                  Math.max(12, fitsBelow ? rect.bottom + 6 : rect.top - dropdownHeight - 6)
-                );
+                const fitsAbove = rect.top - dropdownHeight >= 12;
+
+                let topPos: number;
+                if (fitsBelow) {
+                  topPos = rect.bottom + 6;
+                } else if (fitsAbove) {
+                  topPos = rect.top - dropdownHeight - 6;
+                } else {
+                  topPos = Math.max(12, Math.min(window.innerHeight - dropdownHeight - 12, rect.top - dropdownHeight - 6));
+                }
 
                 setMenuPos({
-                  top: Math.max(12, top),
+                  top: topPos,
                   left: Math.max(12, Math.min(window.innerWidth - dropdownWidth - 12, rect.right - dropdownWidth)),
                 });
                 setOpenMenuId(r.id);
@@ -485,9 +491,10 @@ export function RedirectTable({
                 position: "fixed",
                 top: `${menuPos.top}px`,
                 left: `${menuPos.left}px`,
+                maxHeight: "calc(100vh - 24px)",
                 zIndex: 9999,
               }}
-              className="w-52 max-h-[calc(100vh-24px)] overflow-y-auto rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-1.5 shadow-2xl animate-in fade-in zoom-in-95 duration-150 text-left"
+              className="w-52 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-1.5 shadow-2xl animate-in fade-in zoom-in-95 duration-150 text-left overflow-y-auto overscroll-contain"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Add Sublink option */}
