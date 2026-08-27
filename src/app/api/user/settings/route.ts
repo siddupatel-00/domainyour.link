@@ -108,6 +108,9 @@ export async function GET() {
     const weeklyRecap = preference === "weekly" || preference === "both";
     const monthlyRecap = preference === "monthly" || preference === "both";
 
+    const userRecord = await findUserByEmailOrUsername(username);
+    const bioCode = userRecord?.bioCode || null;
+
     // Compute test email rate limit cooldown (1 hour per user)
     const lastSent = global.testEmailTimestamps?.[username.toLowerCase()] || 0;
     const now = Date.now();
@@ -121,6 +124,7 @@ export async function GET() {
         username,
         email,
         avatar,
+        bioCode,
         recapPreference: preference,
         weeklyRecap,
         monthlyRecap,

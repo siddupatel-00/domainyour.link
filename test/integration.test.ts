@@ -355,6 +355,26 @@ async function runTests() {
   const isExp = Boolean(expiredGroup?.expiresAt && new Date(expiredGroup.expiresAt).getTime() <= Date.now());
   assert(isExp === true, "Successfully flags temporary shared group as expired when timestamp passes");
 
+  // 17. Permanent Bio Page (/b/[code]) & Previous Username Tests
+  console.log("\n17. Permanent Bio Page (/b/[code]) & Previous Username Tests");
+  const testBioUser = await createOrUpdateUser("originaluser", "biotest@example.com", "Secret123!");
+  assert(Boolean(testBioUser.bioCode), "User automatically receives permanent bioCode");
+  assert(testBioUser.bioCode?.length === 6, "Permanent bioCode is 6 characters");
+
+  // Lookup user by permanent bioCode
+  const { findUserByBioCode } = await import("../src/lib/userStore");
+  const foundByBioCode = await findUserByBioCode(testBioUser.bioCode!);
+  assert(foundByBioCode?.username === "originaluser", "Successfully resolves user by permanent bioCode");
+
+  // Rename user and verify old username resolves to updated user
+  await updateUsername("originaluser", "renameduser");
+  const resolvedOld = await findUserByEmailOrUsername("originaluser");
+  assert(resolvedOld?.username === "renameduser", "Previous username automatically resolves to updated user account");
+
+  // Verify permanent bioCode remains intact after rename
+  const stillFoundByBio = await findUserByBioCode(testBioUser.bioCode!);
+  assert(stillFoundByBio?.username === "renameduser", "Permanent bio link (/b/[code]) remains 100% intact after username change");
+
   console.log("\n========================================");
   console.log(`Summary: ${passed} passed, ${failed} failed`);
   console.log("========================================\n");

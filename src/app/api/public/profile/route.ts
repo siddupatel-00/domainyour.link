@@ -104,6 +104,33 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // 4. If no links found, check if this is an old/previous username of an existing user
+    let activeUsername = cleanUsername;
+    if (userLinks.length === 0) {
+      const aliasUser = await findUserByEmailOrUsername(cleanUsername);
+      if (aliasUser && aliasUser.username.toLowerCase() !== cleanUsername) {
+        activeUsername = aliasUser.username.toLowerCase();
+        if (isTursoEnabled) {
+          userLinks = await tursoGetRedirects(activeUsername);
+          userBios = await tursoGetBios(activeUsername);
+          if (!avatar) avatar = await tursoGetUserAvatar(activeUsername);
+        }
+        if (userLinks.length === 0 && db) {
+          try {
+            userLinks = await db.select().from(redirects).where(eq(redirects.username, activeUsername));
+            userBios = await db.select().from(bios).where(eq(bios.username, activeUsername));
+          } catch {}
+        }
+        if (userLinks.length === 0) {
+          userLinks = getLocalFallbackLinks().filter((l) => l.username.toLowerCase() === activeUsername);
+          userBios = getLocalFallbackBios().filter((b) => b.username.toLowerCase() === activeUsername);
+        }
+        if (!avatar && aliasUser.avatar) {
+          avatar = aliasUser.avatar;
+        }
+      }
+    }
+
     // Filter active non-expired links
     const now = Date.now();
     const activeVisibleLinks = userLinks.filter((r) => {
@@ -137,7 +164,8 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(
       {
-        username: cleanUsername,
+        username: activeUsername,
+        redirectedFrom: activeUsername !== cleanUsername ? cleanUsername : undefined,
         avatar,
         bio: targetBio,
         isExpired,

@@ -19,6 +19,8 @@ export const users = pgTable(
     email: varchar("email", { length: 255 }).notNull(),
     password: text("password"), // Hashed password
     avatar: text("avatar"), // Base64 data URI or image URL
+    bioCode: varchar("bio_code", { length: 32 }), // Permanent short code for main bio e.g. "k9f2w1"
+    previousUsernames: text("previous_usernames").default("[]"), // JSON stringified array of previous usernames
     recapPreference: varchar("recap_preference", { length: 32 }).default("off").notNull(), // "off" | "weekly" | "monthly"
     lastRecapSentAt: timestamp("last_recap_sent_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -27,6 +29,7 @@ export const users = pgTable(
   (table) => [
     uniqueIndex("user_username_idx").on(table.username),
     uniqueIndex("user_email_idx").on(table.email),
+    index("user_bio_code_idx").on(table.bioCode),
   ]
 );
 
@@ -61,12 +64,14 @@ export const bios = pgTable(
     title: varchar("title", { length: 255 }), // Display title e.g. "Work & Portfolio"
     description: text("description"), // Short description
     linkIds: text("link_ids").notNull().default("[]"), // JSON stringified array of redirect IDs e.g. "[1, 4]"
+    code: varchar("code", { length: 32 }), // Permanent short code for sub-bio e.g. "m4p8k2"
     expiresAt: timestamp("expires_at"), // Null = permanent; Timestamp = temporary expiring sub-bio
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => [
     uniqueIndex("username_bioname_idx").on(table.username, table.bioname),
+    index("bios_code_idx").on(table.code),
   ]
 );
 

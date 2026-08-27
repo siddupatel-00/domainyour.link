@@ -240,6 +240,7 @@ export async function tursoGetAllBios(): Promise<Bio[]> {
     title: row.title ? String(row.title) : null,
     description: row.description ? String(row.description) : null,
     linkIds: String(row.link_ids || "[]"),
+    code: row.code ? String(row.code) : null,
     expiresAt: row.expires_at ? new Date(String(row.expires_at)) : null,
     createdAt: new Date(String(row.created_at || Date.now())),
     updatedAt: new Date(String(row.updated_at || Date.now())),
@@ -413,7 +414,54 @@ export async function tursoDeleteRedirect(id: number): Promise<boolean> {
 // 2. BIOS (Sub-Bios & Link Hubs)
 // ==========================================
 
+let hasEnsuredBiosAndUsers = false;
+export async function ensureBiosAndUsersColumns() {
+  if (hasEnsuredBiosAndUsers || !isTursoEnabled) return;
+  try {
+    await turso.execute(`ALTER TABLE users ADD COLUMN bio_code TEXT;`);
+  } catch {}
+  try {
+    await turso.execute(`ALTER TABLE users ADD COLUMN previous_usernames TEXT DEFAULT '[]';`);
+  } catch {}
+  try {
+    await turso.execute(`ALTER TABLE bios ADD COLUMN code TEXT;`);
+  } catch {}
+  try {
+    await turso.execute(`CREATE INDEX IF NOT EXISTS bios_code_idx ON bios (code);`);
+  } catch {}
+  try {
+    await turso.execute(`CREATE INDEX IF NOT EXISTS users_bio_code_idx ON users (bio_code);`);
+  } catch {}
+
+  // Fill in any missing bio_code for users
+  try {
+    const missingUsers = await turso.execute(`SELECT id, username FROM users WHERE bio_code IS NULL OR bio_code = '';`);
+    for (const row of missingUsers.rows) {
+      const code = Math.random().toString(36).substring(2, 8).toLowerCase();
+      await turso.execute({
+        sql: `UPDATE users SET bio_code = ? WHERE id = ?;`,
+        args: [code, Number(row.id)],
+      });
+    }
+  } catch {}
+
+  // Fill in any missing code for bios
+  try {
+    const missingBios = await turso.execute(`SELECT id FROM bios WHERE code IS NULL OR code = '';`);
+    for (const row of missingBios.rows) {
+      const code = Math.random().toString(36).substring(2, 8).toLowerCase();
+      await turso.execute({
+        sql: `UPDATE bios SET code = ? WHERE id = ?;`,
+        args: [code, Number(row.id)],
+      });
+    }
+  } catch {}
+
+  hasEnsuredBiosAndUsers = true;
+}
+
 export async function tursoGetBios(username: string): Promise<Bio[]> {
+  await ensureBiosAndUsersColumns();
   const result = await turso.execute({
     sql: `SELECT * FROM bios WHERE LOWER(username) = LOWER(?) ORDER BY id ASC;`,
     args: [username],
@@ -426,6 +474,7 @@ export async function tursoGetBios(username: string): Promise<Bio[]> {
     title: row.title ? String(row.title) : null,
     description: row.description ? String(row.description) : null,
     linkIds: String(row.link_ids || "[]"),
+    code: row.code ? String(row.code) : null,
     expiresAt: row.expires_at ? new Date(String(row.expires_at)) : null,
     createdAt: new Date(String(row.created_at || Date.now())),
     updatedAt: new Date(String(row.updated_at || Date.now())),
@@ -433,6 +482,7 @@ export async function tursoGetBios(username: string): Promise<Bio[]> {
 }
 
 export async function tursoFindBio(username: string, bioname: string): Promise<Bio | null> {
+  await ensureBiosAndUsersColumns();
   const result = await turso.execute({
     sql: `SELECT * FROM bios WHERE LOWER(username) = LOWER(?) AND LOWER(bioname) = LOWER(?) LIMIT 1;`,
     args: [username, bioname],
@@ -448,6 +498,31 @@ export async function tursoFindBio(username: string, bioname: string): Promise<B
     title: row.title ? String(row.title) : null,
     description: row.description ? String(row.description) : null,
     linkIds: String(row.link_ids || "[]"),
+    code: row.code ? String(row.code) : null,
+    expiresAt: row.expires_at ? new Date(String(row.expires_at)) : null,
+    createdAt: new Date(String(row.created_at || Date.now())),
+    updatedAt: new Date(String(row.updated_at || Date.now())),
+  };
+}
+
+export async function tursoFindBioByCode(code: string): Promise<Bio | null> {
+  await ensureBiosAndUsersColumns();
+  const clean = code.trim().toLowerCase();
+  const result = await turso.execute({
+    sql: `SELECT * FROM bios WHERE LOWER(code) = ? LIMIT 1;`,
+    args: [clean],
+  });
+
+  if (result.rows.length === 0) return null;
+  const row = result.rows[0];
+  return {
+    id: Number(row.id),
+    username: String(row.username),
+    bioname: String(row.bioname),
+    title: row.title ? String(row.title) : null,
+    description: row.description ? String(row.description) : null,
+    linkIds: String(row.link_ids || "[]"),
+    code: row.code ? String(row.code) : null,
     expiresAt: row.expires_at ? new Date(String(row.expires_at)) : null,
     createdAt: new Date(String(row.created_at || Date.now())),
     updatedAt: new Date(String(row.updated_at || Date.now())),
@@ -500,6 +575,7 @@ export async function tursoUpdateBio(
     title: row.title ? String(row.title) : null,
     description: row.description ? String(row.description) : null,
     linkIds: String(row.link_ids || "[]"),
+    code: row.code ? String(row.code) : null,
     expiresAt: row.expires_at ? new Date(String(row.expires_at)) : null,
     createdAt: new Date(String(row.created_at || Date.now())),
     updatedAt: new Date(String(row.updated_at || Date.now())),
@@ -519,6 +595,7 @@ export async function tursoDeleteBio(id: number): Promise<boolean> {
 // ==========================================
 
 export async function tursoFindUser(identifier: string): Promise<User | null> {
+  await ensureBiosAndUsersColumns();
   const clean = identifier.trim().toLowerCase();
   const result = await turso.execute({
     sql: `SELECT * FROM users WHERE LOWER(email) = ? OR LOWER(username) = ? LIMIT 1;`,
@@ -534,6 +611,58 @@ export async function tursoFindUser(identifier: string): Promise<User | null> {
     email: String(row.email),
     password: row.password ? String(row.password) : null,
     avatar: row.avatar ? String(row.avatar) : null,
+    bioCode: row.bio_code ? String(row.bio_code) : null,
+    previousUsernames: row.previous_usernames ? String(row.previous_usernames) : "[]",
+    recapPreference: String(row.recap_preference || "off"),
+    lastRecapSentAt: row.last_recap_sent_at ? new Date(String(row.last_recap_sent_at)) : null,
+    createdAt: new Date(String(row.created_at)),
+    updatedAt: new Date(String(row.updated_at)),
+  };
+}
+
+export async function tursoFindUserByBioCode(bioCode: string): Promise<User | null> {
+  await ensureBiosAndUsersColumns();
+  const clean = bioCode.trim().toLowerCase();
+  const result = await turso.execute({
+    sql: `SELECT * FROM users WHERE LOWER(bio_code) = ? LIMIT 1;`,
+    args: [clean],
+  });
+
+  if (result.rows.length === 0) return null;
+  const row = result.rows[0];
+  return {
+    id: Number(row.id),
+    username: String(row.username),
+    email: String(row.email),
+    password: row.password ? String(row.password) : null,
+    avatar: row.avatar ? String(row.avatar) : null,
+    bioCode: row.bio_code ? String(row.bio_code) : null,
+    previousUsernames: row.previous_usernames ? String(row.previous_usernames) : "[]",
+    recapPreference: String(row.recap_preference || "off"),
+    lastRecapSentAt: row.last_recap_sent_at ? new Date(String(row.last_recap_sent_at)) : null,
+    createdAt: new Date(String(row.created_at)),
+    updatedAt: new Date(String(row.updated_at)),
+  };
+}
+
+export async function tursoFindUserByPreviousUsername(oldUsername: string): Promise<User | null> {
+  await ensureBiosAndUsersColumns();
+  const clean = oldUsername.trim().toLowerCase();
+  const result = await turso.execute({
+    sql: `SELECT * FROM users WHERE previous_usernames LIKE ? LIMIT 1;`,
+    args: [`%"${clean}"%`],
+  });
+
+  if (result.rows.length === 0) return null;
+  const row = result.rows[0];
+  return {
+    id: Number(row.id),
+    username: String(row.username),
+    email: String(row.email),
+    password: row.password ? String(row.password) : null,
+    avatar: row.avatar ? String(row.avatar) : null,
+    bioCode: row.bio_code ? String(row.bio_code) : null,
+    previousUsernames: row.previous_usernames ? String(row.previous_usernames) : "[]",
     recapPreference: String(row.recap_preference || "off"),
     lastRecapSentAt: row.last_recap_sent_at ? new Date(String(row.last_recap_sent_at)) : null,
     createdAt: new Date(String(row.created_at)),
@@ -542,6 +671,7 @@ export async function tursoFindUser(identifier: string): Promise<User | null> {
 }
 
 export async function tursoCreateOrUpdateUser(username: string, email: string, hashedPassword?: string): Promise<User> {
+  await ensureBiosAndUsersColumns();
   const cleanUsername = username.trim().toLowerCase();
   const cleanEmail = email.trim().toLowerCase();
 
@@ -559,15 +689,18 @@ export async function tursoCreateOrUpdateUser(username: string, email: string, h
       email: String(row.email),
       password: row.password ? String(row.password) : null,
       avatar: row.avatar ? String(row.avatar) : null,
+      bioCode: row.bio_code ? String(row.bio_code) : null,
+      previousUsernames: row.previous_usernames ? String(row.previous_usernames) : "[]",
       recapPreference: String(row.recap_preference || "off"),
       lastRecapSentAt: row.last_recap_sent_at ? new Date(String(row.last_recap_sent_at)) : null,
       createdAt: new Date(String(row.created_at)),
       updatedAt: new Date(String(row.updated_at)),
     };
   } else {
+    const bioCode = Math.random().toString(36).substring(2, 8).toLowerCase();
     const result = await turso.execute({
-      sql: `INSERT INTO users (username, email, password) VALUES (?, ?, ?) RETURNING *;`,
-      args: [cleanUsername, cleanEmail, hashedPassword ?? null],
+      sql: `INSERT INTO users (username, email, password, bio_code, previous_usernames) VALUES (?, ?, ?, ?, '[]') RETURNING *;`,
+      args: [cleanUsername, cleanEmail, hashedPassword ?? null, bioCode],
     });
     const row = result.rows[0];
     return {
@@ -576,6 +709,8 @@ export async function tursoCreateOrUpdateUser(username: string, email: string, h
       email: String(row.email),
       password: row.password ? String(row.password) : null,
       avatar: row.avatar ? String(row.avatar) : null,
+      bioCode: row.bio_code ? String(row.bio_code) : bioCode,
+      previousUsernames: row.previous_usernames ? String(row.previous_usernames) : "[]",
       recapPreference: String(row.recap_preference || "off"),
       lastRecapSentAt: row.last_recap_sent_at ? new Date(String(row.last_recap_sent_at)) : null,
       createdAt: new Date(String(row.created_at)),
@@ -1221,12 +1356,29 @@ export async function tursoFindRedirectByWebnameOnly(webname: string): Promise<R
 
 // Update username across all tables
 export async function tursoUpdateUsername(oldUsername: string, newUsername: string): Promise<boolean> {
+  await ensureBiosAndUsersColumns();
   const oldU = oldUsername.trim().toLowerCase();
   const newU = newUsername.trim().toLowerCase();
   try {
+    let prevList: string[] = [];
+    try {
+      const userRes = await turso.execute({
+        sql: `SELECT previous_usernames FROM users WHERE LOWER(username) = ? LIMIT 1;`,
+        args: [oldU],
+      });
+      if (userRes.rows.length > 0 && userRes.rows[0].previous_usernames) {
+        prevList = JSON.parse(String(userRes.rows[0].previous_usernames));
+      }
+    } catch {}
+
+    if (!prevList.includes(oldU)) {
+      prevList.push(oldU);
+    }
+    const prevJson = JSON.stringify(prevList);
+
     await turso.execute({
-      sql: `UPDATE users SET username = ?, updated_at = CURRENT_TIMESTAMP WHERE LOWER(username) = ?;`,
-      args: [newU, oldU],
+      sql: `UPDATE users SET username = ?, previous_usernames = ?, updated_at = CURRENT_TIMESTAMP WHERE LOWER(username) = ?;`,
+      args: [newU, prevJson, oldU],
     });
     await turso.execute({
       sql: `UPDATE redirects SET username = ?, updated_at = CURRENT_TIMESTAMP WHERE LOWER(username) = ?;`,

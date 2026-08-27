@@ -6,6 +6,7 @@ import { sanitizeSlug } from "@/lib/utils";
 import { desc, and, eq } from "drizzle-orm";
 import { calculateExpiration } from "../redirects/route";
 import { isTursoEnabled, tursoGetBios, tursoFindBio, turso } from "@/lib/tursoDb";
+import { findUserByEmailOrUsername } from "@/lib/userStore";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -34,11 +35,14 @@ export async function GET() {
   const session = await getSessionUser();
   const username = session?.username || "creator";
 
+  const user = await findUserByEmailOrUsername(username);
+  const mainBioCode = user?.bioCode || Math.random().toString(36).substring(2, 8).toLowerCase();
+
   // 1. Try Turso if enabled
   if (isTursoEnabled) {
     try {
       const list = await tursoGetBios(username);
-      return NextResponse.json({ bios: list }, { headers: noCacheHeaders });
+      return NextResponse.json({ bios: list, mainBioCode }, { headers: noCacheHeaders });
     } catch {}
   }
 
@@ -50,11 +54,11 @@ export async function GET() {
       .where(eq(bios.username, username))
       .orderBy(desc(bios.createdAt));
 
-    return NextResponse.json({ bios: list }, { headers: noCacheHeaders });
+    return NextResponse.json({ bios: list, mainBioCode }, { headers: noCacheHeaders });
   } catch (error) {
     // 3. Fallback memory store
     const userBios = localFallbackBios.filter((b) => b.username === username);
-    return NextResponse.json({ bios: userBios }, { headers: noCacheHeaders });
+    return NextResponse.json({ bios: userBios, mainBioCode }, { headers: noCacheHeaders });
   }
 }
 
@@ -95,6 +99,7 @@ export async function POST(request: NextRequest) {
 
     const expirationDate = expiresAt ? new Date(expiresAt) : calculateExpiration(duration);
     const linkIdsJson = Array.isArray(linkIds) ? JSON.stringify(linkIds) : "[]";
+    const bioCode = (body.code || Math.random().toString(36).substring(2, 8)).toLowerCase().trim();
 
     // 1. Try Turso if enabled
     if (isTursoEnabled) {
@@ -109,14 +114,15 @@ export async function POST(request: NextRequest) {
 
         const expiresStr = expirationDate ? expirationDate.toISOString() : null;
         const result = await turso.execute({
-          sql: `INSERT INTO bios (username, bioname, title, description, link_ids, expires_at)
-                VALUES (?, ?, ?, ?, ?, ?) RETURNING *;`,
+          sql: `INSERT INTO bios (username, bioname, title, description, link_ids, code, expires_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING *;`,
           args: [
             username.toLowerCase(),
             cleanBioname.toLowerCase(),
             title || null,
             description || null,
             linkIdsJson,
+            bioCode,
             expiresStr,
           ],
         });
@@ -129,6 +135,7 @@ export async function POST(request: NextRequest) {
           title: row.title ? String(row.title) : null,
           description: row.description ? String(row.description) : null,
           linkIds: String(row.link_ids || "[]"),
+          code: row.code ? String(row.code) : bioCode,
           expiresAt: row.expires_at ? new Date(String(row.expires_at)) : null,
           createdAt: new Date(String(row.created_at)),
           updatedAt: new Date(String(row.updated_at)),
@@ -170,6 +177,7 @@ export async function POST(request: NextRequest) {
           title: title || null,
           description: description || null,
           linkIds: linkIdsJson,
+          code: bioCode,
           expiresAt: expirationDate,
         })
         .returning();
@@ -194,6 +202,7 @@ export async function POST(request: NextRequest) {
         title: title || null,
         description: description || null,
         linkIds: linkIdsJson,
+        code: bioCode,
         expiresAt: expirationDate,
         createdAt: new Date(),
         updatedAt: new Date(),

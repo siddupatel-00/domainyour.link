@@ -25,6 +25,8 @@ export default function UserProfilePage({ params }: UserProfilePageProps) {
 
   const [links, setLinks] = useState<LinkItem[]>([]);
   const [avatar, setAvatar] = useState<string | null>(null);
+  const [displayUsername, setDisplayUsername] = useState(cleanUsername);
+  const [redirectedFrom, setRedirectedFrom] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
@@ -45,6 +47,8 @@ export default function UserProfilePage({ params }: UserProfilePageProps) {
             return;
           }
           setLinks(data.links || []);
+          if (data.username) setDisplayUsername(data.username);
+          if (data.redirectedFrom) setRedirectedFrom(data.redirectedFrom);
           if (data.avatar) setAvatar(data.avatar);
         } else {
           setLinks([]);
@@ -99,10 +103,15 @@ export default function UserProfilePage({ params }: UserProfilePageProps) {
             </div>
           )}
 
-          <div>
+          <div className="space-y-1">
             <h1 className="text-lg sm:text-xl font-bold text-neutral-900 dark:text-white tracking-tight">
-              @{cleanUsername}
+              @{displayUsername}
             </h1>
+            {redirectedFrom && (
+              <p className="text-[11px] text-neutral-400 dark:text-neutral-500 font-medium">
+                (formerly @{redirectedFrom})
+              </p>
+            )}
           </div>
         </div>
 

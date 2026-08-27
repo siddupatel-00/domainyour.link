@@ -38,6 +38,11 @@ export async function findUserByEmailOrUsername(identifier: string): Promise<Use
     try {
       const tursoUser = await tursoFindUser(clean);
       if (tursoUser) return tursoUser;
+
+      // Check if it's a previous username
+      const { tursoFindUserByPreviousUsername } = await import("./tursoDb");
+      const prevUser = await tursoFindUserByPreviousUsername(clean);
+      if (prevUser) return prevUser;
     } catch {}
   }
 
@@ -55,8 +60,32 @@ export async function findUserByEmailOrUsername(identifier: string): Promise<Use
   } catch {}
 
   // Fallback memory store
+  const local = (global.fallbackUsersStore || []).find((u) => {
+    if (u.email.toLowerCase() === clean || u.username.toLowerCase() === clean) return true;
+    if (u.bioCode && u.bioCode.toLowerCase() === clean) return true;
+    try {
+      const prevs: string[] = JSON.parse(u.previousUsernames || "[]");
+      if (prevs.map((p) => p.toLowerCase()).includes(clean)) return true;
+    } catch {}
+    return false;
+  });
+  return local || null;
+}
+
+export async function findUserByBioCode(bioCode?: string | null): Promise<User | null> {
+  if (!bioCode) return null;
+  const clean = bioCode.trim().toLowerCase();
+  if (!clean) return null;
+  if (isTursoEnabled) {
+    try {
+      const { tursoFindUserByBioCode } = await import("./tursoDb");
+      const u = await tursoFindUserByBioCode(clean);
+      if (u) return u;
+    } catch {}
+  }
+
   const local = (global.fallbackUsersStore || []).find(
-    (u) => u.email.toLowerCase() === clean || u.username.toLowerCase() === clean
+    (u) => (u.bioCode || "").toLowerCase() === clean
   );
   return local || null;
 }
@@ -117,17 +146,22 @@ export async function createOrUpdateUser(
       ...existing,
       username: cleanUsername,
       password: hashedPassword ?? existing.password,
+      bioCode: existing.bioCode || Math.random().toString(36).substring(2, 8).toLowerCase(),
+      previousUsernames: existing.previousUsernames || "[]",
       updatedAt: new Date(),
     };
     global.fallbackUsersStore[existingIdx] = updated;
     return updated;
   } else {
+    const bioCode = Math.random().toString(36).substring(2, 8).toLowerCase();
     const created: User = {
       id: nextUserId++,
       username: cleanUsername,
       email: cleanEmail,
       password: hashedPassword ?? null,
       avatar: null,
+      bioCode,
+      previousUsernames: "[]",
       recapPreference: "off",
       lastRecapSentAt: null,
       createdAt: new Date(),
@@ -190,6 +224,14 @@ export async function updateUsername(oldUsername: string, newUsername: string): 
     (u) => u.username.toLowerCase() === oldU
   );
   if (user) {
+    let prevList: string[] = [];
+    try {
+      prevList = JSON.parse(user.previousUsernames || "[]");
+    } catch {}
+    if (!prevList.includes(oldU)) {
+      prevList.push(oldU);
+    }
+    user.previousUsernames = JSON.stringify(prevList);
     user.username = newU;
     user.updatedAt = new Date();
     return true;

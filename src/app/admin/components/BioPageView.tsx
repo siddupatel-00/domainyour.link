@@ -31,6 +31,7 @@ export function BioPageView({
   onRefreshData,
 }: BioPageViewProps) {
   const [bios, setBios] = useState<Bio[]>([]);
+  const [mainBioCode, setMainBioCode] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [copiedId, setCopiedId] = useState<number | string | null>(null);
   const [openMenuId, setOpenMenuId] = useState<number | string | null>(null);
@@ -75,6 +76,9 @@ export function BioPageView({
       if (res.ok) {
         const data = await res.json();
         setBios(data.bios || []);
+        if (data.mainBioCode) {
+          setMainBioCode(data.mainBioCode);
+        }
       } else {
         setBios([]);
       }
@@ -209,125 +213,146 @@ export function BioPageView({
           </thead>
           <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800 text-xs">
             {/* Default Main Bio Row */}
-            <tr className="hover:bg-neutral-50/60 dark:hover:bg-neutral-800/40 transition duration-150 relative">
-              <td className="py-4 px-5">
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-black dark:bg-white text-white dark:text-black font-sans font-semibold">
-                    Main Bio
-                  </span>
-                  <span className="font-mono font-bold text-neutral-900 dark:text-white">/{currentUser}</span>
-                  <button
-                    onClick={() => handleCopy("main", `/${currentUser}`)}
-                    title="Copy link"
-                    className="p-1 rounded-lg text-neutral-400 hover:text-black dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition cursor-pointer"
-                  >
-                    {copiedId === "main" ? (
-                      <Check className="w-3.5 h-3.5 text-black dark:text-white" />
-                    ) : (
-                      <Copy className="w-3.5 h-3.5" />
+            {(() => {
+              const mainBioPath = mainBioCode ? `/b/${mainBioCode}` : `/${currentUser}`;
+              return (
+                <tr className="hover:bg-neutral-50/60 dark:hover:bg-neutral-800/40 transition duration-150 relative">
+                  <td className="py-4 px-5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-black dark:bg-white text-white dark:text-black font-sans font-semibold">
+                        Main Bio
+                      </span>
+                      <span className="font-mono font-bold text-neutral-900 dark:text-white">{mainBioPath}</span>
+                      <button
+                        onClick={() => handleCopy("main", mainBioPath)}
+                        title="Copy permanent bio link"
+                        className="p-1 rounded-lg text-neutral-400 hover:text-black dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition cursor-pointer"
+                      >
+                        {copiedId === "main" ? (
+                          <Check className="w-3.5 h-3.5 text-black dark:text-white" />
+                        ) : (
+                          <Copy className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5">
+                      Permanent link • Never breaks if username changes (also at /{currentUser})
+                    </p>
+                  </td>
+
+                  <td className="py-4 px-5">
+                    <span className="text-[10px] text-neutral-400 dark:text-neutral-500 font-sans font-normal">Permanent</span>
+                  </td>
+
+                  <td className="py-4 px-5">
+                    <span className="font-mono text-neutral-700 dark:text-neutral-300 font-medium">
+                      {mainBioVisibleLinksCount} links selected
+                    </span>
+                  </td>
+
+                  {/* 3-Dots Settings Menu for Main Bio */}
+                  <td className="py-4 px-5 text-right whitespace-nowrap">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (openMenuId === "main") {
+                          setOpenMenuId(null);
+                          setMenuPos(null);
+                        } else {
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          const dropdownHeight = 180;
+                          const dropdownWidth = 220;
+                          const fitsBelow = rect.bottom + dropdownHeight <= window.innerHeight - 12;
+
+                          setMenuPos({
+                            top: fitsBelow ? rect.bottom + 6 : Math.max(12, rect.top - dropdownHeight - 6),
+                            left: Math.max(12, Math.min(window.innerWidth - dropdownWidth - 12, rect.right - dropdownWidth)),
+                          });
+                          setOpenMenuId("main");
+                        }
+                      }}
+                      className="p-1.5 rounded-lg text-neutral-400 hover:text-black dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition cursor-pointer"
+                      title="More options"
+                    >
+                      <MoreVertical className="w-4 h-4" />
+                    </button>
+
+                    {openMenuId === "main" && menuPos && (
+                      <div
+                        ref={menuRef}
+                        style={{
+                          position: "fixed",
+                          top: `${menuPos.top}px`,
+                          left: `${menuPos.left}px`,
+                          zIndex: 9999,
+                        }}
+                        className="w-56 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-1.5 shadow-2xl animate-in fade-in zoom-in-95 duration-150 text-left"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setOpenMenuId(null);
+                            setMenuPos(null);
+                            setIsEditMainOpen(true);
+                          }}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:text-black dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl transition text-left cursor-pointer"
+                        >
+                          <Edit2 className="w-3.5 h-3.5 text-neutral-500" />
+                          <span>Edit links to show</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setOpenMenuId(null);
+                            setMenuPos(null);
+                            handleCopy("main", mainBioPath);
+                          }}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:text-black dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl transition text-left cursor-pointer"
+                        >
+                          <Copy className="w-3.5 h-3.5 text-neutral-500" />
+                          <span>Copy permanent link ({mainBioPath})</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setOpenMenuId(null);
+                            setMenuPos(null);
+                            handleCopy("main_handle", `/${currentUser}`);
+                          }}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:text-black dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl transition text-left cursor-pointer"
+                        >
+                          <Copy className="w-3.5 h-3.5 text-neutral-500" />
+                          <span>Copy handle link (/{currentUser})</span>
+                        </button>
+
+                        <a
+                          href={mainBioPath}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={() => {
+                            setOpenMenuId(null);
+                            setMenuPos(null);
+                          }}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:text-black dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl transition text-left"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5 text-neutral-500" />
+                          <span>Open page</span>
+                        </a>
+                      </div>
                     )}
-                  </button>
-                </div>
-                <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5">Your main profile page</p>
-              </td>
-
-              <td className="py-4 px-5">
-                <span className="text-[10px] text-neutral-400 dark:text-neutral-500 font-sans font-normal">Permanent</span>
-              </td>
-
-              <td className="py-4 px-5">
-                <span className="font-mono text-neutral-700 dark:text-neutral-300 font-medium">
-                  {mainBioVisibleLinksCount} links selected
-                </span>
-              </td>
-
-              {/* 3-Dots Settings Menu for Main Bio */}
-              <td className="py-4 px-5 text-right whitespace-nowrap">
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (openMenuId === "main") {
-                      setOpenMenuId(null);
-                      setMenuPos(null);
-                    } else {
-                      const rect = e.currentTarget.getBoundingClientRect();
-                      const dropdownHeight = 150;
-                      const dropdownWidth = 196;
-                      const fitsBelow = rect.bottom + dropdownHeight <= window.innerHeight - 12;
-
-                      setMenuPos({
-                        top: fitsBelow ? rect.bottom + 6 : Math.max(12, rect.top - dropdownHeight - 6),
-                        left: Math.max(12, Math.min(window.innerWidth - dropdownWidth - 12, rect.right - dropdownWidth)),
-                      });
-                      setOpenMenuId("main");
-                    }
-                  }}
-                  className="p-1.5 rounded-lg text-neutral-400 hover:text-black dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition cursor-pointer"
-                  title="More options"
-                >
-                  <MoreVertical className="w-4 h-4" />
-                </button>
-
-                {openMenuId === "main" && menuPos && (
-                  <div
-                    ref={menuRef}
-                    style={{
-                      position: "fixed",
-                      top: `${menuPos.top}px`,
-                      left: `${menuPos.left}px`,
-                      zIndex: 9999,
-                    }}
-                    className="w-48 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-1.5 shadow-2xl animate-in fade-in zoom-in-95 duration-150 text-left"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setOpenMenuId(null);
-                        setMenuPos(null);
-                        setIsEditMainOpen(true);
-                      }}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:text-black dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl transition text-left cursor-pointer"
-                    >
-                      <Edit2 className="w-3.5 h-3.5 text-neutral-500" />
-                      <span>Edit links to show</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setOpenMenuId(null);
-                        setMenuPos(null);
-                        handleCopy("main", `/${currentUser}`);
-                      }}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:text-black dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl transition text-left cursor-pointer"
-                    >
-                      <Copy className="w-3.5 h-3.5 text-neutral-500" />
-                      <span>Copy bio link</span>
-                    </button>
-
-                    <a
-                      href={`/${currentUser}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={() => {
-                        setOpenMenuId(null);
-                        setMenuPos(null);
-                      }}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:text-black dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl transition text-left"
-                    >
-                      <ExternalLink className="w-3.5 h-3.5 text-neutral-500" />
-                      <span>Open page</span>
-                    </a>
-                  </div>
-                )}
-              </td>
-            </tr>
+                  </td>
+                </tr>
+              );
+            })()}
 
             {/* Custom Created Bios & Sub-Bios */}
             {bios.map((b) => {
-              const path = `/${currentUser}/b/${b.bioname}`;
+              const permPath = b.code ? `/b/${b.code}` : `/${currentUser}/b/${b.bioname}`;
+              const handlePath = `/${currentUser}/b/${b.bioname}`;
               const isCopied = copiedId === b.id;
               const isMenuOpen = openMenuId === b.id;
 
@@ -347,10 +372,10 @@ export function BioPageView({
                       <span className="text-[10px] px-1.5 py-0.5 rounded bg-neutral-200 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-300 font-sans font-medium">
                         Sub-Bio
                       </span>
-                      <span className="font-mono font-bold text-neutral-900 dark:text-white">{path}</span>
+                      <span className="font-mono font-bold text-neutral-900 dark:text-white">{permPath}</span>
                       <button
-                        onClick={() => handleCopy(b.id, path)}
-                        title="Copy link"
+                        onClick={() => handleCopy(b.id, permPath)}
+                        title="Copy permanent link"
                         className="p-1 rounded-lg text-neutral-400 hover:text-black dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition cursor-pointer"
                       >
                         {isCopied ? (
@@ -360,9 +385,9 @@ export function BioPageView({
                         )}
                       </button>
                     </div>
-                    {b.title && (
-                      <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5">{b.title}</p>
-                    )}
+                    <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5">
+                      {b.title ? `${b.title} • ` : ""}Permanent link (also at {handlePath})
+                    </p>
                   </td>
 
                   <td className="py-4 px-5">
@@ -385,8 +410,8 @@ export function BioPageView({
                           setMenuPos(null);
                         } else {
                           const rect = e.currentTarget.getBoundingClientRect();
-                          const dropdownHeight = 180;
-                          const dropdownWidth = 196;
+                          const dropdownHeight = 200;
+                          const dropdownWidth = 220;
                           const fitsBelow = rect.bottom + dropdownHeight <= window.innerHeight - 12;
 
                           setMenuPos({
@@ -412,7 +437,7 @@ export function BioPageView({
                           left: `${menuPos.left}px`,
                           zIndex: 9999,
                         }}
-                        className="w-48 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-1.5 shadow-2xl animate-in fade-in zoom-in-95 duration-150 text-left"
+                        className="w-56 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-1.5 shadow-2xl animate-in fade-in zoom-in-95 duration-150 text-left"
                         onClick={(e) => e.stopPropagation()}
                       >
                         <button
@@ -433,16 +458,29 @@ export function BioPageView({
                           onClick={() => {
                             setOpenMenuId(null);
                             setMenuPos(null);
-                            handleCopy(b.id, path);
+                            handleCopy(b.id, permPath);
                           }}
                           className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:text-black dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl transition text-left cursor-pointer"
                         >
                           <Copy className="w-3.5 h-3.5 text-neutral-500" />
-                          <span>Copy bio link</span>
+                          <span>Copy permanent link ({permPath})</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setOpenMenuId(null);
+                            setMenuPos(null);
+                            handleCopy(`${b.id}_handle`, handlePath);
+                          }}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:text-black dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl transition text-left cursor-pointer"
+                        >
+                          <Copy className="w-3.5 h-3.5 text-neutral-500" />
+                          <span>Copy handle link</span>
                         </button>
 
                         <a
-                          href={path}
+                          href={permPath}
                           target="_blank"
                           rel="noopener noreferrer"
                           onClick={() => {
