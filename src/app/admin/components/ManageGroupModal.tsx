@@ -59,7 +59,11 @@ export function ManageGroupModal({
       setColor(groupToEdit.color || "#000000");
       try {
         const parsed = JSON.parse(groupToEdit.linkIds || "[]");
-        setSelectedIds(Array.isArray(parsed) ? parsed : []);
+        setSelectedIds(
+          Array.isArray(parsed)
+            ? parsed.filter((id: number) => allRedirects.some((r) => r.id === id))
+            : []
+        );
       } catch {
         setSelectedIds([]);
       }

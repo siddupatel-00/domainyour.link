@@ -9,6 +9,7 @@ interface GroupFilterBarProps {
   selectedGroupId: number | "all";
   onSelectGroup: (groupId: number | "all") => void;
   totalLinksCount: number;
+  existingLinkIds?: Set<number>;
   onOpenCreateGroup: () => void;
   onOpenEditGroup: (group: LinkGroup) => void;
   onOpenShareGroup?: (group: LinkGroup) => void;
@@ -20,6 +21,7 @@ export function GroupFilterBar({
   selectedGroupId,
   onSelectGroup,
   totalLinksCount,
+  existingLinkIds,
   onOpenCreateGroup,
   onOpenEditGroup,
   onOpenShareGroup,
@@ -170,7 +172,11 @@ export function GroupFilterBar({
           let count = 0;
           try {
             const parsed = JSON.parse(group.linkIds || "[]");
-            count = Array.isArray(parsed) ? parsed.length : 0;
+            if (Array.isArray(parsed)) {
+              count = existingLinkIds
+                ? parsed.filter((id: number) => existingLinkIds.has(id)).length
+                : parsed.length;
+            }
           } catch {}
 
           const isSelected = selectedGroupId === group.id;

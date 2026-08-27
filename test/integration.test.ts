@@ -412,6 +412,38 @@ async function runTests() {
   const isUsedAfterDelete = await tursoIsCodeUsed(testLinkCode);
   assert(isUsedAfterDelete === true, "Deleted code remains permanently in used_codes tombstone registry (never re-issued)");
 
+  // 19. Link Groups Cascade Cleanup on Link Deletion Tests
+  console.log("\n19. Link Groups Cascade Cleanup on Link Deletion Tests");
+  const { tursoCreateLinkGroup, tursoGetLinkGroups, tursoRemoveLinkIdFromGroupsAndBios, tursoDeleteLinkGroup } = await import("../src/lib/tursoDb");
+
+  // Create temporary group with link IDs [99991, 99992]
+  const tempGroup = await tursoCreateLinkGroup({
+    username: "testuser",
+    name: "Temporary Group",
+    color: "#ff0000",
+    linkIds: "[99991, 99992]",
+  });
+
+  // Remove link 99991 via cascade helper
+  await tursoRemoveLinkIdFromGroupsAndBios(99991);
+  const updatedGroups = await tursoGetLinkGroups("testuser");
+  const verifiedGroup = updatedGroups.find((g) => g.id === tempGroup.id);
+  const parsedIds = JSON.parse(verifiedGroup?.linkIds || "[]");
+  assert(!parsedIds.includes(99991), "Deleted link ID is automatically removed from link group");
+  assert(parsedIds.includes(99992), "Non-deleted link IDs remain in link group");
+
+  // Cleanup test group
+  await tursoDeleteLinkGroup(tempGroup.id);
+
+  // Clean up any remaining test data
+  try {
+    const { deleteUserAccount } = await import("../src/lib/userStore");
+    await deleteUserAccount("alex");
+    await deleteUserAccount("avatartester");
+    await deleteUserAccount("renameduser");
+    await deleteUserAccount("testuser");
+  } catch {}
+
   console.log("\n========================================");
   console.log(`Summary: ${passed} passed, ${failed} failed`);
   console.log("========================================\n");

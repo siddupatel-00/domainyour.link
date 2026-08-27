@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Redirect, LinkGroup } from "@/lib/db/schema";
 import { RedirectTable } from "@/app/admin/components/RedirectTable";
@@ -133,6 +133,7 @@ export function DashboardView({ initialTab = "links" }: DashboardViewProps) {
   const activeLinks = redirects.filter((r) => !isLinkExpired(r));
   const expiredLinks = redirects.filter((r) => isLinkExpired(r));
   const totalClicks = redirects.reduce((acc, curr) => acc + (curr.clickCount || 0), 0);
+  const activeLinkIdsSet = useMemo(() => new Set(activeLinks.map((l) => l.id)), [activeLinks]);
 
   // Filter links by selected group
   const displayedActiveLinks = selectedGroupId === "all"
@@ -776,6 +777,7 @@ export function DashboardView({ initialTab = "links" }: DashboardViewProps) {
               selectedGroupId={selectedGroupId}
               onSelectGroup={(gId) => setSelectedGroupId(gId)}
               totalLinksCount={activeLinks.length}
+              existingLinkIds={activeLinkIdsSet}
               onOpenCreateGroup={() => {
                 setGroupToEdit(null);
                 setIsGroupImportOnly(false);

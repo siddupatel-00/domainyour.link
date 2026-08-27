@@ -555,7 +555,45 @@ export async function tursoDeleteRedirect(id: number): Promise<boolean> {
     sql: `DELETE FROM redirects WHERE id = ?;`,
     args: [id],
   });
+  if (result.rowsAffected > 0) {
+    tursoRemoveLinkIdFromGroupsAndBios(id).catch(() => {});
+  }
   return result.rowsAffected > 0;
+}
+
+export async function tursoRemoveLinkIdFromGroupsAndBios(redirectId: number): Promise<void> {
+  if (!isTursoEnabled) return;
+  try {
+    const groupRows = await turso.execute(`SELECT id, link_ids FROM link_groups;`);
+    for (const row of groupRows.rows) {
+      try {
+        const parsed: number[] = JSON.parse(String(row.link_ids || "[]"));
+        if (Array.isArray(parsed) && parsed.includes(redirectId)) {
+          const updated = parsed.filter((i) => i !== redirectId);
+          await turso.execute({
+            sql: `UPDATE link_groups SET link_ids = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?;`,
+            args: [JSON.stringify(updated), Number(row.id)],
+          });
+        }
+      } catch {}
+    }
+
+    const bioRows = await turso.execute(`SELECT id, link_ids FROM bios;`);
+    for (const row of bioRows.rows) {
+      try {
+        const parsed: number[] = JSON.parse(String(row.link_ids || "[]"));
+        if (Array.isArray(parsed) && parsed.includes(redirectId)) {
+          const updated = parsed.filter((i) => i !== redirectId);
+          await turso.execute({
+            sql: `UPDATE bios SET link_ids = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?;`,
+            args: [JSON.stringify(updated), Number(row.id)],
+          });
+        }
+      } catch {}
+    }
+  } catch (err) {
+    console.error("Error removing link ID from groups and bios:", err);
+  }
 }
 
 // ==========================================
