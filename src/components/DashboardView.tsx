@@ -682,13 +682,6 @@ export function DashboardView({ initialTab = "links" }: DashboardViewProps) {
 
         {/* Tab Selection Switcher */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-neutral-100 dark:border-neutral-800/80 pb-4 gap-3">
-          <div className="text-xs text-neutral-400 dark:text-neutral-500 font-mono">
-            {activeTab === "links" && `${activeLinks.length} active`}
-            {activeTab === "expired" && `${expiredLinks.length} expired`}
-            {activeTab === "analytics" && `${totalClicks} total clicks`}
-            {activeTab === "bio" && `/${currentUser}`}
-          </div>
-
           <div className="flex flex-wrap items-center gap-1.5 bg-neutral-100 dark:bg-neutral-900 p-1 rounded-xl border border-transparent dark:border-neutral-800">
             {/* 1. Active Links Tab */}
             <button
@@ -760,6 +753,13 @@ export function DashboardView({ initialTab = "links" }: DashboardViewProps) {
               <Sparkles className="w-3.5 h-3.5" />
               <span>Bio Page (/{currentUser})</span>
             </button>
+          </div>
+
+          <div className="text-xs text-neutral-400 dark:text-neutral-500 font-mono">
+            {activeTab === "links" && `${activeLinks.length} active`}
+            {activeTab === "expired" && `${expiredLinks.length} expired`}
+            {activeTab === "analytics" && `${totalClicks} total clicks`}
+            {activeTab === "bio" && `/${currentUser}`}
           </div>
         </div>
 
