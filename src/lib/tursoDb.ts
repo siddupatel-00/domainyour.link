@@ -25,110 +25,12 @@ const fallbackUsedCodes = new Set<string>();
 const fallbackRedirectsList: Redirect[] = [];
 
 export async function ensureUsedCodesAndRedirectCodeColumns() {
-  if (hasEnsuredUsedCodesAndRedirectCode) return;
-  if (!isTursoEnabled) {
-    hasEnsuredUsedCodesAndRedirectCode = true;
-    return;
-  }
-  try {
-    await turso.execute(`
-      CREATE TABLE IF NOT EXISTS used_codes (
-        code TEXT PRIMARY KEY,
-        type TEXT NOT NULL,
-        username TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-  } catch {}
-
-  try {
-    await turso.execute(`ALTER TABLE redirects ADD COLUMN title TEXT;`);
-  } catch {}
-
-  try {
-    await turso.execute(`ALTER TABLE redirects ADD COLUMN code TEXT;`);
-  } catch {}
-
-  try {
-    await turso.execute(`CREATE INDEX IF NOT EXISTS redirects_code_idx ON redirects (code);`);
-  } catch {}
-
-  // Backfill any redirects missing a code
-  try {
-    const missing = await turso.execute(`SELECT id, username, webname FROM redirects WHERE code IS NULL OR code = '';`);
-    for (const row of missing.rows) {
-      let assignedCode = "";
-      const cleanWebname = String(row.webname || "").toLowerCase().trim();
-      if (/^[a-z0-9]{6}$/.test(cleanWebname)) {
-        const check = await turso.execute({
-          sql: `SELECT code FROM used_codes WHERE LOWER(code) = ?;`,
-          args: [cleanWebname],
-        });
-        if (check.rows.length === 0) assignedCode = cleanWebname;
-      }
-      if (!assignedCode) {
-        const chars = "abcdefghjkmnpqrstuvwxyz23456789";
-        let unique = false;
-        while (!unique) {
-          let candidate = "";
-          for (let i = 0; i < 6; i++) {
-            candidate += chars.charAt(Math.floor(Math.random() * chars.length));
-          }
-          const check = await turso.execute({
-            sql: `SELECT code FROM used_codes WHERE LOWER(code) = ?;`,
-            args: [candidate],
-          });
-          if (check.rows.length === 0) {
-            assignedCode = candidate;
-            unique = true;
-          }
-        }
-      }
-
-      await turso.execute({
-        sql: `UPDATE redirects SET code = ? WHERE id = ?;`,
-        args: [assignedCode, Number(row.id)],
-      });
-      await turso.execute({
-        sql: `INSERT OR IGNORE INTO used_codes (code, type, username) VALUES (?, 'link', ?);`,
-        args: [assignedCode, String(row.username)],
-      });
-    }
-  } catch (err) {
-    console.error("Backfill redirects code error:", err);
-  }
-
-  // Backfill existing bios and groups into used_codes
-  try {
-    const bioRows = await turso.execute(`SELECT code, username FROM bios WHERE code IS NOT NULL AND code != '';`);
-    for (const b of bioRows.rows) {
-      await turso.execute({
-        sql: `INSERT OR IGNORE INTO used_codes (code, type, username) VALUES (?, 'bio', ?);`,
-        args: [String(b.code).toLowerCase(), String(b.username)],
-      });
-    }
-    const userBioRows = await turso.execute(`SELECT bio_code, username FROM users WHERE bio_code IS NOT NULL AND bio_code != '';`);
-    for (const u of userBioRows.rows) {
-      await turso.execute({
-        sql: `INSERT OR IGNORE INTO used_codes (code, type, username) VALUES (?, 'bio', ?);`,
-        args: [String(u.bio_code).toLowerCase(), String(u.username)],
-      });
-    }
-    const groupRows = await turso.execute(`SELECT share_code, username FROM link_groups WHERE share_code IS NOT NULL AND share_code != '';`);
-    for (const g of groupRows.rows) {
-      await turso.execute({
-        sql: `INSERT OR IGNORE INTO used_codes (code, type, username) VALUES (?, 'group', ?);`,
-        args: [String(g.share_code).toLowerCase(), String(g.username)],
-      });
-    }
-  } catch {}
-
-  hasEnsuredUsedCodesAndRedirectCode = true;
-  hasEnsuredRedirectTitle = true;
+  // Schema is permanently migrated in Turso. No runtime DDL checks needed.
+  return;
 }
 
 export async function ensureRedirectTitleColumn() {
-  await ensureUsedCodesAndRedirectCodeColumns();
+  return;
 }
 
 export async function tursoGenerateUniqueCode(type: 'link' | 'bio' | 'group', username?: string): Promise<string> {
@@ -660,50 +562,9 @@ export async function tursoDeleteRedirect(id: number): Promise<boolean> {
 // 2. BIOS (Sub-Bios & Link Hubs)
 // ==========================================
 
-let hasEnsuredBiosAndUsers = false;
 export async function ensureBiosAndUsersColumns() {
-  if (hasEnsuredBiosAndUsers || !isTursoEnabled) return;
-  try {
-    await turso.execute(`ALTER TABLE users ADD COLUMN bio_code TEXT;`);
-  } catch {}
-  try {
-    await turso.execute(`ALTER TABLE users ADD COLUMN previous_usernames TEXT DEFAULT '[]';`);
-  } catch {}
-  try {
-    await turso.execute(`ALTER TABLE bios ADD COLUMN code TEXT;`);
-  } catch {}
-  try {
-    await turso.execute(`CREATE INDEX IF NOT EXISTS bios_code_idx ON bios (code);`);
-  } catch {}
-  try {
-    await turso.execute(`CREATE INDEX IF NOT EXISTS users_bio_code_idx ON users (bio_code);`);
-  } catch {}
-
-  // Fill in any missing bio_code for users
-  try {
-    const missingUsers = await turso.execute(`SELECT id, username FROM users WHERE bio_code IS NULL OR bio_code = '';`);
-    for (const row of missingUsers.rows) {
-      const code = Math.random().toString(36).substring(2, 8).toLowerCase();
-      await turso.execute({
-        sql: `UPDATE users SET bio_code = ? WHERE id = ?;`,
-        args: [code, Number(row.id)],
-      });
-    }
-  } catch {}
-
-  // Fill in any missing code for bios
-  try {
-    const missingBios = await turso.execute(`SELECT id FROM bios WHERE code IS NULL OR code = '';`);
-    for (const row of missingBios.rows) {
-      const code = Math.random().toString(36).substring(2, 8).toLowerCase();
-      await turso.execute({
-        sql: `UPDATE bios SET code = ? WHERE id = ?;`,
-        args: [code, Number(row.id)],
-      });
-    }
-  } catch {}
-
-  hasEnsuredBiosAndUsers = true;
+  // Bios and users columns are permanently migrated in Turso.
+  return;
 }
 
 export async function tursoGetBios(username: string): Promise<Bio[]> {
@@ -1211,60 +1072,9 @@ export async function tursoResetAllUserClicks(username: string): Promise<boolean
 // 5. LINK GROUPS (ORGANIZER BOXES)
 // ==========================================
 
-let linkGroupsTableInitialized = false;
 export async function ensureLinkGroupsTable() {
-  if (linkGroupsTableInitialized || !isTursoEnabled) return;
-  try {
-    await turso.execute(`
-      CREATE TABLE IF NOT EXISTS link_groups (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT NOT NULL,
-        name TEXT NOT NULL,
-        color TEXT DEFAULT '#000000',
-        link_ids TEXT NOT NULL DEFAULT '[]',
-        sort_order INTEGER DEFAULT 0,
-        share_code TEXT,
-        is_shared INTEGER DEFAULT 1,
-        expires_at DATETIME,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-    await turso.execute(`
-      CREATE INDEX IF NOT EXISTS link_groups_username_idx ON link_groups (username);
-    `);
-    try {
-      await turso.execute(`ALTER TABLE link_groups ADD COLUMN sort_order INTEGER DEFAULT 0;`);
-    } catch {}
-    try {
-      await turso.execute(`ALTER TABLE link_groups ADD COLUMN share_code TEXT;`);
-    } catch {}
-    try {
-      await turso.execute(`ALTER TABLE link_groups ADD COLUMN is_shared INTEGER DEFAULT 1;`);
-    } catch {}
-    try {
-      await turso.execute(`ALTER TABLE link_groups ADD COLUMN expires_at DATETIME;`);
-    } catch {}
-    try {
-      await turso.execute(`CREATE INDEX IF NOT EXISTS link_groups_share_code_idx ON link_groups (share_code);`);
-    } catch {}
-
-    // Backfill missing share_code for any existing groups
-    try {
-      const missing = await turso.execute(`SELECT id FROM link_groups WHERE share_code IS NULL OR share_code = '';`);
-      for (const row of missing.rows) {
-        const randomCode = Math.random().toString(36).substring(2, 8).toLowerCase();
-        await turso.execute({
-          sql: `UPDATE link_groups SET share_code = ? WHERE id = ?;`,
-          args: [randomCode, Number(row.id)],
-        });
-      }
-    } catch {}
-
-    linkGroupsTableInitialized = true;
-  } catch (err) {
-    console.warn("Error initializing link_groups table in Turso:", err);
-  }
+  // link_groups table is permanently migrated in Turso.
+  return;
 }
 
 export async function tursoGetLinkGroups(username: string): Promise<LinkGroup[]> {
@@ -1447,20 +1257,9 @@ export async function tursoReorderLinkGroups(
 // 6. USER RECAP PREFERENCES & DIGESTS
 // ==========================================
 
-let userRecapColumnInitialized = false;
 export async function ensureUserRecapColumns() {
-  if (userRecapColumnInitialized || !isTursoEnabled) return;
-  try {
-    await turso.execute(`
-      ALTER TABLE users ADD COLUMN recap_preference TEXT DEFAULT 'off';
-    `);
-  } catch {}
-  try {
-    await turso.execute(`
-      ALTER TABLE users ADD COLUMN last_recap_sent_at DATETIME;
-    `);
-  } catch {}
-  userRecapColumnInitialized = true;
+  // recap_preference columns are permanently migrated in Turso.
+  return;
 }
 
 export async function tursoUpdateUserRecapPreference(
@@ -1526,17 +1325,9 @@ export async function tursoGetUsersWithRecapEnabled(
   }
 }
 
-// Avatar column migration & helpers
-let avatarColumnEnsured = false;
 export async function ensureUserAvatarColumn(): Promise<void> {
-  if (avatarColumnEnsured) return;
-  try {
-    await turso.execute({
-      sql: `ALTER TABLE users ADD COLUMN avatar TEXT;`,
-      args: [],
-    });
-  } catch {}
-  avatarColumnEnsured = true;
+  // avatar column is permanently migrated in Turso.
+  return;
 }
 
 export async function tursoGetUserAvatar(username: string): Promise<string | null> {
