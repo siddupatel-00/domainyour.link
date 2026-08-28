@@ -11,8 +11,23 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export async function GET(request: NextRequest) {
+  // Guard cron endpoint against public trigger / spam
+  const cronSecret = process.env.CRON_SECRET;
+  const authHeader = request.headers.get("authorization");
+  const { searchParams } = new URL(request.url);
+  const keyParam = searchParams.get("key");
+
+  if (cronSecret) {
+    const isBearerValid = authHeader === `Bearer ${cronSecret}`;
+    const isParamValid = keyParam === cronSecret;
+    if (!isBearerValid && !isParamValid) {
+      return NextResponse.json({ error: "Unauthorized: Invalid cron secret" }, { status: 401 });
+    }
+  } else if (process.env.NODE_ENV === "production") {
+    return NextResponse.json({ error: "CRON_SECRET must be configured in production" }, { status: 403 });
+  }
+
   try {
-    const { searchParams } = new URL(request.url);
     const frequency = searchParams.get("frequency") === "monthly" ? "monthly" : "weekly";
 
     if (!isTursoEnabled) {

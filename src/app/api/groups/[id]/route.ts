@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { linkGroups } from "@/lib/db/schema";
-import { isAuthenticated } from "@/lib/auth";
-import { eq } from "drizzle-orm";
+import { getSessionUser } from "@/lib/auth";
+import { eq, and } from "drizzle-orm";
 import {
   isTursoEnabled,
   tursoUpdateLinkGroup,
@@ -22,15 +22,16 @@ const noCacheHeaders = {
   Expires: "0",
 };
 
-// PATCH /api/groups/[id] - Update group name, color, or assigned link IDs
+// PATCH /api/groups/[id] - Update group name, color, or assigned link IDs (ownership enforced)
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const authed = await isAuthenticated();
-  if (!authed) {
+  const session = await getSessionUser();
+  if (!session || !session.username) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: noCacheHeaders });
   }
+  const username = session.username.trim().toLowerCase();
 
   try {
     const { id } = await params;
@@ -68,7 +69,7 @@ export async function PATCH(
     // 1. Try Turso
     if (isTursoEnabled) {
       try {
-        const updated = await tursoUpdateLinkGroup(numericId, updateFields);
+        const updated = await tursoUpdateLinkGroup(numericId, updateFields, username);
         if (updated) {
           updateSharedLinkGroup(numericId, updated);
           return NextResponse.json({ success: true, group: updated }, { headers: noCacheHeaders });
@@ -84,7 +85,7 @@ export async function PATCH(
         const [updatedRecord] = await db
           .update(linkGroups)
           .set(updateFields)
-          .where(eq(linkGroups.id, numericId))
+          .where(and(eq(linkGroups.id, numericId), eq(linkGroups.username, username)))
           .returning();
 
         if (updatedRecord) {
@@ -96,26 +97,27 @@ export async function PATCH(
 
     // 3. Fallback in-memory
     const updated = updateSharedLinkGroup(numericId, updateFields);
-    if (updated) {
+    if (updated && updated.username.toLowerCase() === username) {
       return NextResponse.json({ success: true, group: updated }, { headers: noCacheHeaders });
     }
 
-    return NextResponse.json({ error: "Group not found" }, { status: 404, headers: noCacheHeaders });
+    return NextResponse.json({ error: "Group not found or access denied" }, { status: 404, headers: noCacheHeaders });
   } catch (error) {
     console.error("Update group error:", error);
     return NextResponse.json({ error: "Failed to update group" }, { status: 500, headers: noCacheHeaders });
   }
 }
 
-// DELETE /api/groups/[id] - Delete a group (does NOT delete links)
+// DELETE /api/groups/[id] - Delete a group (ownership enforced)
 export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const authed = await isAuthenticated();
-  if (!authed) {
+  const session = await getSessionUser();
+  if (!session || !session.username) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: noCacheHeaders });
   }
+  const username = session.username.trim().toLowerCase();
 
   try {
     const { id } = await params;
@@ -127,7 +129,7 @@ export async function DELETE(
     // 1. Try Turso
     if (isTursoEnabled) {
       try {
-        const ok = await tursoDeleteLinkGroup(numericId);
+        const ok = await tursoDeleteLinkGroup(numericId, username);
         if (ok) {
           deleteSharedLinkGroup(numericId);
           return NextResponse.json({ success: true }, { headers: noCacheHeaders });
@@ -140,9 +142,14 @@ export async function DELETE(
     // 2. Try PostgreSQL / Neon
     if (db) {
       try {
-        await db.delete(linkGroups).where(eq(linkGroups.id, numericId));
-        deleteSharedLinkGroup(numericId);
-        return NextResponse.json({ success: true }, { headers: noCacheHeaders });
+        const [deleted] = await db
+          .delete(linkGroups)
+          .where(and(eq(linkGroups.id, numericId), eq(linkGroups.username, username)))
+          .returning();
+        if (deleted) {
+          deleteSharedLinkGroup(numericId);
+          return NextResponse.json({ success: true }, { headers: noCacheHeaders });
+        }
       } catch {}
     }
 

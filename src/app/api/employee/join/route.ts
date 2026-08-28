@@ -147,11 +147,12 @@ export async function POST(request: NextRequest) {
       const newChallenge = createOtpChallenge(employee.email, otp, cleanUsername);
       const emailResult = await sendOtpEmail(employee.email, otp);
 
+      const isDev = process.env.NODE_ENV !== "production";
       return NextResponse.json({
         success: true,
         message: `6-digit verification code sent to ${employee.email}`,
         challengeToken: newChallenge,
-        devCode: emailResult.devCode,
+        ...(isDev && emailResult.devCode ? { devCode: emailResult.devCode } : {}),
       }, { headers: noCacheHeaders });
     }
 
@@ -189,13 +190,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const { hashPassword } = await import("@/lib/userStore");
+    const hashedPassword = hashPassword(password);
+
     // Update in Turso
     if (isTursoEnabled) {
       try {
         await tursoUpdateEmployee(employee.id, {
           name: cleanName,
           username: cleanUsername,
-          password: password,
+          password: hashedPassword,
           status: "active",
           inviteToken: undefined,
         });
@@ -212,7 +216,7 @@ export async function POST(request: NextRequest) {
           .set({
             name: cleanName,
             username: cleanUsername,
-            password: password,
+            password: hashedPassword,
             status: "active",
             inviteToken: null,
             updatedAt: new Date(),
@@ -227,7 +231,7 @@ export async function POST(request: NextRequest) {
     updateSharedEmployee(employee.id, {
       name: cleanName,
       username: cleanUsername,
-      password: password,
+      password: hashedPassword,
       status: "active",
       inviteToken: null,
     });

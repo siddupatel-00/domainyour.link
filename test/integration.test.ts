@@ -1,3 +1,4 @@
+import nodeCrypto from "crypto";
 import { sanitizeSlug, isValidUrl } from "../src/lib/utils";
 import {
   createSessionToken,
@@ -92,9 +93,13 @@ async function runTests() {
   // 5. User Account Password Hashing & Verification Tests
   console.log("\n5. User Account Password Hashing & Verification Tests");
   const hashed = hashPassword("SuperSecret2026!");
-  assert(typeof hashed === "string" && hashed.length === 64, "Hashes user password using SHA-256");
+  assert(typeof hashed === "string" && hashed.includes(":") && hashed.length > 64, "Hashes user password securely using salted PBKDF2");
   assert(verifyPasswordHash("SuperSecret2026!", hashed), "Verifies correct hashed password");
   assert(!verifyPasswordHash("WrongPassword!", hashed), "Rejects incorrect password");
+
+  // Verify legacy unsalted SHA-256 backward compatibility
+  const legacyHash = nodeCrypto.createHash("sha256").update("LegacySecret123!").digest("hex");
+  assert(verifyPasswordHash("LegacySecret123!", legacyHash), "Maintains backward compatibility with legacy SHA-256 hashes");
 
   const createdUser = await createOrUpdateUser("alex", "alex@example.com", "AlexPass123!");
   assert(createdUser.username === "alex" && createdUser.email === "alex@example.com", "Creates new user in user store");
@@ -444,6 +449,51 @@ async function runTests() {
   assert(testPlanUser.plan === "free", "New user defaults to free tier plan");
   assert(testPlanUser.subscriptionStatus === "active", "New user has active subscription status");
   await deleteUserAccount("plancheckuser");
+
+  // 21. Data Protection & IDOR Security Tests
+  console.log("\n21. Data Protection & IDOR Security Tests");
+  const { tursoUpdateRedirect } = await import("../src/lib/tursoDb");
+  const { sendOtpEmail } = await import("../src/lib/email");
+  const testWebname = `sec_${Math.random().toString(36).substring(2, 8)}`;
+  const victimRedirect = await tursoCreateRedirect({
+    username: "victimuser",
+    webname: testWebname,
+    title: "Secret Document",
+    destinationUrl: "https://example.com/confidential",
+  });
+  assert(victimRedirect !== null, "Creates test redirect for victim user");
+
+  // Attacker attempts to modify victim's destination URL
+  const attackerUpdate = await tursoUpdateRedirect(
+    victimRedirect.id,
+    { destinationUrl: "https://evil.com/phish" },
+    "attackeruser"
+  );
+  assert(attackerUpdate === null, "Blocks unauthorized user from modifying another creator's link destination (IDOR Patch)");
+
+  // Attacker attempts to delete victim's link
+  const attackerDelete = await tursoDeleteRedirect(victimRedirect.id, "attackeruser");
+  assert(attackerDelete === false, "Blocks unauthorized user from deleting another creator's link (IDOR Patch)");
+
+  // Legitimate owner successfully updates and deletes their own link
+  const ownerUpdate = await tursoUpdateRedirect(
+    victimRedirect.id,
+    { title: "Legitimate Update" },
+    "victimuser"
+  );
+  assert(ownerUpdate !== null && ownerUpdate.title === "Legitimate Update", "Allows verified owner to update their own link");
+  const ownerDelete = await tursoDeleteRedirect(victimRedirect.id, "victimuser");
+  assert(ownerDelete === true, "Allows verified owner to delete their own link");
+
+  // Verify devCode is never returned in production
+  const originalEnv = process.env.NODE_ENV;
+  try {
+    (process.env as Record<string, string | undefined>).NODE_ENV = "production";
+    const prodOtpResult = await sendOtpEmail("test@example.com", "123456");
+    assert(prodOtpResult.devCode === undefined, "devCode is strictly stripped in production environment (Zero OTP Leakage)");
+  } finally {
+    (process.env as Record<string, string | undefined>).NODE_ENV = originalEnv;
+  }
 
   // Clean up any remaining test data
   try {

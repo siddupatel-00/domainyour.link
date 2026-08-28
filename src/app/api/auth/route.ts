@@ -51,11 +51,12 @@ export async function POST(request: NextRequest) {
 
       const emailResult = await sendOtpEmail(cleanEmail, otp);
 
+      const isDev = process.env.NODE_ENV !== "production";
       const response = NextResponse.json({
         success: true,
         message: `Verification code sent to ${cleanEmail}`,
         challengeToken: token,
-        devCode: emailResult.devCode,
+        ...(isDev && emailResult.devCode ? { devCode: emailResult.devCode } : {}),
       }, { headers: noCacheHeaders });
 
       // Also set HTTP-only cookie as fallback

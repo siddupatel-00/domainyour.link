@@ -156,7 +156,6 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const {
-      username: bodyUsername,
       title,
       name,
       webname,
@@ -167,7 +166,7 @@ export async function POST(request: NextRequest) {
       showOnProfile,
     } = body;
 
-    const finalUsername = bodyUsername || session.username || "creator";
+    const finalUsername = session.username || "creator";
     const linkTitle = (title || name || "").trim();
 
     if ((!webname && !linkTitle) || !destinationUrl) {

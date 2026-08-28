@@ -109,12 +109,13 @@ export async function POST(request: NextRequest) {
       storeOtp(targetEmployee.email, otp, targetEmployee.name || targetEmployee.email);
       const emailResult = await sendOtpEmail(targetEmployee.email, otp);
 
+      const isDev = process.env.NODE_ENV !== "production";
       return NextResponse.json({
         success: true,
         email: targetEmployee.email,
         maskedEmail: maskEmail(targetEmployee.email),
         message: `6-digit security code sent to ${maskEmail(targetEmployee.email)}`,
-        devCode: emailResult.devCode,
+        ...(isDev && emailResult.devCode ? { devCode: emailResult.devCode } : {}),
       });
     }
 
@@ -178,11 +179,14 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      const { hashPassword } = await import("@/lib/userStore");
+      const hashedPassword = hashPassword(password);
+
       // Update password in Turso
       if (isTursoEnabled) {
         try {
           await tursoUpdateEmployee(targetEmployee.id, {
-            password,
+            password: hashedPassword,
             status: targetEmployee.status === "invited" ? "active" : targetEmployee.status,
           });
         } catch (err) {
@@ -196,7 +200,7 @@ export async function POST(request: NextRequest) {
           await db
             .update(employees)
             .set({
-              password,
+              password: hashedPassword,
               status: targetEmployee.status === "invited" ? "active" : targetEmployee.status,
               updatedAt: new Date(),
             })
@@ -206,7 +210,7 @@ export async function POST(request: NextRequest) {
 
       // Update in-memory store
       updateSharedEmployee(targetEmployee.id, {
-        password,
+        password: hashedPassword,
         status: targetEmployee.status === "invited" ? "active" : targetEmployee.status,
       });
 
@@ -268,7 +272,8 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      if (!targetEmployee.password || targetEmployee.password !== password) {
+      const { verifyPasswordHash } = await import("@/lib/userStore");
+      if (!targetEmployee.password || !verifyPasswordHash(password, targetEmployee.password)) {
         return NextResponse.json(
           { error: "Invalid username or password" },
           { status: 401 }
@@ -327,10 +332,11 @@ export async function POST(request: NextRequest) {
       storeOtp(cleanEmail, otp, targetEmployee.name || cleanEmail);
       const emailResult = await sendOtpEmail(cleanEmail, otp);
 
+      const isDev = process.env.NODE_ENV !== "production";
       return NextResponse.json({
         success: true,
         message: `6-digit security code sent to ${cleanEmail}`,
-        devCode: emailResult.devCode,
+        ...(isDev && emailResult.devCode ? { devCode: emailResult.devCode } : {}),
       });
     }
 

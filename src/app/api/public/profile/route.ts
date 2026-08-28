@@ -135,6 +135,17 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    const sanitizedLinks = finalLinks.map((r) => ({
+      id: r.id,
+      username: r.username,
+      webname: r.webname,
+      code: r.code,
+      title: r.title,
+      destinationUrl: r.destinationUrl,
+      expiresAt: r.expiresAt,
+      showOnProfile: r.showOnProfile,
+    }));
+
     return NextResponse.json(
       {
         username: activeUsername,
@@ -142,7 +153,7 @@ export async function GET(request: NextRequest) {
         avatar,
         bio: targetBio,
         isExpired,
-        links: finalLinks,
+        links: sanitizedLinks,
       },
       { headers: noCacheHeaders }
     );

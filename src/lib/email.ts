@@ -158,18 +158,23 @@ export async function sendOtpEmail(toEmail: string, code: string): Promise<{ suc
       console.error("❌ Gmail SMTP send failed:", err);
       return {
         success: true,
-        devCode: code,
+        devCode: process.env.NODE_ENV !== "production" ? code : undefined,
         error: err instanceof Error ? err.message : "SMTP send failed",
       };
     }
   }
 
-  // Development mode fallback
-  console.log(`\n======================================================`);
-  console.log(`🔑 [DEV VERIFICATION CODE] for ${toEmail}: ${code}`);
-  console.log(`======================================================\n`);
+  // Development mode fallback (never in production)
+  if (process.env.NODE_ENV !== "production") {
+    console.log(`\n======================================================`);
+    console.log(`🔑 [DEV VERIFICATION CODE] for ${toEmail}: ${code}`);
+    console.log(`======================================================\n`);
+  }
 
-  return { success: true, devCode: code };
+  return {
+    success: true,
+    devCode: process.env.NODE_ENV !== "production" ? code : undefined,
+  };
 }
 
 // Send Employee Invitation Email

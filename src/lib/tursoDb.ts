@@ -481,13 +481,8 @@ export async function tursoIncrementExpiredClick(id: number): Promise<void> {
 
 export async function tursoUpdateRedirect(
   id: number,
-  data: {
-    title?: string;
-    destinationUrl?: string;
-    expiresAt?: Date | null;
-    showOnProfile?: boolean;
-    webname?: string;
-  }
+  data: Partial<Redirect>,
+  ownerUsername?: string
 ): Promise<Redirect | null> {
   await ensureRedirectTitleColumn();
   const sets: string[] = [];
@@ -517,8 +512,14 @@ export async function tursoUpdateRedirect(
   sets.push("updated_at = CURRENT_TIMESTAMP");
   args.push(id);
 
+  let whereClause = "WHERE id = ?";
+  if (ownerUsername) {
+    whereClause += " AND LOWER(username) = LOWER(?)";
+    args.push(ownerUsername.trim().toLowerCase());
+  }
+
   const result = await turso.execute({
-    sql: `UPDATE redirects SET ${sets.join(", ")} WHERE id = ? RETURNING *;`,
+    sql: `UPDATE redirects SET ${sets.join(", ")} ${whereClause} RETURNING *;`,
     args,
   });
 
@@ -542,19 +543,25 @@ export async function tursoUpdateRedirect(
   };
 }
 
-export async function tursoDeleteRedirect(id: number): Promise<boolean> {
+export async function tursoDeleteRedirect(id: number, ownerUsername?: string): Promise<boolean> {
   if (!isTursoEnabled) {
     const idx = fallbackRedirectsList.findIndex((r) => r.id === id);
     if (idx !== -1) {
+      if (ownerUsername && fallbackRedirectsList[idx].username.toLowerCase() !== ownerUsername.toLowerCase()) {
+        return false;
+      }
       fallbackRedirectsList.splice(idx, 1);
       return true;
     }
     return false;
   }
-  const result = await turso.execute({
-    sql: `DELETE FROM redirects WHERE id = ?;`,
-    args: [id],
-  });
+  let sql = `DELETE FROM redirects WHERE id = ?;`;
+  const args: any[] = [id];
+  if (ownerUsername) {
+    sql = `DELETE FROM redirects WHERE id = ? AND LOWER(username) = LOWER(?);`;
+    args.push(ownerUsername.trim().toLowerCase());
+  }
+  const result = await turso.execute({ sql, args });
   if (result.rowsAffected > 0) {
     tursoRemoveLinkIdFromGroupsAndBios(id).catch(() => {});
   }
@@ -681,7 +688,8 @@ export async function tursoUpdateBio(
     description?: string | null;
     linkIds?: string;
     expiresAt?: Date | null;
-  }
+  },
+  ownerUsername?: string
 ): Promise<Bio | null> {
   const sets: string[] = [];
   const args: any[] = [];
@@ -706,8 +714,14 @@ export async function tursoUpdateBio(
   sets.push("updated_at = CURRENT_TIMESTAMP");
   args.push(id);
 
+  let whereClause = "WHERE id = ?";
+  if (ownerUsername) {
+    whereClause += " AND LOWER(username) = LOWER(?)";
+    args.push(ownerUsername.trim().toLowerCase());
+  }
+
   const result = await turso.execute({
-    sql: `UPDATE bios SET ${sets.join(", ")} WHERE id = ? RETURNING *;`,
+    sql: `UPDATE bios SET ${sets.join(", ")} ${whereClause} RETURNING *;`,
     args,
   });
 
@@ -727,11 +741,14 @@ export async function tursoUpdateBio(
   };
 }
 
-export async function tursoDeleteBio(id: number): Promise<boolean> {
-  const result = await turso.execute({
-    sql: `DELETE FROM bios WHERE id = ?;`,
-    args: [id],
-  });
+export async function tursoDeleteBio(id: number, ownerUsername?: string): Promise<boolean> {
+  let sql = `DELETE FROM bios WHERE id = ?;`;
+  const args: any[] = [id];
+  if (ownerUsername) {
+    sql = `DELETE FROM bios WHERE id = ? AND LOWER(username) = LOWER(?);`;
+    args.push(ownerUsername.trim().toLowerCase());
+  }
+  const result = await turso.execute({ sql, args });
   return result.rowsAffected > 0;
 }
 
@@ -1081,12 +1098,17 @@ export async function tursoDeleteEmployee(id: number): Promise<boolean> {
 // 4. RESET ANALYTICS (SET CLICKS TO 0)
 // ==========================================
 
-export async function tursoResetRedirectClicks(id: number): Promise<boolean> {
+export async function tursoResetRedirectClicks(id: number, ownerUsername?: string): Promise<boolean> {
   try {
-    await turso.execute({
-      sql: `UPDATE redirects SET click_count = 0, expired_click_count = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?;`,
-      args: [id],
-    });
+    let sql = `UPDATE redirects SET click_count = 0, expired_click_count = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?;`;
+    const args: any[] = [id];
+    if (ownerUsername) {
+      sql = `UPDATE redirects SET click_count = 0, expired_click_count = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND LOWER(username) = LOWER(?);`;
+      args.push(ownerUsername.trim().toLowerCase());
+    }
+    const res = await turso.execute({ sql, args });
+    if (res.rowsAffected === 0) return false;
+
     await turso.execute({
       sql: `DELETE FROM click_events WHERE redirect_id = ?;`,
       args: [id],
@@ -1222,7 +1244,8 @@ export async function tursoCreateLinkGroup(data: {
 
 export async function tursoUpdateLinkGroup(
   id: number,
-  data: Partial<LinkGroup>
+  data: Partial<LinkGroup>,
+  ownerUsername?: string
 ): Promise<LinkGroup | null> {
   await ensureLinkGroupsTable();
   const sets: string[] = [];
@@ -1256,8 +1279,14 @@ export async function tursoUpdateLinkGroup(
   sets.push("updated_at = CURRENT_TIMESTAMP");
   args.push(id);
 
+  let whereClause = "WHERE id = ?";
+  if (ownerUsername) {
+    whereClause += " AND LOWER(username) = LOWER(?)";
+    args.push(ownerUsername.trim().toLowerCase());
+  }
+
   const result = await turso.execute({
-    sql: `UPDATE link_groups SET ${sets.join(", ")} WHERE id = ? RETURNING *;`,
+    sql: `UPDATE link_groups SET ${sets.join(", ")} ${whereClause} RETURNING *;`,
     args,
   });
 
@@ -1278,12 +1307,15 @@ export async function tursoUpdateLinkGroup(
   };
 }
 
-export async function tursoDeleteLinkGroup(id: number): Promise<boolean> {
+export async function tursoDeleteLinkGroup(id: number, ownerUsername?: string): Promise<boolean> {
   await ensureLinkGroupsTable();
-  const result = await turso.execute({
-    sql: `DELETE FROM link_groups WHERE id = ?;`,
-    args: [id],
-  });
+  let sql = `DELETE FROM link_groups WHERE id = ?;`;
+  const args: any[] = [id];
+  if (ownerUsername) {
+    sql = `DELETE FROM link_groups WHERE id = ? AND LOWER(username) = LOWER(?);`;
+    args.push(ownerUsername.trim().toLowerCase());
+  }
+  const result = await turso.execute({ sql, args });
   return result.rowsAffected > 0;
 }
 

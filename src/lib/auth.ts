@@ -41,7 +41,15 @@ export function verifyOTP(email: string, code: string): boolean {
 }
 
 export function verifyCeoPassword(password: string): boolean {
-  return password === CEO_PASSWORD;
+  if (!password) return false;
+  if (process.env.NODE_ENV === "production" && !process.env.CEO_PASSWORD) {
+    console.error("⚠️ SECURITY ALERT: CEO_PASSWORD environment variable must be set in production!");
+    return false;
+  }
+  const a = Buffer.from(password);
+  const b = Buffer.from(CEO_PASSWORD);
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
 }
 
 // Minimalistic Base64URL-encoded HMAC-SHA256 Token (Edge / Node.js compatible)

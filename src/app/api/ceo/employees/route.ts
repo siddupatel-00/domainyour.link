@@ -27,6 +27,20 @@ const noCacheHeaders = {
   Expires: "0",
 };
 
+function sanitizeEmployee(emp: Employee) {
+  return {
+    id: emp.id,
+    name: emp.name,
+    email: emp.email,
+    username: emp.username,
+    role: emp.role,
+    status: emp.status,
+    permissions: emp.permissions,
+    createdAt: emp.createdAt,
+    updatedAt: emp.updatedAt,
+  };
+}
+
 // GET /api/ceo/employees - List employees
 export async function GET() {
   const authed = await isCeoAuthenticated();
@@ -38,17 +52,17 @@ export async function GET() {
   if (isTursoEnabled) {
     try {
       const list = await tursoGetEmployees();
-      return NextResponse.json({ employees: list }, { headers: noCacheHeaders });
+      return NextResponse.json({ employees: list.map(sanitizeEmployee) }, { headers: noCacheHeaders });
     } catch {}
   }
 
   // 2. Try PostgreSQL / Neon
   try {
     const list = await db.select().from(employees).orderBy(desc(employees.createdAt));
-    return NextResponse.json({ employees: list }, { headers: noCacheHeaders });
+    return NextResponse.json({ employees: list.map(sanitizeEmployee) }, { headers: noCacheHeaders });
   } catch (error) {
     // 3. Fallback memory store
-    return NextResponse.json({ employees: getSharedEmployees() }, { headers: noCacheHeaders });
+    return NextResponse.json({ employees: getSharedEmployees().map(sanitizeEmployee) }, { headers: noCacheHeaders });
   }
 }
 

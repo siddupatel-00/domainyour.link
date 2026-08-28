@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { redirects } from "@/lib/db/schema";
-import { isAuthenticated } from "@/lib/auth";
+import { getSessionUser } from "@/lib/auth";
 import { isValidUrl } from "@/lib/utils";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { getLocalFallbackLinks, calculateExpiration } from "../route";
 import {
   isTursoEnabled,
@@ -25,10 +25,11 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const authed = await isAuthenticated();
-  if (!authed) {
+  const session = await getSessionUser();
+  if (!session || !session.username) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: noCacheHeaders });
   }
+  const username = session.username.trim().toLowerCase();
 
   try {
     const { id } = await params;
@@ -40,11 +41,14 @@ export async function PATCH(
     const body = await request.json();
     const { title, name, destinationUrl, duration, expiresAt, showOnProfile, action, resetAnalytics } = body;
 
-    // Reset analytics to 0
+    // Reset analytics to 0 (ownership enforced)
     if (action === "reset_analytics" || resetAnalytics === true) {
       if (isTursoEnabled) {
         const { tursoResetRedirectClicks } = await import("@/lib/tursoDb");
-        await tursoResetRedirectClicks(numericId);
+        const ok = await tursoResetRedirectClicks(numericId, username);
+        if (!ok) {
+          return NextResponse.json({ error: "Link not found or access denied" }, { status: 404, headers: noCacheHeaders });
+        }
       }
       if (db) {
         try {
@@ -52,11 +56,11 @@ export async function PATCH(
           await db
             .update(redirects)
             .set({ clickCount: 0, expiredClickCount: 0, updatedAt: new Date() })
-            .where(eq(redirects.id, numericId));
+            .where(and(eq(redirects.id, numericId), eq(redirects.username, username)));
           await db.delete(clickEvents).where(eq(clickEvents.redirectId, numericId));
         } catch {}
       }
-      const fallback = getLocalFallbackLinks().find((l) => l.id === numericId);
+      const fallback = getLocalFallbackLinks().find((l) => l.id === numericId && l.username.toLowerCase() === username);
       if (fallback) {
         fallback.clickCount = 0;
         fallback.expiredClickCount = 0;
@@ -112,7 +116,7 @@ export async function PATCH(
     // 1. Try Turso Database
     if (isTursoEnabled) {
       try {
-        const updated = await tursoUpdateRedirect(numericId, updateFields);
+        const updated = await tursoUpdateRedirect(numericId, updateFields, username);
         if (updated) {
           return NextResponse.json({ success: true, redirect: updated }, { headers: noCacheHeaders });
         }
@@ -127,7 +131,7 @@ export async function PATCH(
         const [updatedRecord] = await db
           .update(redirects)
           .set(updateFields)
-          .where(eq(redirects.id, numericId))
+          .where(and(eq(redirects.id, numericId), eq(redirects.username, username)))
           .returning();
 
         if (updatedRecord) {
@@ -138,7 +142,7 @@ export async function PATCH(
 
     // 3. Fallback in-memory store
     const fallbackList = getLocalFallbackLinks();
-    const item = fallbackList.find((l) => l.id === numericId);
+    const item = fallbackList.find((l) => l.id === numericId && l.username.toLowerCase() === username);
     if (item) {
       if (updateFields.title !== undefined) item.title = updateFields.title;
       if (updateFields.destinationUrl !== undefined) item.destinationUrl = updateFields.destinationUrl;
@@ -149,7 +153,7 @@ export async function PATCH(
     }
 
     return NextResponse.json(
-      { error: "Link not found" },
+      { error: "Link not found or access denied" },
       { status: 404, headers: noCacheHeaders }
     );
   } catch (error) {
@@ -161,15 +165,16 @@ export async function PATCH(
   }
 }
 
-// DELETE /api/redirects/[id] - Remove redirect
+// DELETE /api/redirects/[id] - Remove redirect (ownership enforced)
 export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const authed = await isAuthenticated();
-  if (!authed) {
+  const session = await getSessionUser();
+  if (!session || !session.username) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: noCacheHeaders });
   }
+  const username = session.username.trim().toLowerCase();
 
   try {
     const { id } = await params;
@@ -181,7 +186,7 @@ export async function DELETE(
     // 1. Try Turso Database
     if (isTursoEnabled) {
       try {
-        const ok = await tursoDeleteRedirect(numericId);
+        const ok = await tursoDeleteRedirect(numericId, username);
         if (ok) {
           return NextResponse.json({ success: true, message: "Link deleted" }, { headers: noCacheHeaders });
         }
@@ -195,7 +200,7 @@ export async function DELETE(
       try {
         const [deletedRecord] = await db
           .delete(redirects)
-          .where(eq(redirects.id, numericId))
+          .where(and(eq(redirects.id, numericId), eq(redirects.username, username)))
           .returning();
 
         if (deletedRecord) {
@@ -206,14 +211,14 @@ export async function DELETE(
 
     // 3. Fallback in-memory store
     const fallbackList = getLocalFallbackLinks();
-    const index = fallbackList.findIndex((l) => l.id === numericId);
+    const index = fallbackList.findIndex((l) => l.id === numericId && l.username.toLowerCase() === username);
     if (index !== -1) {
       fallbackList.splice(index, 1);
       return NextResponse.json({ success: true, message: "Link deleted" }, { headers: noCacheHeaders });
     }
 
     return NextResponse.json(
-      { error: "Link not found" },
+      { error: "Link not found or access denied" },
       { status: 404, headers: noCacheHeaders }
     );
   } catch (error) {

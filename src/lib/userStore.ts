@@ -9,13 +9,31 @@ import {
 } from "./tursoDb";
 
 export function hashPassword(password: string): string {
-  return crypto.createHash("sha256").update(password).digest("hex");
+  const salt = crypto.randomBytes(16).toString("hex");
+  const hash = crypto.pbkdf2Sync(password, salt, 10000, 32, "sha256").toString("hex");
+  return `${salt}:${hash}`;
 }
 
 export function verifyPasswordHash(password: string, hash?: string | null): boolean {
   if (!hash) return false;
-  // If plain text was stored or sha256
-  return hash === password || hash === hashPassword(password);
+
+  // 1. Salted PBKDF2 format (salt:hash)
+  if (hash.includes(":")) {
+    const [salt, originalHash] = hash.split(":");
+    if (salt && originalHash) {
+      try {
+        const computed = crypto.pbkdf2Sync(password, salt, 10000, 32, "sha256").toString("hex");
+        return crypto.timingSafeEqual(Buffer.from(computed), Buffer.from(originalHash));
+      } catch {}
+    }
+  }
+
+  // 2. Legacy SHA-256 fallback
+  const legacySha256 = crypto.createHash("sha256").update(password).digest("hex");
+  if (hash === legacySha256) return true;
+
+  // 3. Legacy plain text fallback
+  return hash === password;
 }
 
 // In-memory fallback user store for local dev

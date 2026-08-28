@@ -51,13 +51,27 @@ export async function PATCH(
         : String(permissions);
     }
 
+function sanitizeEmployee(emp: any) {
+  return {
+    id: emp.id,
+    name: emp.name,
+    email: emp.email,
+    username: emp.username,
+    role: emp.role,
+    status: emp.status,
+    permissions: emp.permissions,
+    createdAt: emp.createdAt,
+    updatedAt: emp.updatedAt,
+  };
+}
+
     // 1. Try Turso
     if (isTursoEnabled) {
       try {
         const updated = await tursoUpdateEmployee(numericId, updateFields);
         if (updated) {
           updateSharedEmployee(numericId, updated);
-          return NextResponse.json({ success: true, employee: updated }, { headers: noCacheHeaders });
+          return NextResponse.json({ success: true, employee: sanitizeEmployee(updated) }, { headers: noCacheHeaders });
         }
       } catch (err) {
         console.error("Turso update employee error:", err);
@@ -74,14 +88,14 @@ export async function PATCH(
 
       if (updatedRecord) {
         updateSharedEmployee(numericId, updatedRecord);
-        return NextResponse.json({ success: true, employee: updatedRecord }, { headers: noCacheHeaders });
+        return NextResponse.json({ success: true, employee: sanitizeEmployee(updatedRecord) }, { headers: noCacheHeaders });
       }
     } catch {}
 
     // 3. Fallback in-memory
     const updated = updateSharedEmployee(numericId, updateFields);
     if (updated) {
-      return NextResponse.json({ success: true, employee: updated }, { headers: noCacheHeaders });
+      return NextResponse.json({ success: true, employee: sanitizeEmployee(updated) }, { headers: noCacheHeaders });
     }
 
     return NextResponse.json({ error: "Employee not found" }, { status: 404, headers: noCacheHeaders });

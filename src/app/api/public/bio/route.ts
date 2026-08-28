@@ -103,6 +103,17 @@ export async function GET(request: NextRequest) {
         }
       }
 
+      const sanitizedLinks = finalLinks.map((r) => ({
+        id: r.id,
+        username: r.username,
+        webname: r.webname,
+        code: r.code,
+        title: r.title,
+        destinationUrl: r.destinationUrl,
+        expiresAt: r.expiresAt,
+        showOnProfile: r.showOnProfile,
+      }));
+
       return NextResponse.json(
         {
           type: "sub",
@@ -113,7 +124,7 @@ export async function GET(request: NextRequest) {
           username: targetBio.username,
           avatar,
           isExpired,
-          links: finalLinks,
+          links: sanitizedLinks,
         },
         { headers: noCacheHeaders }
       );
@@ -129,9 +140,20 @@ export async function GET(request: NextRequest) {
     if (!targetUser) {
       targetUser = await findUserByBioCode(cleanCode);
     }
-    if (!targetUser) {
-      // Check if code matches a username directly (e.g. /b/siddu) or previous username
-      targetUser = await findUserByEmailOrUsername(cleanCode);
+    if (!targetUser && !cleanCode.includes("@")) {
+      // Check if code matches a username directly (e.g. /b/siddu) or previous username (NEVER search by email)
+      const potentialUser = await findUserByEmailOrUsername(cleanCode);
+      if (potentialUser) {
+        const isCurrentMatch = potentialUser.username.toLowerCase() === cleanCode;
+        let isPreviousMatch = false;
+        try {
+          const prevs: string[] = JSON.parse(potentialUser.previousUsernames || "[]");
+          isPreviousMatch = prevs.map((p) => p.toLowerCase()).includes(cleanCode);
+        } catch {}
+        if (isCurrentMatch || isPreviousMatch) {
+          targetUser = potentialUser;
+        }
+      }
     }
 
     if (targetUser) {
@@ -164,6 +186,17 @@ export async function GET(request: NextRequest) {
         return notExpired && isVisible;
       });
 
+      const sanitizedLinks = activeVisibleLinks.map((r) => ({
+        id: r.id,
+        username: r.username,
+        webname: r.webname,
+        code: r.code,
+        title: r.title,
+        destinationUrl: r.destinationUrl,
+        expiresAt: r.expiresAt,
+        showOnProfile: r.showOnProfile,
+      }));
+
       return NextResponse.json(
         {
           type: "main",
@@ -173,7 +206,7 @@ export async function GET(request: NextRequest) {
           username: targetUser.username,
           avatar,
           isExpired: false,
-          links: activeVisibleLinks,
+          links: sanitizedLinks,
         },
         { headers: noCacheHeaders }
       );

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { bios } from "@/lib/db/schema";
-import { isAuthenticated } from "@/lib/auth";
-import { eq } from "drizzle-orm";
+import { getSessionUser } from "@/lib/auth";
+import { eq, and } from "drizzle-orm";
 import { getLocalFallbackBios } from "../route";
 import { calculateExpiration } from "../../redirects/route";
 import {
@@ -20,15 +20,16 @@ const noCacheHeaders = {
   Expires: "0",
 };
 
-// PATCH /api/bios/[id] - Update bio
+// PATCH /api/bios/[id] - Update bio (ownership enforced)
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const authed = await isAuthenticated();
-  if (!authed) {
+  const session = await getSessionUser();
+  if (!session || !session.username) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: noCacheHeaders });
   }
+  const username = session.username.trim().toLowerCase();
 
   try {
     const { id } = await params;
@@ -63,7 +64,7 @@ export async function PATCH(
     // 1. Try Turso Database
     if (isTursoEnabled) {
       try {
-        const updated = await tursoUpdateBio(numericId, updateFields);
+        const updated = await tursoUpdateBio(numericId, updateFields, username);
         if (updated) {
           return NextResponse.json({ success: true, bio: updated }, { headers: noCacheHeaders });
         }
@@ -78,7 +79,7 @@ export async function PATCH(
         const [updatedRecord] = await db
           .update(bios)
           .set(updateFields)
-          .where(eq(bios.id, numericId))
+          .where(and(eq(bios.id, numericId), eq(bios.username, username)))
           .returning();
 
         if (updatedRecord) {
@@ -89,7 +90,7 @@ export async function PATCH(
 
     // 3. Fallback in-memory store
     const fallbackList = getLocalFallbackBios();
-    const item = fallbackList.find((b) => b.id === numericId);
+    const item = fallbackList.find((b) => b.id === numericId && b.username.toLowerCase() === username);
     if (item) {
       if (updateFields.title !== undefined) item.title = updateFields.title;
       if (updateFields.description !== undefined) item.description = updateFields.description;
@@ -100,7 +101,7 @@ export async function PATCH(
     }
 
     return NextResponse.json(
-      { error: "Bio not found" },
+      { error: "Bio not found or access denied" },
       { status: 404, headers: noCacheHeaders }
     );
   } catch (error) {
@@ -112,15 +113,16 @@ export async function PATCH(
   }
 }
 
-// DELETE /api/bios/[id] - Delete bio
+// DELETE /api/bios/[id] - Delete bio (ownership enforced)
 export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const authed = await isAuthenticated();
-  if (!authed) {
+  const session = await getSessionUser();
+  if (!session || !session.username) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: noCacheHeaders });
   }
+  const username = session.username.trim().toLowerCase();
 
   try {
     const { id } = await params;
@@ -132,7 +134,7 @@ export async function DELETE(
     // 1. Try Turso Database
     if (isTursoEnabled) {
       try {
-        const ok = await tursoDeleteBio(numericId);
+        const ok = await tursoDeleteBio(numericId, username);
         if (ok) {
           return NextResponse.json({ success: true, message: "Bio deleted" }, { headers: noCacheHeaders });
         }
@@ -146,7 +148,7 @@ export async function DELETE(
       try {
         const [deletedRecord] = await db
           .delete(bios)
-          .where(eq(bios.id, numericId))
+          .where(and(eq(bios.id, numericId), eq(bios.username, username)))
           .returning();
 
         if (deletedRecord) {
@@ -157,14 +159,14 @@ export async function DELETE(
 
     // 3. Fallback in-memory store
     const fallbackList = getLocalFallbackBios();
-    const index = fallbackList.findIndex((b) => b.id === numericId);
+    const index = fallbackList.findIndex((b) => b.id === numericId && b.username.toLowerCase() === username);
     if (index !== -1) {
       fallbackList.splice(index, 1);
       return NextResponse.json({ success: true, message: "Bio deleted" }, { headers: noCacheHeaders });
     }
 
     return NextResponse.json(
-      { error: "Bio not found" },
+      { error: "Bio not found or access denied" },
       { status: 404, headers: noCacheHeaders }
     );
   } catch (error) {
