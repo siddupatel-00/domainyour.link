@@ -183,7 +183,7 @@ export async function POST(request: NextRequest) {
     const cleanName = (name || employee.name || "").trim();
     const cleanUsername = sanitizeSlug(username || employee.username || "");
 
-    if (!cleanName || !cleanUsername || !password || password.length < 6) {
+    if (!cleanName || !cleanUsername || !password || password.length < 8 || /\s/.test(password)) {
       return NextResponse.json(
         { error: "Full Name, Username, and Password (min 6 chars) are required" },
         { status: 400, headers: noCacheHeaders }

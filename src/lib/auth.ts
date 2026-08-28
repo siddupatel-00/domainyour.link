@@ -10,8 +10,15 @@ import {
 import { findSharedEmployeeByEmailOrUser } from "@/lib/employeeStore";
 import { eq, or } from "drizzle-orm";
 
-const JWT_SECRET = process.env.JWT_SECRET || process.env.ADMIN_JWT_SECRET || "relaylink-super-secret-production-key-32chars!";
-const CEO_PASSWORD = process.env.CEO_PASSWORD || "ceo123456";
+// Enforce required environment variables
+if (!process.env.JWT_SECRET) {
+  throw new Error("JWT_SECRET environment variable is required");
+}
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!process.env.CEO_PASSWORD) {
+  throw new Error("CEO_PASSWORD environment variable is required");
+}
+const CEO_PASSWORD = process.env.CEO_PASSWORD;
 export const COOKIE_NAME = "permanentlink_session";
 export const CEO_COOKIE_NAME = "permanentlink_ceo_session";
 export const EMPLOYEE_COOKIE_NAME = "permanentlink_employee_session";

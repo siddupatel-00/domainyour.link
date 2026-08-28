@@ -1,5 +1,13 @@
 import { createClient } from "@libsql/client";
 import { Redirect, Bio, Employee, User, LinkGroup } from "./db/schema";
+import {
+  addSharedLinkGroup,
+  getSharedLinkGroups,
+  updateSharedLinkGroup,
+  deleteSharedLinkGroup,
+  reorderSharedLinkGroups,
+  findSharedGroupByShareCode,
+} from "./groupStore";
 
 const tursoUrl =
   process.env.TURSO_DATABASE_URL ||
@@ -485,6 +493,17 @@ export async function tursoUpdateRedirect(
   ownerUsername?: string
 ): Promise<Redirect | null> {
   await ensureRedirectTitleColumn();
+  if (!isTursoEnabled) {
+    const idx = fallbackRedirectsList.findIndex((r) => r.id === id);
+    if (idx !== -1) {
+      if (ownerUsername && fallbackRedirectsList[idx].username.toLowerCase() !== ownerUsername.toLowerCase()) {
+        return null;
+      }
+      Object.assign(fallbackRedirectsList[idx], data, { updatedAt: new Date() });
+      return fallbackRedirectsList[idx];
+    }
+    return null;
+  }
   const sets: string[] = [];
   const args: any[] = [];
 
@@ -569,7 +588,19 @@ export async function tursoDeleteRedirect(id: number, ownerUsername?: string): P
 }
 
 export async function tursoRemoveLinkIdFromGroupsAndBios(redirectId: number): Promise<void> {
-  if (!isTursoEnabled) return;
+  if (!isTursoEnabled) {
+    if (global.fallbackLinkGroupsStore) {
+      for (const g of global.fallbackLinkGroupsStore) {
+        try {
+          const parsed: number[] = JSON.parse(g.linkIds || "[]");
+          if (Array.isArray(parsed) && parsed.includes(redirectId)) {
+            g.linkIds = JSON.stringify(parsed.filter((i) => i !== redirectId));
+          }
+        } catch {}
+      }
+    }
+    return;
+  }
   try {
     const groupRows = await turso.execute(`SELECT id, link_ids FROM link_groups;`);
     for (const row of groupRows.rows) {
@@ -1154,6 +1185,9 @@ export async function ensureLinkGroupsTable() {
 
 export async function tursoGetLinkGroups(username: string): Promise<LinkGroup[]> {
   await ensureLinkGroupsTable();
+  if (!isTursoEnabled) {
+    return getSharedLinkGroups(username);
+  }
   const result = await turso.execute({
     sql: `SELECT * FROM link_groups WHERE LOWER(username) = LOWER(?) ORDER BY COALESCE(sort_order, 0) ASC, id ASC;`,
     args: [username],
@@ -1176,6 +1210,9 @@ export async function tursoGetLinkGroups(username: string): Promise<LinkGroup[]>
 
 export async function tursoFindGroupByShareCode(shareCode: string): Promise<LinkGroup | null> {
   await ensureLinkGroupsTable();
+  if (!isTursoEnabled) {
+    return findSharedGroupByShareCode(shareCode) || null;
+  }
   const cleanCode = shareCode.trim().toLowerCase();
   const result = await turso.execute({
     sql: `SELECT * FROM link_groups WHERE LOWER(share_code) = LOWER(?) LIMIT 1;`,
@@ -1211,6 +1248,24 @@ export async function tursoCreateLinkGroup(data: {
   await ensureLinkGroupsTable();
   const code = data.shareCode || Math.random().toString(36).substring(2, 8).toLowerCase();
   const expiresStr = data.expiresAt ? data.expiresAt.toISOString() : null;
+
+  if (!isTursoEnabled) {
+    const newGroup: LinkGroup = {
+      id: Math.floor(Math.random() * 100000) + 1,
+      username: data.username,
+      name: data.name,
+      color: data.color || "#000000",
+      linkIds: data.linkIds || "[]",
+      shareCode: code,
+      isShared: data.isShared !== false,
+      expiresAt: data.expiresAt || null,
+      sortOrder: 0,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    addSharedLinkGroup(newGroup);
+    return newGroup;
+  }
 
   const result = await turso.execute({
     sql: `INSERT INTO link_groups (username, name, color, link_ids, share_code, is_shared, expires_at)
@@ -1248,6 +1303,10 @@ export async function tursoUpdateLinkGroup(
   ownerUsername?: string
 ): Promise<LinkGroup | null> {
   await ensureLinkGroupsTable();
+  if (!isTursoEnabled) {
+    const updated = updateSharedLinkGroup(id, data);
+    return updated || null;
+  }
   const sets: string[] = [];
   const args: any[] = [];
 
@@ -1309,6 +1368,9 @@ export async function tursoUpdateLinkGroup(
 
 export async function tursoDeleteLinkGroup(id: number, ownerUsername?: string): Promise<boolean> {
   await ensureLinkGroupsTable();
+  if (!isTursoEnabled) {
+    return deleteSharedLinkGroup(id);
+  }
   let sql = `DELETE FROM link_groups WHERE id = ?;`;
   const args: any[] = [id];
   if (ownerUsername) {
@@ -1324,6 +1386,10 @@ export async function tursoReorderLinkGroups(
   orderedIds: number[]
 ): Promise<boolean> {
   await ensureLinkGroupsTable();
+  if (!isTursoEnabled) {
+    reorderSharedLinkGroups(username, orderedIds);
+    return true;
+  }
   try {
     for (let i = 0; i < orderedIds.length; i++) {
       await turso.execute({
