@@ -1,7 +1,7 @@
 import nodemailer from "nodemailer";
 import crypto from "crypto";
 
-const JWT_SECRET = process.env.JWT_SECRET || process.env.ADMIN_JWT_SECRET || "relaylink-super-secret-production-key-32chars!";
+const JWT_SECRET = process.env.JWT_SECRET || process.env.ADMIN_JWT_SECRET || "domainyourlink-super-secret-key-32chars!";
 
 // In-memory OTP storage with 10-minute TTL (for local fallback)
 interface OtpEntry {
@@ -132,17 +132,17 @@ export async function sendOtpEmail(toEmail: string, code: string): Promise<{ suc
       });
 
       const mailOptions = {
-        from: `"RelayLink" <${gmailUser}>`,
+        from: `"domainyourlink" <${gmailUser}>`,
         to: toEmail,
-        subject: `Your RelayLink verification code: ${code}`,
+        subject: `Your domainyourlink verification code: ${code}`,
         text: `Your verification code is: ${code}\n\nThis code will expire in 10 minutes.\nIf you did not request this code, you can safely ignore this email.`,
         html: `
           <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 32px 24px; background: #ffffff; border: 1px solid #e5e5e5; border-radius: 16px;">
             <div style="margin-bottom: 24px;">
-              <span style="font-size: 18px; font-weight: 700; color: #000000; letter-spacing: -0.5px;">🔗 RelayLink</span>
+              <span style="font-size: 18px; font-weight: 700; color: #000000; letter-spacing: -0.5px;">🔗 domainyourlink</span>
             </div>
             <h2 style="font-size: 20px; font-weight: 700; color: #000000; margin: 0 0 12px 0;">Your Verification Code</h2>
-            <p style="font-size: 14px; color: #525252; line-height: 1.5; margin: 0 0 24px 0;">Use the code below to complete your sign-in to RelayLink. This code will expire in 10 minutes.</p>
+            <p style="font-size: 14px; color: #525252; line-height: 1.5; margin: 0 0 24px 0;">Use the code below to complete your sign-in to domainyourlink. This code will expire in 10 minutes.</p>
             <div style="background: #f5f5f5; border: 1px solid #e5e5e5; border-radius: 12px; padding: 20px; text-align: center; margin-bottom: 24px;">
               <span style="font-family: monospace; font-size: 32px; font-weight: 700; letter-spacing: 6px; color: #000000;">${code}</span>
             </div>
@@ -202,20 +202,20 @@ export async function sendEmployeeInviteEmail(
       });
 
       const mailOptions = {
-        from: `"RelayLink Team" <${gmailUser}>`,
+        from: `"domainyourlink Team" <${gmailUser}>`,
         to: toEmail,
-        subject: `🎉 Congratulations on successfully joining RelayLink as ${role}!`,
-        text: `Congratulations on successfully joining RelayLink as ${role}!\n\nPlease click the link below to set up your full name, username, and password:\n${inviteLink}\n\nWelcome to the team!`,
+        subject: `🎉 Congratulations on successfully joining domainyourlink as ${role}!`,
+        text: `Congratulations on successfully joining domainyourlink as ${role}!\n\nPlease click the link below to set up your full name, username, and password:\n${inviteLink}\n\nWelcome to the team!`,
         html: `
           <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 520px; margin: 0 auto; padding: 36px 28px; background: #ffffff; border: 1px solid #e5e5e5; border-radius: 20px;">
             <div style="margin-bottom: 24px;">
-              <span style="font-size: 18px; font-weight: 700; color: #000000; letter-spacing: -0.5px;">🔗 RelayLink</span>
+              <span style="font-size: 18px; font-weight: 700; color: #000000; letter-spacing: -0.5px;">🔗 domainyourlink</span>
             </div>
             <h2 style="font-size: 22px; font-weight: 700; color: #000000; margin: 0 0 12px 0;">
               🎉 Welcome to the Team!
             </h2>
             <p style="font-size: 14px; color: #404040; line-height: 1.6; margin: 0 0 20px 0;">
-              Congratulations! You have been successfully invited by your CEO to join RelayLink as <strong>${role}</strong>.
+              Congratulations! You have been successfully invited by your CEO to join domainyourlink as <strong>${role}</strong>.
             </p>
             <p style="font-size: 14px; color: #525252; line-height: 1.5; margin: 0 0 28px 0;">
               Click the button below to set up your profile name, username, and password to access your Staff Workspace:
@@ -306,13 +306,13 @@ export async function sendAnalyticsRecapEmail(data: {
       });
 
       const mailOptions = {
-        from: `"RelayLink" <${gmailUser}>`,
+        from: `"domainyourlink" <${gmailUser}>`,
         to: toEmail,
         subject: `📊 Your ${timeframeLabel} Link Analytics Summary — @${username}`,
         html: `
           <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 520px; margin: 0 auto; padding: 36px 28px; background: #ffffff; border: 1px solid #e5e5e5; border-radius: 20px;">
             <div style="margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between;">
-              <span style="font-size: 18px; font-weight: 700; color: #000000; letter-spacing: -0.5px;">🔗 RelayLink</span>
+              <span style="font-size: 18px; font-weight: 700; color: #000000; letter-spacing: -0.5px;">🔗 domainyourlink</span>
               <span style="font-size: 11px; font-weight: 600; text-transform: uppercase; background: #f3f4f6; color: #374151; padding: 4px 10px; border-radius: 9999px;">${timeframeLabel} Recap</span>
             </div>
 
@@ -346,8 +346,8 @@ export async function sendAnalyticsRecapEmail(data: {
             </div>
 
             <div style="text-align: center; margin-bottom: 24px;">
-              <a href="https://relaylink.app/admin" style="display: inline-block; background: #000000; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 12px; font-weight: 600; font-size: 13px;">
-                Open RelayLink Dashboard →
+              <a href="https://domainyourlink.vercel.app/admin" style="display: inline-block; background: #000000; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 12px; font-weight: 600; font-size: 13px;">
+                Open domainyourlink Dashboard →
               </a>
             </div>
 

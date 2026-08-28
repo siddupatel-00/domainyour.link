@@ -226,7 +226,7 @@ export default function PermanentBioPage({ params }: BioPageProps) {
           className="inline-flex items-center gap-1 text-[11px] text-neutral-400 dark:text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 transition"
         >
           <span>Powered by</span>
-          <span className="font-semibold text-neutral-900 dark:text-white">RelayLink</span>
+          <span className="font-semibold text-neutral-900 dark:text-white">domainyourlink</span>
         </a>
       </div>
 

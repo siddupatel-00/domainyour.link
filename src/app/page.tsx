@@ -341,7 +341,7 @@ export default function HomePage() {
         <div className="flex items-center gap-2.5">
           <Link2 className="w-6 h-6 text-black dark:text-white stroke-[2.2]" />
           <span className="font-bold text-lg text-black dark:text-white tracking-tight">
-            RelayLink
+            domainyourlink
           </span>
         </div>
 
@@ -410,7 +410,7 @@ export default function HomePage() {
                   <Link2 className="w-4 h-4" />
                 </div>
                 <div className="text-xs font-bold text-neutral-900 dark:text-white font-mono break-all">
-                  relaylink.app/u/{cleanUsername ? "abc123" : "nqmex6"}
+                  domainyourlink.vercel.app/u/{cleanUsername ? "abc123" : "nqmex6"}
                 </div>
                 <div className="text-[10px] text-neutral-500 dark:text-neutral-400 mt-1">
                   Share this link
@@ -855,7 +855,7 @@ export default function HomePage() {
 
       {/* Footer */}
       <footer className="max-w-7xl w-full mx-auto flex flex-col sm:flex-row items-center justify-between text-xs text-neutral-400 dark:text-neutral-600 pt-6 border-t border-neutral-100 dark:border-neutral-800">
-        <div>© 2026 RelayLink. All rights reserved.</div>
+        <div>© 2026 domainyourlink. All rights reserved.</div>
         <div className="mt-2 sm:mt-0">Fast links. Permanent forever.</div>
       </footer>
 
@@ -871,7 +871,7 @@ export default function HomePage() {
           >
             <div className="flex items-center justify-between pb-4 border-b border-neutral-100 dark:border-neutral-800">
               <h3 className="text-lg font-bold text-neutral-900 dark:text-white flex items-center gap-2">
-                {modalType === "about" && "About RelayLink"}
+                {modalType === "about" && "About domainyourlink"}
                 {modalType === "howItWorks" && "How it works"}
                 {modalType === "features" && "Features"}
                 {modalType === "forgotPassword" && "Reset Password"}
@@ -891,10 +891,10 @@ export default function HomePage() {
               {modalType === "about" && (
                 <div className="space-y-3">
                   <p className="text-neutral-800 dark:text-neutral-200 font-medium">
-                    RelayLink gives you fast, permanent links that stay with you forever.
+                    domainyourlink gives you fast, permanent links that stay with you forever.
                   </p>
                   <p>
-                    Ever printed a link on your resume or business card, only to change your username later? With RelayLink, you never have to worry.
+                    Ever printed a link on your resume or business card, only to change your username later? With domainyourlink, you never have to worry.
                   </p>
                   <p>
                     Whenever you update your social media handle or website, just change where the link points in your dashboard. Your shared link stays the exact same!
@@ -920,7 +920,7 @@ export default function HomePage() {
                     </div>
                     <div>
                       <strong className="text-neutral-900 dark:text-white block">Create your links</strong>
-                      Add simple links like <code className="bg-neutral-100 dark:bg-neutral-800 px-1.5 py-0.5 rounded text-neutral-800 dark:text-neutral-200 font-mono text-xs">relaylink.app/u/abc123</code>.
+                      Add simple links like <code className="bg-neutral-100 dark:bg-neutral-800 px-1.5 py-0.5 rounded text-neutral-800 dark:text-neutral-200 font-mono text-xs">domainyourlink.vercel.app/u/abc123</code>.
                     </div>
                   </div>
                   <div className="flex items-start gap-3">

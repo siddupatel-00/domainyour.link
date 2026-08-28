@@ -3,7 +3,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
 
 export const metadata: Metadata = {
-  title: "RelayLink — One link. Always yours.",
+  title: "domainyourlink — One link. Always yours.",
   description: "Create fast, permanent links for your profile or website. Change destinations anytime, and your links never break.",
   icons: {
     icon: [

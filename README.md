@@ -1,6 +1,6 @@
-# ⚡ RelayLink
+# ⚡ domainyourlink
 
-**RelayLink** ([relaylink.app](https://relaylink.app)) is an ultra-fast dynamic URL redirection and link management service built with **Next.js (App Router)**, **Turso (LibSQL)**, and **PostgreSQL**.
+**domainyourlink** ([domainyourlink.vercel.app](https://domainyourlink.vercel.app)) is an ultra-fast dynamic URL redirection and link management service built with **Next.js (App Router)**, **Turso (LibSQL)**, and **PostgreSQL**.
 
 It provides permanent, username-independent short links (`/u/[code]`), group hubs (`/g/[code]`), and bio pages (`/b/[code]`) that you can point to any destination and update at any time without ever breaking the link.
 
@@ -10,9 +10,9 @@ It provides permanent, username-independent short links (`/u/[code]`), group hub
 
 Imagine you print your portfolio, resume link, or product on business cards, resumes, NFC tags, billboards, or social bios:
 ```
-relaylink.app/u/k9f2w1
+domainyourlink.vercel.app/u/k9f2w1
 ```
-Whenever you update your LinkedIn, GitHub, YouTube, or business website, simply change where the link points in your **RelayLink Dashboard**. The public short link `relaylink.app/u/k9f2w1` remains completely unchanged, and all future visitors are redirected to the new destination instantly.
+Whenever you update your LinkedIn, GitHub, YouTube, or business website, simply change where the link points in your **domainyourlink Dashboard**. The public short link `domainyourlink.vercel.app/u/k9f2w1` remains completely unchanged, and all future visitors are redirected to the new destination instantly.
 
 ---
 
@@ -26,7 +26,6 @@ Whenever you update your LinkedIn, GitHub, YouTube, or business website, simply 
 * **🔒 Password & OTP Sign-In**: Creators can log in with 6-digit email OTPs or password.
 * **👑 CEO Command Center (`/ceo`)**: Real-time worldwide link stats, user management, and employee authorization.
 * **💼 Employee Portal (`/employee`)**: Privacy-first operational insights with zero creator PII exposure.
-* **💳 Subscription Ready**: Free and Pro tier database foundation ready for Razorpay checkout.
 
 ---
 
@@ -53,9 +52,6 @@ TURSO_AUTH_TOKEN="your_turso_auth_token"
 # Master password for /ceo executive portal
 CEO_PASSWORD="your_secure_ceo_password"
 
-# Default password for creator admin login
-ADMIN_PASSWORD="your_secure_password"
-
 # Secret key for signing session tokens (min 32 characters)
 JWT_SECRET="your_random_secret_string_minimum_32_characters_long"
 
@@ -64,7 +60,7 @@ GMAIL_USER="yourname@gmail.com"
 GMAIL_APP_PASSWORD="xxxx xxxx xxxx xxxx"
 
 # Public URL of your deployed application
-NEXT_PUBLIC_APP_URL="https://relaylink.app"
+NEXT_PUBLIC_APP_URL="https://domainyourlink.vercel.app"
 ```
 
 ---
@@ -95,8 +91,8 @@ Visit [http://localhost:3000/employee](http://localhost:3000/employee) for Emplo
 ## 🚀 Deployment to Vercel
 
 ```bash
-git remote add origin https://github.com/siddupatel-00/relaylink.git
+git remote add origin https://github.com/siddupatel-00/domainyourlink.git
 git branch -M main
 git push -u origin main
 ```
-Configure custom domain `relaylink.app` in your Vercel Project Settings under **Domains**.
+Configure custom domain `domainyourlink.vercel.app` in your Vercel Project Settings under **Domains**.

@@ -171,7 +171,7 @@ export function CeoCommandView({ initialTab = "analytics" }: CeoCommandViewProps
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-bold text-sm text-neutral-900 dark:text-white tracking-tight">
-                  RelayLink CEO
+                  domainyourlink CEO
                 </span>
                 <span className="text-[10px] px-2 py-0.5 rounded-md bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 font-mono font-semibold border border-neutral-200 dark:border-neutral-700">
                   Executive Command

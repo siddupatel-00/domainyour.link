@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
 
       // Also set HTTP-only cookie as fallback
       response.cookies.set({
-        name: "relaylink_otp_challenge",
+        name: "domainyourlink_otp_challenge",
         value: token,
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
@@ -83,9 +83,7 @@ export async function POST(request: NextRequest) {
       }
 
       const cleanEmail = email.trim().toLowerCase();
-      const cookieToken =
-        request.cookies.get("relaylink_otp_challenge")?.value ||
-        request.cookies.get("domainyourlink_otp_challenge")?.value;
+      const cookieToken = request.cookies.get("domainyourlink_otp_challenge")?.value;
       const effectiveChallenge = challengeToken || cookieToken;
 
       const verification = verifyOtpChallenge(cleanEmail, code, effectiveChallenge);
@@ -169,7 +167,6 @@ export async function POST(request: NextRequest) {
 export async function DELETE() {
   await clearAdminSession();
   const res = NextResponse.json({ success: true }, { headers: noCacheHeaders });
-  res.cookies.delete("relaylink_otp_challenge");
   res.cookies.delete("domainyourlink_otp_challenge");
   return res;
 }

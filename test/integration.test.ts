@@ -27,7 +27,7 @@ import {
 } from "../src/lib/groupStore";
 
 async function runTests() {
-  console.log("🧪 Running RelayLink Unit & Integration Tests...\n");
+  console.log("🧪 Running domainyourlink Unit & Integration Tests...\n");
 
   let passed = 0;
   let failed = 0;
@@ -440,9 +440,9 @@ async function runTests() {
   // Cleanup test group
   await tursoDeleteLinkGroup(tempGroup.id);
 
-  // 20. RelayLink Brand & Subscription Plan Defaults Tests
-  console.log("\n20. RelayLink Brand & Subscription Plan Defaults Tests");
-  assert(isReservedUsername("relaylink"), "Flags 'relaylink' as reserved");
+  // 20. domainyourlink Brand & Subscription Plan Defaults Tests
+  console.log("\n20. domainyourlink Brand & Subscription Plan Defaults Tests");
+  assert(isReservedUsername("domainyourlink"), "Flags 'domainyourlink' as reserved");
   assert(isReservedUsername("pro"), "Flags 'pro' as reserved");
   assert(isReservedUsername("checkout"), "Flags 'checkout' as reserved");
   const testPlanUser = await createOrUpdateUser("plancheckuser", "plancheck@example.com", "SecretPass123!");
