@@ -27,6 +27,8 @@ export default function RootLayout({
         <link rel="icon" href="/icon.svg" type="image/svg+xml" />
         <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
+        {/* Analytics */}
+        <script defer src="https://sidfast.vercel.app/t.js?site=s_3e6ff94ef5c6e29b20c5fdbe" />
         <script
           dangerouslySetInnerHTML={{
             __html: `
